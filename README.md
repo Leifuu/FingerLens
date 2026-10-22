@@ -76,7 +76,9 @@ fingerprint/
 ├─ backend/                   # Python ADB 网关
 ├─ shared/
 │  ├─ fingerprint.schema.json # Android 与 Web 共用的数据契约
-│  └─ trust-roots.json        # 固定的公开信任根快照
+│  ├─ trust-roots.json        # 固定的公开信任根快照
+│  ├─ fingerprint-d796074a-b5d1-4d0a-a65f-798e303b3def.json # 示例指纹 A
+│  └─ fingerprint-b19d58d7-8360-4803-8587-56c5d458cbbf.json # 示例指纹 B
 └─ .codex/scripts/            # 构建、启动、采集和回归脚本
 ```
 
@@ -181,6 +183,8 @@ adb shell am start -n com.life.fingerprint/.MainActivity
 `ok`、`denied`、`unsupported`、`error`、`timeout`、`truncated`、`skipped`。
 
 完整 JSON Schema 见 [shared/fingerprint.schema.json](shared/fingerprint.schema.json)。
+
+仓库中的 `shared/fingerprint-*.json` 是可直接导入 Web 工作台的示例指纹。它们保留采集时的原始内容和 `partial` 状态，仅用于演示和回归测试，不代表所有设备的完整信息。
 
 ## 采集边界
 

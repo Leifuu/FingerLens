@@ -44,5 +44,5 @@ app/local.properties
 
 # Local build and capture products
 *.apk
-fingerprint-*.json
-fingerprint-*.json.gz
+/fingerprint-*.json
+/fingerprint-*.json.gz
