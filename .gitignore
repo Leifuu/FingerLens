@@ -1,0 +1,48 @@
+ant-frontend/node_modules/
+ant-frontend/dist/
+ant-frontend/*.tsbuildinfo
+node_modules/
+dist/
+coverage/
+.vite/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+
+# IDE and operating-system files
+.vscode/
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Android / Gradle
+app/.gradle/
+app/.kotlin/
+app/.idea/
+app/build/
+app/app/build/
+app/app/.cxx/
+app/local.properties
+
+# Local Codex work products; reusable scripts remain tracked
+.codex/tmp/
+.codex/backup-*/
+.codex/logs/
+
+# Local build and capture products
+*.apk
+fingerprint-*.json
+fingerprint-*.json.gz

@@ -1,0 +1,5 @@
+import type { Fingerprint, Item, Json } from './types';
+
+// 仅供测试的合成材料，不是任何真机或云机的实测指纹。
+export function fixtureItem(key = 'build/test', value: Json = '合成测试值\n  保留空白\u0000', overrides: Partial<Item> = {}): Item { return { key, name: '合成测试 / 非设备实测', category: 'build', source: { kind: 'android-api', api: 'synthetic-test-only', uid: 10001, pid: 123, selinux: 'synthetic' }, dataType: typeof value === 'string' ? 'string' : value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value, status: 'ok', value, ...overrides }; }
+export function fixture(items: Item[] = [fixtureItem()]): Fingerprint { return { code: 0, message: '合成测试夹具，非设备实测', data: { schemaVersion: '1.0', collectorVersion: 'synthetic-test-only', sessionId: 'synthetic-test', startedAt: '2026-10-21T00:00:00Z', finishedAt: '2026-10-21T00:00:01Z', state: 'complete', config: { fixture: true }, permissions: {}, app: { packageName: 'com.example.synthetic', versionCode: 1, androidSdk: 29, targetSdk: 37, signatures: [] }, items } }; }

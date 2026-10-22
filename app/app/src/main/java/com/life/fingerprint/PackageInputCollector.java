@@ -1,0 +1,44 @@
+package com.life.fingerprint;
+
+import android.content.*;
+import android.content.pm.*;
+import android.hardware.display.DisplayManager;
+import android.view.*;
+import android.os.Build;
+import android.util.DisplayMetrics;
+import org.json.*;
+import java.security.MessageDigest;
+
+public final class PackageInputCollector implements Collector {
+    private final String module;
+    public PackageInputCollector(String module){this.module=module;}
+    public static String sha(byte[] bytes)throws Exception{byte[] digest=MessageDigest.getInstance("SHA-256").digest(bytes);StringBuilder b=new StringBuilder();for(byte v:digest)b.append(String.format(java.util.Locale.ROOT,"%02x",v&255));return b.toString();}
+    static JSONArray signatures(PackageInfo p)throws Exception {
+        JSONArray a=new JSONArray();android.content.pm.Signature[] signatures=Build.VERSION.SDK_INT>=28&&p.signingInfo!=null?p.signingInfo.getApkContentsSigners():p.signatures;
+        if(signatures!=null)for(android.content.pm.Signature sig:signatures)a.put(Json.obj("sha256",sha(sig.toByteArray()),"derBase64",android.util.Base64.encodeToString(sig.toByteArray(),android.util.Base64.NO_WRAP)));return a;
+    }
+    private static JSONArray components(ComponentInfo[] values){JSONArray a=new JSONArray();if(values!=null)for(ComponentInfo c:values){JSONObject o=Json.obj("name",c.name,"packageName",c.packageName,"processName",c.processName,"enabled",c.enabled,"exported",c.exported,"directBootAware",c.directBootAware);if(c instanceof ActivityInfo){ActivityInfo i=(ActivityInfo)c;Json.put(o,"permission",i.permission);Json.put(o,"flags",i.flags);Json.put(o,"launchMode",i.launchMode);Json.put(o,"taskAffinity",i.taskAffinity);}if(c instanceof ServiceInfo){Json.put(o,"permission",((ServiceInfo)c).permission);Json.put(o,"flags",((ServiceInfo)c).flags);}if(c instanceof ProviderInfo){ProviderInfo i=(ProviderInfo)c;Json.put(o,"authority",i.authority);Json.put(o,"readPermission",i.readPermission);Json.put(o,"writePermission",i.writePermission);Json.put(o,"grantUriPermissions",i.grantUriPermissions);}a.put(o);}return a;}
+    public void collect(ItemSink s)throws Exception {
+        if(module.equals("packages")){packages(s);return;}
+        if(module.equals("input")){input(s);return;}
+        displays(s);
+    }
+    private void packages(ItemSink s)throws Exception {
+        PackageManager pm=s.context.getPackageManager();int flags=PackageManager.GET_ACTIVITIES|PackageManager.GET_RECEIVERS|PackageManager.GET_SERVICES|PackageManager.GET_PROVIDERS|PackageManager.GET_PERMISSIONS|PackageManager.GET_CONFIGURATIONS|PackageManager.GET_SIGNING_CERTIFICATES;
+        if(Build.VERSION.SDK_INT<28)flags=(flags&~PackageManager.GET_SIGNING_CERTIFICATES)|PackageManager.GET_SIGNATURES;
+        java.util.List<PackageInfo> list=pm.getInstalledPackages(flags);s.ok("packages","packages/enumeration","应用枚举范围","android-api","PackageManager.getInstalledPackages",Json.obj("flags",flags,"returnedCount",list.size(),"visibility","当前用户与当前 App 实际可见包，不承诺系统全量"));
+        int count=0;for(PackageInfo p:list){if(s.isFull())break;if(count++>=20000){s.add("packages","packages/limit","包数量上限","collector","getInstalledPackages","truncated",null,null,Json.obj("limit",20000));break;}
+            String key="packages/"+p.packageName;try{ApplicationInfo a=p.applicationInfo;JSONObject v=Json.obj("packageName",p.packageName,"versionName",p.versionName,"versionCode",Build.VERSION.SDK_INT>=28?p.getLongVersionCode():(long)p.versionCode,"firstInstallTime",p.firstInstallTime,"lastUpdateTime",p.lastUpdateTime,"sharedUserId",p.sharedUserId,"installLocation",p.installLocation,"requestedPermissions",p.requestedPermissions,"requestedPermissionsFlags",p.requestedPermissionsFlags,"activities",components(p.activities),"receivers",components(p.receivers),"services",components(p.services),"providers",components(p.providers),"signatures",signatures(p));
+                if(a!=null)Json.put(v,"application",Json.obj("uid",a.uid,"flags",a.flags,"enabled",a.enabled,"targetSdkVersion",a.targetSdkVersion,"minSdkVersion",a.minSdkVersion,"sourceDir",a.sourceDir,"publicSourceDir",a.publicSourceDir,"dataDir",a.dataDir,"nativeLibraryDir",a.nativeLibraryDir,"processName",a.processName,"splitSourceDirs",a.splitSourceDirs));
+                s.ok("packages",key,p.packageName,"android-api","PackageManager.getInstalledPackages("+flags+")",v);
+            }catch(Exception e){s.failed("packages",key,p.packageName,"android-api","PackageManager.getInstalledPackages","error",e);}
+            s.read("packages",key+"/installer",p.packageName+" 安装来源","PackageManager.getInstallSourceInfo/getInstallerPackageName",()->{if(Build.VERSION.SDK_INT>=30){InstallSourceInfo i=pm.getInstallSourceInfo(p.packageName);return Json.obj("installingPackageName",i.getInstallingPackageName(),"initiatingPackageName",i.getInitiatingPackageName(),"originatingPackageName",i.getOriginatingPackageName());}return pm.getInstallerPackageName(p.packageName);});
+        }
+    }
+    private void input(ItemSink s){
+        for(int id:InputDevice.getDeviceIds())s.read("input","input/device/"+id,"输入设备 "+id,"InputDevice.getDevice",()->{InputDevice d=InputDevice.getDevice(id);if(d==null)throw new IllegalStateException("设备在枚举后移除");JSONArray ranges=new JSONArray();for(InputDevice.MotionRange r:d.getMotionRanges())ranges.put(Json.obj("axis",r.getAxis(),"source",r.getSource(),"min",r.getMin(),"max",r.getMax(),"range",r.getRange(),"flat",r.getFlat(),"fuzz",r.getFuzz(),"resolution",r.getResolution()));JSONObject v=Json.obj("id",d.getId(),"name",d.getName(),"descriptor",d.getDescriptor(),"vendorId",d.getVendorId(),"productId",d.getProductId(),"sources",d.getSources(),"keyboardType",d.getKeyboardType(),"controllerNumber",d.getControllerNumber(),"virtual",d.isVirtual(),"hasMicrophone",d.hasMicrophone(),"hasVibrator",d.getVibrator().hasVibrator(),"motionRanges",ranges);if(Build.VERSION.SDK_INT>=29)Json.put(v,"external",d.isExternal());return v;});
+    }
+    private void displays(ItemSink s){
+        DisplayManager manager=s.context.getSystemService(DisplayManager.class);for(Display d:manager.getDisplays())s.read("display","display/"+d.getDisplayId(),d.getName(),"DisplayManager.getDisplays / Display",()->{DisplayMetrics m=new DisplayMetrics();d.getRealMetrics(m);JSONArray modes=new JSONArray();for(Display.Mode mode:d.getSupportedModes())modes.put(Json.obj("modeId",mode.getModeId(),"physicalWidth",mode.getPhysicalWidth(),"physicalHeight",mode.getPhysicalHeight(),"refreshRate",mode.getRefreshRate()));JSONObject v=Json.obj("displayId",d.getDisplayId(),"name",d.getName(),"flags",d.getFlags(),"state",d.getState(),"rotation",d.getRotation(),"refreshRate",d.getRefreshRate(),"widthPixels",m.widthPixels,"heightPixels",m.heightPixels,"density",m.density,"densityDpi",m.densityDpi,"scaledDensity",m.scaledDensity,"xdpi",m.xdpi,"ydpi",m.ydpi,"supportedModes",modes,"presentationDeadlineNanos",d.getPresentationDeadlineNanos(),"appVsyncOffsetNanos",d.getAppVsyncOffsetNanos());Display.HdrCapabilities hdr=d.getHdrCapabilities();if(hdr!=null)Json.put(v,"hdr",Json.obj("types",hdr.getSupportedHdrTypes(),"maxLuminance",hdr.getDesiredMaxLuminance(),"maxAverageLuminance",hdr.getDesiredMaxAverageLuminance(),"minLuminance",hdr.getDesiredMinLuminance()));return v;});
+    }
+}

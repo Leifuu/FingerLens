@@ -1,0 +1,52 @@
+import { describe, expect, it } from 'vitest';
+import { buildSections } from './display';
+import type { Item, Json } from './core/types';
+
+function item(key: string, category: string, value: Json): Item {
+  return { key, category, value, name: key, dataType: 'object', status: 'ok', source: { kind: 'api', api: key, uid: 10001, pid: 1, selinux: 'untrusted_app' } };
+}
+
+describe('设备格式化展示边界', () => {
+  it('只展示 getprop 输出，保留重复属性和空属性值', () => {
+    const value = item('build/getprop', 'build', { argv: ['/system/bin/getprop'], stdout: '[a]: []\n[a]: [two]\n', stderr: 'not-device-output', exitCode: 0 });
+    expect(buildSections(value)[0].rows.map(row => row.value)).toEqual(['', 'two']);
+    expect(JSON.stringify(buildSections(value))).not.toContain('argv');
+  });
+  it('应用枚举不把固定范围文案当作设备返回值', () => {
+    const value = item('packages/enumeration', 'packages', { flags: 123, returnedCount: 144, visibility: '固定说明' });
+    const original = JSON.stringify(value);
+    expect(buildSections(value)[0].rows.map(row => row.key)).toEqual(['returnedCount']);
+    expect(JSON.stringify(value)).toBe(original);
+  });
+  it('屏幕字段只属于对应子面板，支持模式和 HDR 数组不遗漏', () => {
+    const value = item('display/0', 'display', { displayId: 0, name: '内置屏幕', widthPixels: 720, refreshRate: 60, supportedModes: [{ modeId: 1, physicalWidth: 720 }], presentationDeadlineNanos: { $type: 'int64', value: '9007199254740993' }, hdr: { types: [1], minLuminance: 0 }, futureField: null });
+    const sections = buildSections(value);
+    expect(sections.find(section => section.key === 'identity')?.rows.map(row => row.key)).toEqual(['displayId', 'name']);
+    expect(sections.find(section => section.key === 'geometry')?.rows.map(row => row.key)).toEqual(['widthPixels', 'refreshRate']);
+    expect(sections.find(section => section.key === 'modes')?.rows[1].value).toBe('720');
+    expect(sections.find(section => section.key === 'hdr')?.rows.map(row => row.key)).toContain('hdr.types[0]');
+    expect(sections.find(section => section.key === 'sync')?.rows[0].value).toBe('9007199254740993');
+    expect(JSON.stringify(sections)).toContain('futureField');
+  });
+  it('数组逐字段保留空值、嵌套数据、顺序与重复项', () => {
+    const value = item('sensors/list', 'sensors', [{ name: '<script>', values: [null, '中文\n'] }, { name: '<script>', values: [] }]);
+    const sections = buildSections(value);
+    expect(sections[0].table).toBe(true);
+    expect(sections[0].rows.map(row => row.value)).toEqual(['<script>', 'null', '中文\n', '<script>', '[]']);
+  });
+  it('合并包记录保留安装来源字段', () => {
+    const value = item('packages/test', 'packages', { packageName: 'test' });
+    value.installer = item('packages/test/installer', 'packages', { installingPackageName: 'installer' });
+    expect(buildSections(value).some(section => section.key.startsWith('installer-') && section.rows[0].value === 'installer')).toBe(true);
+  });
+  it('网络对象中的 DNS 与地址数组不丢失', () => {
+    const sections = buildSections(item('network/active', 'network', { connected: true, dns: ['1.1.1.1'], routes: [] }));
+    expect(sections.find(section => section.key === 'dns')?.rows[0].value).toBe('1.1.1.1');
+    expect(sections.find(section => section.key === 'routes')?.rows[0].value).toBe('[]');
+  });
+  it('proc 多行文本按行拆分，正确行不会因另一行变化而整体标红', () => {
+    const sections = buildSections(item('kernel/proc/diskstats', 'kernel', '8 0 sda 1 2\n8 1 sda1 3 4\n'));
+    expect(sections[0].table).toBe(true);
+    expect(sections[0].rows.map(row => row.key)).toEqual(['line-0', 'line-1']);
+  });
+});
