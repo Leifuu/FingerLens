@@ -12,6 +12,7 @@
 ## 官方 Android 设备标识资料
 
 - [Build](https://developer.android.com/reference/android/os/Build)：公开硬件、产品、指纹、ABI 等构建字段。
+- [Build.SUPPORTED_ABIS](https://developer.android.com/reference/android/os/Build#SUPPORTED_ABIS) 与 [Process.is64Bit](https://developer.android.com/reference/android/os/Process#is64Bit())：公开应用可见的 ABI 顺序、32/64 位 ABI 集合和当前进程运行时位数。本工程新增 `build/abi-summary`，只保留架构族计数、主 ABI 和位数摘要，原始 `Build` 字段继续兼容保留。
 - [Settings.Secure.ANDROID_ID](https://developer.android.com/reference/android/provider/Settings.Secure#ANDROID_ID)：系统设置中的应用可见标识，生命周期和作用域受 Android 版本、用户和签名影响；本工程以原始值/状态形式保留，不宣称它是永久硬件 ID。
 - [Play Integrity verdicts](https://developer.android.com/google/play/integrity/verdicts)：官方完整性服务的 verdict 维度；本工程当前保持离线采集，未接入远程 Play Integrity 请求，因此相关结论保持 `skipped/unknown`。
 - [MediaDrm](https://developer.android.com/reference/android/media/MediaDrm)：公开 DRM 厂商、版本、算法、Widevine 支持和安全级别能力。本工程新增 `hardware/drm/widevine`，只保留 `deviceUniqueId` 的 SHA-256 与长度，原始唯一值永不写入指纹。

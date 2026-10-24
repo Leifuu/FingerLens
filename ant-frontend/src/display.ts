@@ -249,6 +249,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
   if (!object(value)) return undefined;
   const definitions: Record<string, { title: string; order: string[]; arrays: string[] }> = {
     'build/risk-properties-summary': { title: '风控原生属性摘要', order: ['observedCount', 'knownCount', 'properties'], arrays: ['observedProperties', 'missingProperties'] },
+    'build/abi-summary': { title: 'ABI 与运行时架构摘要', order: ['available', 'supportedAbiCount', 'supported32BitAbiCount', 'supported64BitAbiCount', 'primaryAbi', 'armAbiCount', 'x86AbiCount', 'riscvAbiCount', 'otherAbiCount', 'runtime64Bit'], arrays: [] },
     'network/risk-signals': { title: '活动链路摘要', order: ['present', 'capabilitiesAvailable', 'networkHandle', 'vpn', 'validated', 'captivePortal', 'notVpn', 'notMetered', 'notRoaming', 'notRestricted', 'trusted', 'foreground', 'metered', 'interfaceName', 'httpProxy'], arrays: ['transports'] },
     'network/connectivity-summary': { title: '网络集合摘要', order: ['available', 'access', 'networkCount', 'activePresent', 'activeIndex', 'activeNetworkHandle', 'capabilitiesAvailableCount', 'linkPropertiesAvailableCount', 'validatedCount', 'vpnCount', 'notMeteredCount', 'transportCounts'], arrays: [] },
     'virtualization/risk-summary': { title: '虚拟化与提权线索摘要', order: ['pathChecks', 'evidenceOnly', 'testKeys', 'conclusion'], arrays: ['presentPaths', 'pathErrors', 'matchedBuildMarkers'] },

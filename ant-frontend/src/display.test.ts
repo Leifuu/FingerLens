@@ -119,6 +119,11 @@ describe('设备格式化展示边界', () => {
     expect(sections.map(section => section.title)).toEqual(['风控原生属性摘要']);
     expect(sections[0].rows.map(row => row.key)).toContain('properties.ro.debuggable');
   });
+  it('ABI 摘要展示架构族与运行时位数', () => {
+    const sections = buildSections(item('build/abi-summary', 'build', { available: true, supportedAbiCount: 3, supported32BitAbiCount: 1, supported64BitAbiCount: 2, primaryAbi: 'arm64-v8a', armAbiCount: 2, x86AbiCount: 1, riscvAbiCount: 0, otherAbiCount: 0, runtime64Bit: true }));
+    expect(sections[0].title).toBe('ABI 与运行时架构摘要');
+    expect(sections[0].rows.map(row => row.key)).toEqual(['available', 'supportedAbiCount', 'supported32BitAbiCount', 'supported64BitAbiCount', 'primaryAbi', 'armAbiCount', 'x86AbiCount', 'riscvAbiCount', 'otherAbiCount', 'runtime64Bit']);
+  });
   it('Widevine 与 Play Integrity 摘要不展开成大段 JSON', () => {
     const drm = buildSections(item('hardware/drm/widevine', 'hardware', { supported: true, vendor: 'Google', deviceUniqueId: { sha256: 'a'.repeat(64), length: 32, rawExported: false } }));
     const integrity = buildSections(item('attestation/play-integrity-environment', 'attestation', { verdictAvailable: false, playServices: { present: true, versionName: '1' } }));
