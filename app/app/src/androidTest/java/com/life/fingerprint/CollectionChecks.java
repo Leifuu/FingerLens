@@ -1,6 +1,7 @@
 package com.life.fingerprint;
 
 import android.content.*;
+import android.app.KeyguardManager;
 import android.os.*;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -52,6 +53,8 @@ public class CollectionChecks {
         CollectionController c=new CollectionController(hungContext());controllers.add(c);c.start();c.start();JSONObject first=waitForFile(c,5000);String session=first.getJSONObject("data").getString("sessionId");c.cancel();long end=SystemClock.elapsedRealtime()+3000;while(c.running&&SystemClock.elapsedRealtime()<end)Thread.sleep(20);JSONObject last=new JSONObject(ReportStore.read(c.reportFile));assertEquals(session,last.getJSONObject("data").getString("sessionId"));assertEquals("cancelled",last.getJSONObject("data").getString("state"));assertFalse(c.running);
     }
     @Test public void activityRecreationKeepsSessionAndCanCancel()throws Exception{
+        KeyguardManager keyguard=context.getSystemService(KeyguardManager.class);
+        Assume.assumeFalse("ActivityScenario 重建需要设备处于解锁状态",keyguard!=null&&keyguard.isKeyguardLocked());
         CollectionController c=CollectionController.get(context);
         try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)){
             File previous=c.reportFile;
