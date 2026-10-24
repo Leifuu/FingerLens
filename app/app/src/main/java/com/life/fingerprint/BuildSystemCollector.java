@@ -5,6 +5,7 @@ import android.provider.Settings;
 import android.content.*;
 import android.content.res.Configuration;
 import android.app.ActivityManager;
+import android.webkit.WebView;
 import org.json.*;
 import java.lang.reflect.*;
 import java.util.*;
@@ -51,6 +52,14 @@ public final class BuildSystemCollector implements Collector {
         String[] globals={"adb_enabled","development_settings_enabled","airplane_mode_on","auto_time","auto_time_zone","http_proxy","private_dns_mode","private_dns_specifier","wifi_on","bluetooth_on"};
         for(String k:globals)s.read("environment","environment/global/"+k,k,"Settings.Global.getString",()->Settings.Global.getString(s.context.getContentResolver(),k));
         for(String k:new String[]{"android_id","enabled_accessibility_services","accessibility_enabled","default_input_method","enabled_input_methods","mock_location","install_non_market_apps"})s.read("environment","environment/secure/"+k,k,"Settings.Secure.getString",()->Settings.Secure.getString(s.context.getContentResolver(),k));
+        s.read("environment","environment/webview-provider","WebView 提供方环境","WebView.getCurrentWebViewPackage",()->{
+            if(Build.VERSION.SDK_INT<26)throw new UnsupportedOperationException("requires API 26");
+            android.content.pm.PackageInfo info=WebView.getCurrentWebViewPackage();
+            if(info==null)return null;
+            return Json.obj("packageName",info.packageName,"versionName",info.versionName,
+                    "versionCode",Build.VERSION.SDK_INT>=28?info.getLongVersionCode():(long)info.versionCode,
+                    "signatures",PackageInputCollector.signatures(info));
+        });
         ActivityManager.MemoryInfo memory=new ActivityManager.MemoryInfo();((ActivityManager)s.context.getSystemService(Context.ACTIVITY_SERVICE)).getMemoryInfo(memory);
         s.ok("environment","environment/memory","内存快照","android-api","ActivityManager.getMemoryInfo",Json.obj("totalMem",memory.totalMem,"availMem",memory.availMem,"threshold",memory.threshold,"lowMemory",memory.lowMemory,"runtimeProcessors",Runtime.getRuntime().availableProcessors()));
     }
