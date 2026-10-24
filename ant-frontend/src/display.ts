@@ -160,6 +160,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     'hardware/camera-summary': { title: '摄像头能力摘要', order: ['available', 'count', 'cameraIdsTruncated', 'flashAvailableCount', 'logicalMultiCameraCount', 'physicalCameraIdCount', 'cameraAccessErrorCount'], arrays: ['cameraIds'] },
     'hardware/audio-summary': { title: '音频能力摘要', order: ['available', 'count', 'sourceCount', 'sinkCount', 'productNamesTruncated', 'typeCounts'], arrays: ['productNames', 'sampleRates', 'encodings'] },
     'network/bluetooth-summary': { title: '蓝牙能力摘要', order: ['available', 'access', 'adapterState', 'adapterNamePresent', 'adapterAddressPresent', 'bondedCount', 'bondedNameCount', 'bondedAddressCount', 'bondedTypeCounts', 'bondedClassCounts'], arrays: [] },
+    'network/wifi-summary': { title: 'Wi-Fi 能力摘要', order: ['available', 'wifiState', 'connectionAccess', 'scanAccess', 'connectionInfoAvailable', 'ssidPresent', 'bssidPresent', 'macAddressPresent', 'frequency', 'rssi', 'linkSpeed', 'cachedScanCount', 'ssidPresentCount', 'bssidPresentCount', 'band2_4GHzCount', 'band5GHzCount', 'band6GHzCount', 'frequenciesTruncated'], arrays: ['frequencies'] },
     'attestation/play-integrity-environment': { title: 'Play Integrity 本地环境', order: ['verdictAvailable', 'conclusion', 'playServices', 'playStore'], arrays: [] },
     'security/device-management': { title: '设备管理与用户环境', order: ['deviceOwnerForSelf', 'profileOwnerForSelf', 'managedProfile', 'userUnlocked', 'storageEncryptionStatus', 'restrictions'], arrays: [] },
     'security/special-access': { title: '本 App 特殊访问状态', order: ['available', 'canDrawOverlays', 'appOps'], arrays: [] },
@@ -190,6 +191,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
           : key === 'hardware/camera-summary' && arrayKey === 'cameraIds' ? '摄像头 ID'
           : key === 'hardware/audio-summary'
             ? arrayKey === 'productNames' ? '音频设备名' : arrayKey === 'sampleRates' ? '采样率' : '编码格式'
+          : key === 'network/wifi-summary' && arrayKey === 'frequencies' ? '缓存扫描频率（MHz）'
           : arrayKey;
       sections.push(section(arrayKey, title, arrayRows(value[arrayKey] as Json[], arrayKey), true));
     }

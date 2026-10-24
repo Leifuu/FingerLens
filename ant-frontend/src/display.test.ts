@@ -146,6 +146,12 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.map(row => row.key)).toContain('bondedCount');
     expect(sections[0].rows.map(row => row.key)).toContain('bondedTypeCounts.1');
   });
+  it('Wi-Fi 摘要展示权限边界与频段计数', () => {
+    const sections = buildSections(item('network/wifi-summary', 'network', { available: true, wifiState: 3, connectionAccess: 'allowed', scanAccess: 'denied', connectionInfoAvailable: true, ssidPresent: false, bssidPresent: false, macAddressPresent: true, frequency: 5180, rssi: -45, linkSpeed: 866, cachedScanCount: null, band2_4GHzCount: null, band5GHzCount: null, band6GHzCount: null, frequencies: [5180], frequenciesTruncated: false }));
+    expect(sections[0].title).toBe('Wi-Fi 能力摘要');
+    expect(sections[0].rows.map(row => row.key)).toContain('scanAccess');
+    expect(sections.find(section => section.key === 'frequencies')?.title).toBe('缓存扫描频率（MHz）');
+  });
   it('锁屏与生物识别摘要只展示公开状态', () => {
     const sections = buildSections(item('security/lock-biometric', 'security', { keyguardSecure: true, keyguardLocked: false, deviceSecure: true, deviceLocked: false, fingerprintFeature: true, faceFeature: false, irisFeature: false }));
     expect(sections[0].title).toBe('锁屏与生物识别环境');
