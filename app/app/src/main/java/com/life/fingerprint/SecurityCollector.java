@@ -44,7 +44,7 @@ public final class SecurityCollector implements Collector {
     // 业务块：汇总安全边界状态，不展开证书、序列号、窗口内容或其它用户/包信息；原始 security/* 条目继续保留。
     private static JSONObject securitySummary(Context context){
         ApplicationInfo application=context.getApplicationInfo();DevicePolicyManager policy=context.getSystemService(DevicePolicyManager.class);UserManager users=context.getSystemService(UserManager.class);AppOpsManager ops=context.getSystemService(AppOpsManager.class);KeyguardManager keyguard=context.getSystemService(KeyguardManager.class);PackageManager packages=context.getPackageManager();
-        String packageName=context.getPackageName();String[] appOpNames={AppOpsManager.OPSTR_SYSTEM_ALERT_WINDOW,AppOpsManager.OPSTR_GET_USAGE_STATS,AppOpsManager.OPSTR_PICTURE_IN_PICTURE,AppOpsManager.OPSTR_MOCK_LOCATION,AppOpsManager.OPSTR_WRITE_SETTINGS};int appOpsAllowed=0;for(String name:appOpNames)if(ops!=null&&ops.checkOpNoThrow(name,android.os.Process.myUid(),packageName)==AppOpsManager.MODE_ALLOWED)appOpsAllowed++;
+        String packageName=context.getPackageName();String[] appOpNames=checkedAppOps();int appOpsAllowed=0;for(String name:appOpNames)if(ops!=null&&ops.checkOpNoThrow(name,android.os.Process.myUid(),packageName)==AppOpsManager.MODE_ALLOWED)appOpsAllowed++;
         int accessibilityCount=0;try{AccessibilityManager accessibility=context.getSystemService(AccessibilityManager.class);List<AccessibilityServiceInfo> services=accessibility==null?null:accessibility.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK);accessibilityCount=services==null?0:services.size();}catch(Exception ignored){}
         int providerCount=Security.getProviders()==null?0:Security.getProviders().length;
         return Json.obj("selfDebuggable",application!=null&&(application.flags&ApplicationInfo.FLAG_DEBUGGABLE)!=0,"debuggerConnected",Debug.isDebuggerConnected(),"waitingForDebugger",Debug.waitingForDebugger(),"deviceOwnerForSelf",policy!=null&&policy.isDeviceOwnerApp(packageName),"profileOwnerForSelf",policy!=null&&policy.isProfileOwnerApp(packageName),"managedProfile",Build.VERSION.SDK_INT>=30&&users!=null&&users.isManagedProfile(),"userUnlocked",Build.VERSION.SDK_INT<24||users==null||users.isUserUnlocked(),"specialAccessAvailable",ops!=null,"appOpsCheckedCount",ops==null?0:appOpNames.length,"appOpsAllowedCount",appOpsAllowed,"canDrawOverlays",Settings.canDrawOverlays(context),"keyguardSecure",keyguard!=null&&keyguard.isKeyguardSecure(),"keyguardLocked",keyguard!=null&&keyguard.isKeyguardLocked(),"deviceSecure",Build.VERSION.SDK_INT<23||keyguard!=null&&keyguard.isDeviceSecure(),"deviceLocked",Build.VERSION.SDK_INT<23||keyguard!=null&&keyguard.isDeviceLocked(),"fingerprintFeature",packages.hasSystemFeature(PackageManager.FEATURE_FINGERPRINT),"faceFeature",Build.VERSION.SDK_INT>=29&&packages.hasSystemFeature(PackageManager.FEATURE_FACE),"irisFeature",Build.VERSION.SDK_INT>=29&&packages.hasSystemFeature(PackageManager.FEATURE_IRIS),"accessibilityServiceCount",accessibilityCount,"securityProviderCount",providerCount);
@@ -85,13 +85,14 @@ public final class SecurityCollector implements Collector {
                 "allFilesAccessStatus",allFilesAccessStatus);
         if(ops==null)return out;
         JSONObject appOps=new JSONObject();
-        ArrayList<String> names=new ArrayList<>(Arrays.asList(AppOpsManager.OPSTR_SYSTEM_ALERT_WINDOW,AppOpsManager.OPSTR_GET_USAGE_STATS,AppOpsManager.OPSTR_PICTURE_IN_PICTURE,AppOpsManager.OPSTR_MOCK_LOCATION,AppOpsManager.OPSTR_WRITE_SETTINGS,AppOpsManager.OPSTR_CAMERA,AppOpsManager.OPSTR_RECORD_AUDIO,AppOpsManager.OPSTR_BODY_SENSORS,AppOpsManager.OPSTR_FINE_LOCATION,AppOpsManager.OPSTR_COARSE_LOCATION));
+        ArrayList<String> names=new ArrayList<>(Arrays.asList(checkedAppOps()));
         if(Build.VERSION.SDK_INT>=26)names.add("android:request_install_packages");
         if(Build.VERSION.SDK_INT>=30)names.add("android:manage_external_storage");
         for(String name:names){int mode=ops.checkOpNoThrow(name,android.os.Process.myUid(),context.getPackageName());Json.put(appOps,name,Json.obj("mode",mode,"allowed",mode==AppOpsManager.MODE_ALLOWED));}
         Json.put(out,"appOps",appOps);
         return out;
     }
+    private static String[] checkedAppOps(){return new String[]{AppOpsManager.OPSTR_SYSTEM_ALERT_WINDOW,AppOpsManager.OPSTR_GET_USAGE_STATS,AppOpsManager.OPSTR_PICTURE_IN_PICTURE,AppOpsManager.OPSTR_MOCK_LOCATION,AppOpsManager.OPSTR_WRITE_SETTINGS,AppOpsManager.OPSTR_CAMERA,AppOpsManager.OPSTR_RECORD_AUDIO,AppOpsManager.OPSTR_BODY_SENSORS,AppOpsManager.OPSTR_FINE_LOCATION,AppOpsManager.OPSTR_COARSE_LOCATION};}
     // 业务块：只记录锁屏安全状态与硬件能力声明，不读取生物特征、模板或用户身份。
     private static JSONObject lockBiometricEnvironment(Context context){
         KeyguardManager keyguard=context.getSystemService(KeyguardManager.class);
