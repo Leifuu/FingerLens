@@ -5,6 +5,7 @@ import android.provider.Settings;
 import android.content.*;
 import android.content.res.Configuration;
 import android.app.ActivityManager;
+import android.app.usage.UsageStatsManager;
 import android.location.LocationManager;
 import android.webkit.WebView;
 import android.webkit.WebSettings;
@@ -82,6 +83,7 @@ public final class BuildSystemCollector implements Collector {
         s.ok("environment","environment/clocks","单次时钟快照","android-api","SystemClock",Json.obj("elapsedRealtime",SystemClock.elapsedRealtime(),"uptimeMillis",SystemClock.uptimeMillis(),"wallClockMillis",System.currentTimeMillis()));
         s.read("environment","environment/risk-settings","系统风控相关设置摘要","Settings.Global / Settings.Secure",()->riskSettings(s.context));
         s.read("environment","environment/device-state","设备初始化与运行状态","ActivityManager / UserManager / Settings",()->deviceState(s.context));
+        s.read("environment","environment/app-standby","当前 App 待机分桶","UsageStatsManager.getAppStandbyBucket",()->appStandby(s.context));
         s.read("environment","environment/location","定位与 GNSS 能力","LocationManager public state",()->locationEnvironment(s.context));
         String[] globals={"adb_enabled","development_settings_enabled","airplane_mode_on","auto_time","auto_time_zone","http_proxy","private_dns_mode","private_dns_specifier","wifi_on","bluetooth_on"};
         for(String k:globals)s.read("environment","environment/global/"+k,k,"Settings.Global.getString",()->Settings.Global.getString(s.context.getContentResolver(),k));
@@ -148,6 +150,28 @@ public final class BuildSystemCollector implements Collector {
         if(Build.VERSION.SDK_INT>=29)Json.put(out,"testHarness",ActivityManager.isRunningInUserTestHarness());
         if(Build.VERSION.SDK_INT>=28)Json.put(out,"backgroundRestricted",activity!=null&&activity.isBackgroundRestricted());
         return out;
+    }
+    // 业务块：只读取当前 App 的系统待机分桶，不查询其它 App 的使用记录。
+    private static JSONObject appStandby(Context context){
+        if(Build.VERSION.SDK_INT<28)return Json.obj("available",false,"status","unsupported","bucket",null,"bucketName",null);
+        UsageStatsManager usage=context.getSystemService(UsageStatsManager.class);
+        if(usage==null)return Json.obj("available",false,"status","unavailable","bucket",null,"bucketName",null);
+        try{
+            int bucket=usage.getAppStandbyBucket();
+            return Json.obj("available",true,"status","ok","bucket",bucket,"bucketName",standbyBucketName(bucket));
+        }catch(SecurityException e){
+            return Json.obj("available",false,"status","denied","bucket",null,"bucketName",null);
+        }catch(RuntimeException e){
+            return Json.obj("available",false,"status","error","bucket",null,"bucketName",null,"error",e.getClass().getName());
+        }
+    }
+    private static String standbyBucketName(int bucket){
+        if(bucket==UsageStatsManager.STANDBY_BUCKET_ACTIVE)return "active";
+        if(bucket==UsageStatsManager.STANDBY_BUCKET_WORKING_SET)return "working_set";
+        if(bucket==UsageStatsManager.STANDBY_BUCKET_FREQUENT)return "frequent";
+        if(bucket==UsageStatsManager.STANDBY_BUCKET_RARE)return "rare";
+        if(bucket==UsageStatsManager.STANDBY_BUCKET_RESTRICTED)return "restricted";
+        return "unknown";
     }
     private static Boolean settingFlag(android.content.ContentResolver resolver,boolean global,String key){
         String value=global?Settings.Global.getString(resolver,key):Settings.Secure.getString(resolver,key);
