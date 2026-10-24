@@ -81,6 +81,15 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.some(row => row.key === 'keyguardSecure')).toBe(true);
     expect(sections[0].rows.some(row => row.key === 'fingerprintFeature')).toBe(true);
   });
+  it('信任库详情压缩 DER，只展示可读摘要并保留长度', () => {
+    const value = item('security/trust-store', 'security', [{ alias: 'system:root', sha256: 'a'.repeat(64), derBase64: 'A'.repeat(10000) }]);
+    const original = JSON.stringify(value);
+    const sections = buildSections(value);
+    expect(sections[0].title).toContain('原始 DER 保留在 JSON');
+    expect(sections[0].rows.find(row => row.key === '[0].derBase64.length')?.value).toBe('10000');
+    expect(JSON.stringify(sections)).not.toContain('A'.repeat(100));
+    expect(JSON.stringify(value)).toBe(original);
+  });
   it('proc 多行文本按行拆分，正确行不会因另一行变化而整体标红', () => {
     const sections = buildSections(item('kernel/proc/diskstats', 'kernel', '8 0 sda 1 2\n8 1 sda1 3 4\n'));
     expect(sections[0].table).toBe(true);

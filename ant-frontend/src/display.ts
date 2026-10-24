@@ -123,6 +123,18 @@ function genericSections(value: Json): DisplaySection[] {
   return sections.length ? sections : [section('value', '采集值', [row('value', value)])];
 }
 
+function trustStoreSections(value: Json): DisplaySection[] {
+  if (!Array.isArray(value)) return genericSections(value);
+  const rows: DisplayRow[] = [row('count', value.length, '证书数量')];
+  value.forEach((entry, index) => {
+    if (!object(entry)) { rows.push(row(`[${index}]`, entry, `证书 ${index + 1}`)); return; }
+    rows.push(row(`[${index}].alias`, entry.alias ?? null, `证书 ${index + 1} · 别名`));
+    rows.push(row(`[${index}].sha256`, entry.sha256 ?? null, `证书 ${index + 1} · SHA-256`));
+    if (typeof entry.derBase64 === 'string') rows.push(row(`[${index}].derBase64.length`, entry.derBase64.length, `证书 ${index + 1} · 原始 DER 长度`));
+  });
+  return [section('certificates', 'CA 证书摘要（原始 DER 保留在 JSON）', rows, true)];
+}
+
 function riskSummarySections(key: string, value: Json): DisplaySection[] | undefined {
   if (!object(value)) return undefined;
   const definitions: Record<string, { title: string; order: string[]; arrays: string[] }> = {
@@ -150,6 +162,7 @@ export function buildSections(item?: Item): DisplaySection[] {
   const value = commandOutput(item.value);
   // visibility 是采集器写入的固定范围说明，不是从设备读取的返回值。
   if (item.key === 'packages/enumeration' && object(value)) return [section('enumeration', '应用枚举结果', objectRows(value, ['returnedCount']))];
+  if (item.key === 'security/trust-store') return trustStoreSections(value);
   const riskSummary = riskSummarySections(item.key, value);
   if (riskSummary) return riskSummary;
   if (item.key === 'build/getprop' || item.source.api === '/system/bin/getprop' || item.category === 'build' && item.key.includes('property')) return buildProperties(value);
