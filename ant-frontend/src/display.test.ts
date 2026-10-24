@@ -112,6 +112,13 @@ describe('设备格式化展示边界', () => {
     expect(sections.find(section => section.key === 'vendors')?.title).toBe('传感器厂商');
     expect(sections.find(section => section.key === 'vendors')?.rows.map(row => row.value)).toEqual(['Google', 'Bosch']);
   });
+  it('系统特性摘要保留原始数组并展示能力列表', () => {
+    const sections = buildSections(item('hardware/features-summary', 'hardware', { count: 2, namedCount: 1, versionedCount: 1, maxVersion: 2, featureNamesTruncated: false, featureNames: ['android.hardware.camera'], glEsVersions: [196608] }));
+    expect(sections[0].title).toBe('系统特性能力摘要');
+    expect(sections.find(section => section.key === 'featureNames')?.title).toBe('系统特性名');
+    expect(sections.find(section => section.key === 'glEsVersions')?.title).toBe('OpenGL ES 要求版本');
+    expect(sections.find(section => section.key === 'featureNames')?.rows[0].value).toBe('android.hardware.camera');
+  });
   it('锁屏与生物识别摘要只展示公开状态', () => {
     const sections = buildSections(item('security/lock-biometric', 'security', { keyguardSecure: true, keyguardLocked: false, deviceSecure: true, deviceLocked: false, fingerprintFeature: true, faceFeature: false, irisFeature: false }));
     expect(sections[0].title).toBe('锁屏与生物识别环境');

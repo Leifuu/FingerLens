@@ -155,6 +155,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     'network/risk-signals': { title: '活动链路摘要', order: ['present', 'capabilitiesAvailable', 'networkHandle', 'vpn', 'validated', 'captivePortal', 'notVpn', 'notMetered', 'notRoaming', 'notRestricted', 'trusted', 'foreground', 'metered', 'interfaceName', 'httpProxy'], arrays: ['transports'] },
     'virtualization/risk-summary': { title: '虚拟化与提权线索摘要', order: ['pathChecks', 'evidenceOnly', 'testKeys', 'conclusion'], arrays: ['presentPaths', 'pathErrors', 'matchedBuildMarkers'] },
     'hardware/drm/widevine': { title: 'Widevine DRM 能力', order: ['supported', 'schemeUuid', 'vendor', 'version', 'description', 'algorithms', 'maxSecurityLevel', 'deviceUniqueId'], arrays: [] },
+    'hardware/features-summary': { title: '系统特性能力摘要', order: ['count', 'namedCount', 'versionedCount', 'maxVersion', 'featureNamesTruncated'], arrays: ['featureNames', 'glEsVersions'] },
     'attestation/play-integrity-environment': { title: 'Play Integrity 本地环境', order: ['verdictAvailable', 'conclusion', 'playServices', 'playStore'], arrays: [] },
     'security/device-management': { title: '设备管理与用户环境', order: ['deviceOwnerForSelf', 'profileOwnerForSelf', 'managedProfile', 'userUnlocked', 'storageEncryptionStatus', 'restrictions'], arrays: [] },
     'security/special-access': { title: '本 App 特殊访问状态', order: ['available', 'canDrawOverlays', 'appOps'], arrays: [] },
@@ -178,6 +179,8 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
         : key === 'environment/location'
           ? arrayKey === 'providers' ? '定位 provider' : 'GNSS 天线载波频率（MHz）'
           : key === 'sensors/summary' && arrayKey === 'vendors' ? '传感器厂商'
+          : key === 'hardware/features-summary'
+            ? arrayKey === 'featureNames' ? '系统特性名' : 'OpenGL ES 要求版本'
           : arrayKey;
       sections.push(section(arrayKey, title, arrayRows(value[arrayKey] as Json[], arrayKey), true));
     }

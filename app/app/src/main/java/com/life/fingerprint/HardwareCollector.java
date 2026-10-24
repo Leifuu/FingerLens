@@ -19,11 +19,19 @@ public final class HardwareCollector implements Collector {
         if(module.equals("sensors")){sensors(s);return;}
         s.ok("hardware","hardware/graphics","图形能力查询","jni","EGL / OpenGL ES / vkEnumerateInstanceExtensionProperties",new JSONObject(NativeProbe.graphics()));
         s.read("hardware","hardware/features","系统声明特性","PackageManager.getSystemAvailableFeatures",()->{JSONArray a=new JSONArray();for(FeatureInfo f:s.context.getPackageManager().getSystemAvailableFeatures())a.put(Json.obj("name",f.name,"version",f.version,"flags",f.flags,"reqGlEsVersion",f.reqGlEsVersion));return a;});
+        s.read("hardware","hardware/features-summary","系统特性能力摘要","PackageManager.getSystemAvailableFeatures",()->featureSummary(s.context));
         usb(s);
         drm(s);
         CameraManager cameras=s.context.getSystemService(CameraManager.class);
         for(String id:cameras.getCameraIdList())s.read("hardware","hardware/camera/"+id,"摄像头 "+id,"CameraManager.getCameraCharacteristics",()->{CameraCharacteristics c=cameras.getCameraCharacteristics(id);JSONObject o=Json.obj("id",id);for(CameraCharacteristics.Key<?> k:c.getKeys()){try{Json.put(o,k.getName(),cameraValue(c.get(k)));}catch(Exception e){Json.put(o,k.getName(),Json.obj("error",e.getClass().getName(),"message",e.getMessage()));}}return o;});
         s.read("hardware","hardware/codecs","媒体编解码器","MediaCodecList.ALL_CODECS",()->{JSONArray a=new JSONArray();for(MediaCodecInfo info:new MediaCodecList(MediaCodecList.ALL_CODECS).getCodecInfos()){JSONObject o=Json.obj("name",info.getName(),"encoder",info.isEncoder(),"supportedTypes",info.getSupportedTypes());if(Build.VERSION.SDK_INT>=29){Json.put(o,"hardwareAccelerated",info.isHardwareAccelerated());Json.put(o,"softwareOnly",info.isSoftwareOnly());Json.put(o,"vendor",info.isVendor());Json.put(o,"canonicalName",info.getCanonicalName());}JSONArray types=new JSONArray();for(String type:info.getSupportedTypes())try{MediaCodecInfo.CodecCapabilities cap=info.getCapabilitiesForType(type);JSONArray profiles=new JSONArray();for(MediaCodecInfo.CodecProfileLevel p:cap.profileLevels)profiles.put(Json.obj("profile",p.profile,"level",p.level));types.put(Json.obj("type",type,"colorFormats",cap.colorFormats,"maxSupportedInstances",cap.getMaxSupportedInstances(),"profileLevels",profiles));}catch(Exception e){types.put(Json.obj("type",type,"error",e.getMessage()));}Json.put(o,"capabilities",types);a.put(o);}return a;});
+    }
+    // 业务块：从完整系统特性中提取可比较摘要；原始 hardware/features 继续保留。
+    private static JSONObject featureSummary(Context context){
+        FeatureInfo[] features=context.getPackageManager().getSystemAvailableFeatures();TreeSet<String> names=new TreeSet<>(String.CASE_INSENSITIVE_ORDER);TreeSet<Integer> glEsVersions=new TreeSet<>();int namedCount=0,versionedCount=0,maxVersion=0;
+        for(FeatureInfo feature:features){if(feature.name!=null){namedCount++;names.add(feature.name);}if(feature.version>0){versionedCount++;maxVersion=Math.max(maxVersion,feature.version);}if(feature.reqGlEsVersion>0)glEsVersions.add(feature.reqGlEsVersion);}
+        JSONArray featureNames=new JSONArray();for(String name:names)if(featureNames.length()<256)featureNames.put(name);JSONArray glEs=new JSONArray();for(Integer version:glEsVersions)glEs.put(version);
+        return Json.obj("count",features.length,"namedCount",namedCount,"versionedCount",versionedCount,"maxVersion",maxVersion,"featureNames",featureNames,"featureNamesTruncated",names.size()>256,"glEsVersions",glEs);
     }
     // 业务块：只读取 UsbManager 已公开的设备描述符，不申请 USB 权限、不读取序列号。
     private void usb(ItemSink s){

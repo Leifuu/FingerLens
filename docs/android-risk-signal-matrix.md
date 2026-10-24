@@ -15,6 +15,7 @@
 | 设备管理与用户状态 | [DevicePolicyManager](https://developer.android.com/reference/android/app/admin/DevicePolicyManager) 与 [UserManager](https://developer.android.com/reference/android/os/UserManager) 公开设备/资料所有者、托管资料和用户解锁状态。 | `security/device-management` | 已采集当前 App 和当前用户范围，不枚举其他用户或管理包。 |
 | 定位与 GNSS 环境 | [LocationManager](https://developer.android.com/reference/android/location/LocationManager) 公开定位总开关、provider 状态、GNSS 能力/硬件元数据和天线载波频率；这些接口不要求读取最后位置。 | `environment/location` | 已采集 provider、GNSS 与有限天线摘要；天线最多保留 64 项，不请求定位、不读取经纬度、轨迹或最后位置。 |
 | 传感器能力与厂商 | [SensorManager](https://developer.android.com/reference/android/hardware/SensorManager) 与 [Sensor](https://developer.android.com/reference/android/hardware/Sensor) 公开传感器类型、厂商、唤醒/动态标记、报告模式、FIFO 和 direct channel 能力。 | `sensors/summary`、`sensors/list` | 已采集能力摘要并保留完整公开清单；摘要最多保留 128 个去重厂商名，不读取传感器事件样本。 |
+| 系统特性与图形能力 | [PackageManager.getSystemAvailableFeatures](https://developer.android.com/reference/android/content/pm/PackageManager#getSystemAvailableFeatures()) 与 [FeatureInfo](https://developer.android.com/reference/android/content/pm/FeatureInfo) 公开系统声明特性、版本、标志和 OpenGL ES 要求版本。 | `hardware/features-summary`、`hardware/features`、`hardware/graphics` | 已采集摘要并保留完整公开清单；特性名摘要最多保留 256 项，不把单个特性直接解释为风险结论。 |
 
 ## 当前缺口与下一步候选
 
