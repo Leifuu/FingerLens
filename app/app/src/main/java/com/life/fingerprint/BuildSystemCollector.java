@@ -81,6 +81,7 @@ public final class BuildSystemCollector implements Collector {
         s.read("environment","environment/locales","语言与区域","Configuration / LocaleList / TimeZone",()->{Configuration c=s.context.getResources().getConfiguration();TimeZone z=TimeZone.getDefault();return Json.obj("locales",c.getLocales().toLanguageTags(),"timezoneId",z.getID(),"timezoneDisplayName",z.getDisplayName(),"rawOffset",z.getRawOffset(),"daylightSavings",z.getDSTSavings(),"configuration",c.toString(),"fontScale",c.fontScale,"densityDpi",c.densityDpi,"uiMode",c.uiMode,"keyboard",c.keyboard,"navigation",c.navigation,"touchscreen",c.touchscreen);});
         s.ok("environment","environment/clocks","单次时钟快照","android-api","SystemClock",Json.obj("elapsedRealtime",SystemClock.elapsedRealtime(),"uptimeMillis",SystemClock.uptimeMillis(),"wallClockMillis",System.currentTimeMillis()));
         s.read("environment","environment/risk-settings","系统风控相关设置摘要","Settings.Global / Settings.Secure",()->riskSettings(s.context));
+        s.read("environment","environment/device-state","设备初始化与运行状态","ActivityManager / UserManager / Settings",()->deviceState(s.context));
         s.read("environment","environment/location","定位与 GNSS 能力","LocationManager public state",()->locationEnvironment(s.context));
         String[] globals={"adb_enabled","development_settings_enabled","airplane_mode_on","auto_time","auto_time_zone","http_proxy","private_dns_mode","private_dns_specifier","wifi_on","bluetooth_on"};
         for(String k:globals)s.read("environment","environment/global/"+k,k,"Settings.Global.getString",()->Settings.Global.getString(s.context.getContentResolver(),k));
@@ -128,6 +129,24 @@ public final class BuildSystemCollector implements Collector {
                 "accessibilityEnabled",settingFlag(resolver,false,"accessibility_enabled"),
                 "mockLocation",settingFlag(resolver,false,"mock_location"),
                 "installNonMarketApps",settingFlag(resolver,false,"install_non_market_apps"));
+    }
+    // 业务块：只记录当前设备初始化和当前用户运行状态，不读取用户身份或位置。
+    private static JSONObject deviceState(Context context){
+        android.content.ContentResolver resolver=context.getContentResolver();
+        ActivityManager activity=context.getSystemService(ActivityManager.class);
+        UserManager users=context.getSystemService(UserManager.class);
+        JSONObject out=Json.obj(
+                "deviceProvisioned",settingFlag(resolver,true,"device_provisioned"),
+                "userSetupComplete",settingFlag(resolver,false,"user_setup_complete"),
+                "bootCount",Settings.Global.getString(resolver,"boot_count"),
+                "lowRamDevice",activity==null?null:activity.isLowRamDevice(),
+                "demoUser",Build.VERSION.SDK_INT>=23&&users!=null?users.isDemoUser():null,
+                "userUnlocked",Build.VERSION.SDK_INT<24||users==null||users.isUserUnlocked(),
+                "userRunning",Build.VERSION.SDK_INT<17||users==null||users.isUserRunning(android.os.Process.myUserHandle()),
+                "userMonkey",ActivityManager.isUserAMonkey());
+        if(Build.VERSION.SDK_INT>=29)Json.put(out,"testHarness",ActivityManager.isRunningInUserTestHarness());
+        if(Build.VERSION.SDK_INT>=28)Json.put(out,"backgroundRestricted",activity!=null&&activity.isBackgroundRestricted());
+        return out;
     }
     private static Boolean settingFlag(android.content.ContentResolver resolver,boolean global,String key){
         String value=global?Settings.Global.getString(resolver,key):Settings.Secure.getString(resolver,key);

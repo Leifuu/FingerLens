@@ -1,6 +1,6 @@
 # Android 风控指纹公开来源（第一批）
 
-更新时间：2026-10-24。本文只记录公开可核验的资料和可映射到普通 Android App 的信号，不把任何单一信号当作“欺诈结论”。
+更新时间：2026-10-25。本文只记录公开可核验的资料和可映射到普通 Android App 的信号，不把任何单一信号当作“欺诈结论”。
 
 ## 官方 Android 网络资料
 
@@ -31,6 +31,7 @@
 - [WebSettings.getDefaultUserAgent](https://developer.android.com/reference/android/webkit/WebSettings#getDefaultUserAgent(android.content.Context))：公开当前 WebView 默认 User-Agent。本工程新增 `environment/webview-user-agent`，保留原始 UA 与长度供对照，不把 UA 单独当作设备真实性结论。
 - [PowerManager](https://developer.android.com/reference/android/os/PowerManager)：公开当前 App 可查询的省电、交互/空闲和热状态。本工程新增 `environment/power-thermal`，只做快照不控制系统策略；这些运行时字段在 Web 智能过滤中默认忽略。
 - [Settings.Global](https://developer.android.com/reference/android/provider/Settings.Global) 与 [Settings.Secure](https://developer.android.com/reference/android/provider/Settings.Secure)：公开当前用户可见的开发者、ADB、时间同步、私有 DNS、无障碍和模拟位置设置。本工程新增 `environment/risk-settings` 可读摘要，同时保留原始键值，不在摘要中重复导出 `ANDROID_ID`。
+- [ActivityManager](https://developer.android.com/reference/android/app/ActivityManager)、[UserManager](https://developer.android.com/reference/android/os/UserManager) 与公开设备初始化 Settings：本工程新增 `environment/device-state`，记录设备/用户初始化、低内存、演示用户、用户解锁与运行、启动次数和测试 harness 状态；这些是环境证据，不自动解释为风险结论。
 - [DevicePolicyManager](https://developer.android.com/reference/android/app/admin/DevicePolicyManager) 与 [UserManager](https://developer.android.com/reference/android/os/UserManager)：公开当前 App 的设备/资料所有者状态、当前用户是否为托管资料、用户解锁状态和有限用户限制。本工程新增 `security/device-management`，只记录当前 App 与当前用户范围，不枚举其它管理包，不自动判定风险。
 - [AppOpsManager](https://developer.android.com/reference/android/app/AppOpsManager) 与 [Settings.canDrawOverlays](https://developer.android.com/reference/android/provider/Settings#canDrawOverlays(android.content.Context))：公开当前 UID 的特殊访问模式和悬浮窗状态。本工程新增 `security/special-access`，只调用无副作用的 `checkOpNoThrow`，不申请权限、不调用 `noteOp`。
 - 本工程新增 `security/summary`，汇总调试、设备管理、AppOps、锁屏/生物识别、无障碍数量和安全提供者数量，不复制证书、序列号或窗口内容。

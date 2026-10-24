@@ -201,6 +201,11 @@ public class CollectionChecks {
         JSONObject settings=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("environment/risk-settings")){settings=item;break;}}
         assertNotNull("应记录系统风控设置摘要",settings);assertEquals("ok",settings.getString("status"));JSONObject value=settings.getJSONObject("value");assertTrue(value.has("adbEnabled"));assertTrue(value.has("developmentSettingsEnabled"));assertTrue(value.has("mockLocation"));assertFalse(value.has("androidId"));
     }
+    @Test public void deviceStateEvidenceUsesPublicStateOnly()throws Exception{
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new BuildSystemCollector("environment").collect(sink);
+        JSONObject state=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("environment/device-state")){state=item;break;}}
+        assertNotNull("应记录设备初始化与运行状态",state);assertEquals("ok",state.getString("status"));JSONObject value=state.getJSONObject("value");assertTrue(value.has("deviceProvisioned"));assertTrue(value.has("userSetupComplete"));assertTrue(value.has("bootCount"));assertTrue(value.has("lowRamDevice"));assertTrue(value.has("userUnlocked"));assertTrue(value.has("userRunning"));assertFalse(state.toString().toLowerCase(java.util.Locale.ROOT).contains("latitude"));assertFalse(state.toString().toLowerCase(java.util.Locale.ROOT).contains("serial"));
+    }
     @Test public void webViewUserAgentKeepsLengthMetadata()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new BuildSystemCollector("environment").collect(sink);
         JSONObject userAgent=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("environment/webview-user-agent")){userAgent=item;break;}}

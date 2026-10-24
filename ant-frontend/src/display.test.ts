@@ -235,6 +235,11 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].title).toBe('系统风控相关设置');
     expect(sections[0].rows.map(row => row.key)).toEqual(['adbEnabled', 'developmentSettingsEnabled', 'privateDnsMode', 'mockLocation']);
   });
+  it('设备初始化与运行状态摘要按稳定字段顺序展示', () => {
+    const sections = buildSections(item('environment/device-state', 'environment', { deviceProvisioned: true, userSetupComplete: true, bootCount: '7', lowRamDevice: false, userUnlocked: true, userRunning: true }));
+    expect(sections[0].title).toBe('设备初始化与运行状态');
+    expect(sections[0].rows.map(row => row.key)).toEqual(['deviceProvisioned', 'userSetupComplete', 'bootCount', 'lowRamDevice', 'userUnlocked', 'userRunning']);
+  });
   it('信任库详情压缩 DER，只展示可读摘要并保留长度', () => {
     const value = item('security/trust-store', 'security', [{ alias: 'system:root', sha256: 'a'.repeat(64), derBase64: 'A'.repeat(10000) }]);
     const original = JSON.stringify(value);
