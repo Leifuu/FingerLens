@@ -82,6 +82,11 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.map(row => row.key)).toContain('count');
     expect(sections.find(section => section.key === 'devices')?.rows.some(row => row.key === '[0].vendorId')).toBe(true);
   });
+  it('电源与热状态按公开快照字段展示', () => {
+    const sections = buildSections(item('environment/power-thermal', 'environment', { powerSaveMode: false, interactive: true, deviceIdleMode: false, thermalStatus: 0, thermalHeadroom: 1.25 }));
+    expect(sections[0].title).toBe('电源与热状态');
+    expect(sections[0].rows.map(row => row.key)).toEqual(['powerSaveMode', 'interactive', 'deviceIdleMode', 'thermalStatus', 'thermalHeadroom']);
+  });
   it('锁屏与生物识别摘要只展示公开状态', () => {
     const sections = buildSections(item('security/lock-biometric', 'security', { keyguardSecure: true, keyguardLocked: false, deviceSecure: true, deviceLocked: false, fingerprintFeature: true, faceFeature: false, irisFeature: false }));
     expect(sections[0].title).toBe('锁屏与生物识别环境');
