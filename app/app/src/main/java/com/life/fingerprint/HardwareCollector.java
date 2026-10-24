@@ -6,6 +6,7 @@ import android.hardware.*;
 import android.hardware.camera2.*;
 import android.hardware.usb.*;
 import android.media.*;
+import android.nfc.*;
 import android.os.*;
 import android.util.*;
 import org.json.*;
@@ -23,6 +24,7 @@ public final class HardwareCollector implements Collector {
         s.read("hardware","hardware/codecs-summary","媒体编解码能力摘要","MediaCodecList.ALL_CODECS",HardwareCollector::codecSummary);
         audio(s);
         usb(s);
+        nfc(s);
         drm(s);
         CameraManager cameras=s.context.getSystemService(CameraManager.class);
         if(cameras==null)s.ok("hardware","hardware/camera-summary","摄像头能力摘要","CameraManager","CameraManager unavailable",Json.obj("available",false,"count",0,"cameraIds",new JSONArray()));
@@ -83,6 +85,17 @@ public final class HardwareCollector implements Collector {
                 values.put(Json.obj("deviceName",name,"vendorId",device.getVendorId(),"productId",device.getProductId(),"deviceClass",device.getDeviceClass(),"deviceSubclass",device.getDeviceSubclass(),"deviceProtocol",device.getDeviceProtocol(),"configurationCount",device.getConfigurationCount(),"interfaceCount",device.getInterfaceCount(),"interfaces",interfaces));
             }
             return Json.obj("count",values.length(),"devices",values);
+        });
+    }
+    // 业务块：只读取 NFC 适配器公开能力，不启停适配器、不读取标签内容。
+    private void nfc(ItemSink s){
+        s.read("hardware","hardware/nfc","NFC 能力","NfcAdapter",()->{
+            NfcAdapter adapter=NfcAdapter.getDefaultAdapter(s.context);
+            if(adapter==null)return Json.obj("available",false,"enabled",false);
+            JSONObject value=Json.obj("available",true,"enabled",adapter.isEnabled());
+            if(Build.VERSION.SDK_INT>=29){Json.put(value,"secureNfcSupported",adapter.isSecureNfcSupported());Json.put(value,"secureNfcEnabled",adapter.isSecureNfcEnabled());}
+            if(Build.VERSION.SDK_INT>=34){NfcAntennaInfo antenna=adapter.getNfcAntennaInfo();Json.put(value,"antennaInfoAvailable",antenna!=null);if(antenna!=null)Json.put(value,"antennaCount",antenna.getAvailableNfcAntennas()==null?0:antenna.getAvailableNfcAntennas().size());Json.put(value,"deviceWidth",antenna==null?null:antenna.getDeviceWidth());Json.put(value,"deviceHeight",antenna==null?null:antenna.getDeviceHeight());Json.put(value,"deviceFoldable",antenna==null?null:antenna.isDeviceFoldable());}
+            return value;
         });
     }
     // 业务块：只导出 Widevine 能力和唯一值摘要，绝不输出原始 DRM deviceUniqueId。

@@ -193,6 +193,12 @@ describe('设备格式化展示边界', () => {
     expect(sections.find(section => section.key === 'productNames')?.title).toBe('音频设备名');
     expect(sections.find(section => section.key === 'sampleRates')?.rows[0].value).toBe('48000');
   });
+  it('NFC 摘要只展示适配器能力状态', () => {
+    const sections = buildSections(item('hardware/nfc', 'hardware', { available: true, enabled: true, secureNfcSupported: true, secureNfcEnabled: false, antennaInfoAvailable: true, antennaCount: 1, deviceWidth: 68, deviceHeight: 146, deviceFoldable: false }));
+    expect(sections[0].title).toBe('NFC 能力');
+    expect(sections[0].rows.map(row => row.key)).toContain('secureNfcSupported');
+    expect(sections[0].rows.map(row => row.key)).toContain('antennaCount');
+  });
   it('电池摘要展示电量、供电状态和公开属性', () => {
     const sections = buildSections(item('battery/summary', 'battery', { available: true, level: 80, scale: 100, percentage: 80, status: 2, charging: true, plugged: 1, pluggedAc: true, pluggedUsb: false, pluggedWireless: false, health: 2, temperatureC: 30.5, voltageMv: 4000, technology: 'Li-ion', present: true, capacityPercent: 80, chargeCounterUah: 3000000, currentNowUa: -500000, currentAverageUa: -400000, energyCounterNwh: 1000000000 }));
     expect(sections[0].title).toBe('电池环境摘要');

@@ -120,6 +120,11 @@ public class CollectionChecks {
         JSONObject usb=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("hardware/usb")){usb=item;break;}}
         assertNotNull("应记录 USB 公开设备清单",usb);assertEquals("ok",usb.getString("status"));JSONObject value=usb.getJSONObject("value");assertTrue(value.has("count"));assertTrue(value.getInt("count")<=256);assertTrue(value.has("devices"));assertFalse(usb.toString().contains("serialNumber"));
     }
+    @Test public void nfcEvidenceUsesPublicAdapterState()throws Exception{
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new HardwareCollector("hardware").collect(sink);
+        JSONObject nfc=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("hardware/nfc")){nfc=item;break;}}
+        assertNotNull("应记录 NFC 能力",nfc);assertEquals("ok",nfc.getString("status"));JSONObject value=nfc.getJSONObject("value");assertTrue(value.has("available"));assertFalse(nfc.toString().contains("tagId"));if(Build.VERSION.SDK_INT>=29){assertTrue(value.has("secureNfcSupported"));assertTrue(value.has("secureNfcEnabled"));}if(Build.VERSION.SDK_INT>=34)assertTrue(value.has("antennaInfoAvailable"));
+    }
     @Test public void featureSummaryKeepsFullListSeparate()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new HardwareCollector("hardware").collect(sink);
         JSONObject summary=null,list=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("hardware/features-summary"))summary=item;if(item.getString("key").equals("hardware/features"))list=item;}
