@@ -64,6 +64,11 @@ public class CollectionChecks {
         JSONObject summary=null,raw=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("kernel/mount-summary"))summary=item;if(item.getString("key").equals("kernel/file/proc/self/mountinfo"))raw=item;}
         assertNotNull("应生成挂载拓扑摘要",summary);assertNotNull("应保留 mountinfo 原始条目",raw);assertEquals("ok",summary.getString("status"));JSONObject value=summary.getJSONObject("value");assertTrue(value.getBoolean("available"));assertTrue(value.getInt("entryCount")>0);assertTrue(value.has("overlayCount"));assertTrue(value.has("readOnlyCount"));assertTrue(value.has("rootFsType"));assertTrue(value.has("fsTypeCounts"));assertTrue(value.getInt("fsTypeCount")>0);assertFalse(summary.toString().contains("/data/"));assertFalse(summary.toString().contains("/proc/"));
     }
+    @Test public void cgroupSummaryKeepsPathsOutOfEvidence()throws Exception{
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new BuildSystemCollector("kernel").collect(sink);
+        JSONObject summary=null,raw=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("kernel/cgroup-summary"))summary=item;if(item.getString("key").equals("kernel/file/proc/self/cgroup"))raw=item;}
+        assertNotNull("应生成 cgroup 环境摘要",summary);assertNotNull("应保留 cgroup 原始条目",raw);assertEquals("ok",summary.getString("status"));JSONObject value=summary.getJSONObject("value");assertTrue(value.getBoolean("available"));assertTrue(value.has("cgroupVersion"));assertTrue(value.getInt("entryCount")>0);assertTrue(value.has("controllerNames"));assertTrue(value.has("maxPathDepth"));assertTrue(value.has("dockerMarker"));assertFalse(summary.toString().contains("/uid_"));assertFalse(summary.toString().contains("/user.slice"));
+    }
     @Test public void storageSummaryKeepsRawVolumesSeparate()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new BuildSystemCollector("storage").collect(sink);
         JSONObject summary=null,volumes=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("storage/summary"))summary=item;if(item.getString("key").equals("storage/volumes"))volumes=item;}

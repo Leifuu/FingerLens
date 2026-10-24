@@ -357,4 +357,10 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].title).toBe('挂载拓扑摘要');
     expect(sections[0].rows.map(row => row.key)).toEqual(['available', 'status', 'entryCount', 'readOnlyCount', 'sharedMountCount', 'masterMountCount', 'optionalFieldCount', 'overlayCount', 'tmpfsCount', 'procCount', 'sysfsCount', 'ext4Count', 'rootFsType', 'fsTypeCount', 'fsTypesTruncated', 'truncated', 'fsTypeCounts.overlay', 'fsTypeCounts.tmpfs']);
   });
+  it('Cgroup 摘要展示版本、控制器和环境标记', () => {
+    const sections = buildSections(item('kernel/cgroup-summary', 'kernel', { available: true, status: 'ok', cgroupVersion: 'v2', entryCount: 1, v1EntryCount: 0, v2EntryCount: 1, controllerCount: 3, controllerNamesTruncated: false, maxPathDepth: 2, dockerMarker: false, kubernetesMarker: false, lxcMarker: false, sandboxMarker: false, truncated: false, controllerNames: ['cpu', 'memory', 'pids'] }));
+    expect(sections[0].title).toBe('Cgroup 环境摘要');
+    expect(sections[0].rows.map(row => row.key)).toEqual(['available', 'status', 'cgroupVersion', 'entryCount', 'v1EntryCount', 'v2EntryCount', 'controllerCount', 'controllerNamesTruncated', 'maxPathDepth', 'dockerMarker', 'kubernetesMarker', 'lxcMarker', 'sandboxMarker', 'truncated']);
+    expect(sections.find(section => section.key === 'controllerNames')?.title).toBe('Cgroup 控制器');
+  });
 });
