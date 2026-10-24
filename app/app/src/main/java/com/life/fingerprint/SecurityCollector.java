@@ -30,6 +30,7 @@ public final class SecurityCollector implements Collector {
         if(module.equals("attestation")){attestation(s);return;}
         if(module.equals("virtualization")){virtualization(s);return;}
         s.ok("security","security/self","应用安全上下文","android-api","Process / ApplicationInfo / Debug",Json.obj("uid",android.os.Process.myUid(),"pid",android.os.Process.myPid(),"debuggable",(s.context.getApplicationInfo().flags&ApplicationInfo.FLAG_DEBUGGABLE)!=0,"debuggerConnected",Debug.isDebuggerConnected(),"waitingForDebugger",Debug.waitingForDebugger()));
+        s.read("security","security/self-integrity","当前 App 签名与安装环境","PackageManager.getPackageInfo / getInstallSourceInfo",()->selfIntegrity(s.context));
         s.read("security","security/device-management","设备管理与用户环境","DevicePolicyManager / UserManager",()->managementEnvironment(s.context));
         s.read("security","security/special-access","本 App 特殊访问状态","AppOpsManager / Settings.canDrawOverlays",()->specialAccess(s.context));
         s.read("security","security/lock-biometric","锁屏与生物识别环境","KeyguardManager / PackageManager.hasSystemFeature",()->lockBiometricEnvironment(s.context));
@@ -106,6 +107,25 @@ public final class SecurityCollector implements Collector {
         ResolveInfo resolved=info.getResolveInfo();
         ServiceInfo service=resolved==null?null:resolved.serviceInfo;
         return service==null?"":service.packageName+"/"+service.name;
+    }
+    // 业务块：只查询当前 App 自身的签名摘要与安装来源，不枚举其它包、不导出证书 DER。
+    private static JSONObject selfIntegrity(Context context)throws Exception{
+        PackageManager pm=context.getPackageManager();
+        String packageName=context.getPackageName();
+        int flags=Build.VERSION.SDK_INT>=28?PackageManager.GET_SIGNING_CERTIFICATES:PackageManager.GET_SIGNATURES;
+        PackageInfo info=pm.getPackageInfo(packageName,flags);
+        android.content.pm.Signature[] signatures=Build.VERSION.SDK_INT>=28&&info.signingInfo!=null?info.signingInfo.getApkContentsSigners():info.signatures;
+        JSONArray hashes=new JSONArray();
+        if(signatures!=null)for(android.content.pm.Signature signature:signatures)hashes.put(PackageInputCollector.sha(signature.toByteArray()));
+        String installer=Build.VERSION.SDK_INT>=30?pm.getInstallSourceInfo(packageName).getInstallingPackageName():pm.getInstallerPackageName(packageName);
+        ApplicationInfo application=info.applicationInfo;
+        return Json.obj("packageName",packageName,"versionName",info.versionName,
+                "versionCode",Build.VERSION.SDK_INT>=28?info.getLongVersionCode():(long)info.versionCode,
+                "installer",installer,"signingCertificateSha256",hashes,
+                "enabled",application==null?null:application.enabled,
+                "applicationFlags",application==null?null:application.flags,
+                "debuggable",application!=null&&(application.flags&ApplicationInfo.FLAG_DEBUGGABLE)!=0,
+                "hasCode",application!=null&&(application.flags&ApplicationInfo.FLAG_HAS_CODE)!=0);
     }
     public static JSONObject key(String alias,boolean attest,boolean strong)throws Exception {
         KeyStore store=KeyStore.getInstance("AndroidKeyStore");store.load(null);

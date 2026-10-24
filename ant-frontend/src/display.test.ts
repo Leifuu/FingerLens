@@ -99,6 +99,12 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].title).toBe('启用的无障碍服务');
     expect(sections.find(section => section.key === 'services')?.rows.some(row => row.key === '[0].packageName')).toBe(true);
   });
+  it('当前 App 完整性摘要保留签名哈希而不展开证书', () => {
+    const value = item('security/self-integrity', 'security', { packageName: 'com.example', versionName: '1.0', versionCode: { $type: 'int64', value: '1' }, signingCertificateSha256: ['a'.repeat(64)], debuggable: false, hasCode: true });
+    const sections = buildSections(value);
+    expect(sections[0].title).toBe('当前 App 签名与安装环境');
+    expect(sections.find(section => section.key === 'signingCertificateSha256')?.rows[0].value).toBe('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
+  });
   it('信任库详情压缩 DER，只展示可读摘要并保留长度', () => {
     const value = item('security/trust-store', 'security', [{ alias: 'system:root', sha256: 'a'.repeat(64), derBase64: 'A'.repeat(10000) }]);
     const original = JSON.stringify(value);
