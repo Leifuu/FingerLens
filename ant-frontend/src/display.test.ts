@@ -44,6 +44,19 @@ describe('设备格式化展示边界', () => {
     expect(sections.find(section => section.key === 'dns')?.rows[0].value).toBe('1.1.1.1');
     expect(sections.find(section => section.key === 'routes')?.rows[0].value).toBe('[]');
   });
+  it('风控摘要使用专用分组并保留数组与原始链路字符串', () => {
+    const sections = buildSections(item('network/risk-signals', 'network', { present: true, validated: true, vpn: false, transports: [1], capabilitiesRaw: 'raw-capabilities' }));
+    expect(sections.find(section => section.key === 'summary')?.title).toBe('活动链路摘要');
+    expect(sections.find(section => section.key === 'transports')?.rows[0].value).toBe('1');
+    expect(sections.find(section => section.key === 'capabilitiesRaw')?.rows[0].value).toBe('raw-capabilities');
+  });
+  it('Widevine 与 Play Integrity 摘要不展开成大段 JSON', () => {
+    const drm = buildSections(item('hardware/drm/widevine', 'hardware', { supported: true, vendor: 'Google', deviceUniqueId: { sha256: 'a'.repeat(64), length: 32, rawExported: false } }));
+    const integrity = buildSections(item('attestation/play-integrity-environment', 'attestation', { verdictAvailable: false, playServices: { present: true, versionName: '1' } }));
+    expect(drm[0].title).toBe('Widevine DRM 能力');
+    expect(drm[0].rows.some(row => row.key.includes('deviceUniqueId.sha256'))).toBe(true);
+    expect(integrity[0].title).toBe('Play Integrity 本地环境');
+  });
   it('proc 多行文本按行拆分，正确行不会因另一行变化而整体标红', () => {
     const sections = buildSections(item('kernel/proc/diskstats', 'kernel', '8 0 sda 1 2\n8 1 sda1 3 4\n'));
     expect(sections[0].table).toBe(true);

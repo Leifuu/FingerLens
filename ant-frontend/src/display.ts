@@ -123,11 +123,31 @@ function genericSections(value: Json): DisplaySection[] {
   return sections.length ? sections : [section('value', '采集值', [row('value', value)])];
 }
 
+function riskSummarySections(key: string, value: Json): DisplaySection[] | undefined {
+  if (!object(value)) return undefined;
+  const definitions: Record<string, { title: string; order: string[]; arrays: string[] }> = {
+    'network/risk-signals': { title: '活动链路摘要', order: ['present', 'capabilitiesAvailable', 'networkHandle', 'vpn', 'validated', 'captivePortal', 'notVpn', 'notMetered', 'notRoaming', 'notRestricted', 'trusted', 'foreground', 'metered', 'interfaceName', 'httpProxy'], arrays: ['transports'] },
+    'virtualization/risk-summary': { title: '虚拟化与提权线索摘要', order: ['pathChecks', 'evidenceOnly', 'testKeys', 'conclusion'], arrays: ['presentPaths', 'pathErrors', 'matchedBuildMarkers'] },
+    'hardware/drm/widevine': { title: 'Widevine DRM 能力', order: ['supported', 'schemeUuid', 'vendor', 'version', 'description', 'algorithms', 'maxSecurityLevel', 'deviceUniqueId'], arrays: [] },
+    'attestation/play-integrity-environment': { title: 'Play Integrity 本地环境', order: ['verdictAvailable', 'conclusion', 'playServices', 'playStore'], arrays: [] },
+  };
+  const definition = definitions[key];
+  if (!definition) return undefined;
+  const sections: DisplaySection[] = [section('summary', definition.title, objectRows(value, definition.order))];
+  for (const arrayKey of definition.arrays) {
+    if (Array.isArray(value[arrayKey])) sections.push(section(arrayKey, arrayKey, arrayRows(value[arrayKey] as Json[], arrayKey), true));
+  }
+  if (key === 'network/risk-signals' && typeof value.capabilitiesRaw === 'string') sections.push(section('capabilitiesRaw', '系统原始能力字符串', [row('value', value.capabilitiesRaw)], false));
+  return sections.filter(item => item.rows.length);
+}
+
 export function buildSections(item?: Item): DisplaySection[] {
   if (!item) return [];
   const value = commandOutput(item.value);
   // visibility 是采集器写入的固定范围说明，不是从设备读取的返回值。
   if (item.key === 'packages/enumeration' && object(value)) return [section('enumeration', '应用枚举结果', objectRows(value, ['returnedCount']))];
+  const riskSummary = riskSummarySections(item.key, value);
+  if (riskSummary) return riskSummary;
   if (item.key === 'build/getprop' || item.source.api === '/system/bin/getprop' || item.category === 'build' && item.key.includes('property')) return buildProperties(value);
   if (item.category === 'display' || item.key.startsWith('display/')) return displaySections(value);
   if (item.category === 'input' || item.key.startsWith('input/')) return inputSections(value);
