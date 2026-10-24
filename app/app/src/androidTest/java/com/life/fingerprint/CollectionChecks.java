@@ -171,6 +171,11 @@ public class CollectionChecks {
         JSONObject management=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("security/device-management")){management=item;break;}}
         assertNotNull("应记录设备管理环境条目",management);assertEquals("ok",management.getString("status"));JSONObject value=management.getJSONObject("value");assertTrue(value.has("deviceOwnerForSelf"));assertTrue(value.has("profileOwnerForSelf"));assertTrue(value.has("managedProfile"));assertTrue(value.has("restrictions"));assertFalse(value.has("deviceOwnerPackage"));
     }
+    @Test public void securitySummaryKeepsDetailedEvidenceSeparate()throws Exception{
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new SecurityCollector("security").collect(sink);
+        JSONObject summary=null,self=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("security/summary"))summary=item;if(item.getString("key").equals("security/self"))self=item;}
+        assertNotNull("应生成安全环境摘要",summary);assertNotNull("应保留应用安全上下文",self);assertEquals("ok",summary.getString("status"));assertEquals("ok",self.getString("status"));JSONObject value=summary.getJSONObject("value");assertTrue(value.has("selfDebuggable"));assertTrue(value.has("appOpsAllowedCount"));assertTrue(value.has("keyguardSecure"));assertTrue(value.has("accessibilityServiceCount"));assertTrue(value.has("securityProviderCount"));assertFalse(summary.toString().contains("derBase64"));assertFalse(summary.toString().contains("certificateChainBase64"));assertFalse(summary.toString().contains("windowText"));
+    }
     @Test public void specialAccessEvidenceUsesCurrentAppOps()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new SecurityCollector("security").collect(sink);
         JSONObject access=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("security/special-access")){access=item;break;}}

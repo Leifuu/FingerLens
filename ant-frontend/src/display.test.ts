@@ -75,6 +75,12 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.map(row => row.key)).toContain('transportCounts.1');
     expect(sections[0].rows.find(row => row.key === 'activeNetworkHandle')?.value).toBe('42');
   });
+  it('安全摘要展示调试、设备管理和访问边界', () => {
+    const sections = buildSections(item('security/summary', 'security', { selfDebuggable: false, debuggerConnected: false, waitingForDebugger: false, deviceOwnerForSelf: false, profileOwnerForSelf: false, managedProfile: false, userUnlocked: true, specialAccessAvailable: true, appOpsCheckedCount: 5, appOpsAllowedCount: 1, canDrawOverlays: false, keyguardSecure: true, keyguardLocked: false, deviceSecure: true, deviceLocked: false, fingerprintFeature: true, faceFeature: false, irisFeature: false, accessibilityServiceCount: 0, securityProviderCount: 4 }));
+    expect(sections[0].title).toBe('安全环境摘要');
+    expect(sections[0].rows.map(row => row.key)).toContain('appOpsAllowedCount');
+    expect(sections[0].rows.find(row => row.key === 'securityProviderCount')?.value).toBe('4');
+  });
   it('原生风控属性摘要保持固定字段与可读分组', () => {
     const sections = buildSections(item('build/risk-properties-summary', 'build', { observedCount: 4, knownCount: 19, observedProperties: ['ro.debuggable'], missingProperties: ['ro.boot.flash.locked'], properties: { 'ro.boot.verifiedbootstate': 'green', 'ro.debuggable': '0', 'ro.adb.secure': '1' } }));
     expect(sections[0].title).toBe('风控原生属性摘要');
