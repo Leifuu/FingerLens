@@ -51,7 +51,7 @@ describe('设备格式化展示边界', () => {
     expect(sections.find(section => section.key === 'capabilitiesRaw')?.rows[0].value).toBe('raw-capabilities');
   });
   it('原生风控属性摘要保持固定字段与可读分组', () => {
-    const sections = buildSections(item('build/risk-properties-summary', 'build', { observedCount: 4, knownCount: 11, properties: { 'ro.boot.verifiedbootstate': 'green', 'ro.debuggable': '0', 'ro.adb.secure': '1' } }));
+    const sections = buildSections(item('build/risk-properties-summary', 'build', { observedCount: 4, knownCount: 19, properties: { 'ro.boot.verifiedbootstate': 'green', 'ro.debuggable': '0', 'ro.adb.secure': '1' } }));
     expect(sections[0].title).toBe('风控原生属性摘要');
     expect(sections[0].rows.map(row => row.key)).toEqual(['observedCount', 'knownCount', 'properties.ro.boot.verifiedbootstate', 'properties.ro.debuggable', 'properties.ro.adb.secure']);
   });

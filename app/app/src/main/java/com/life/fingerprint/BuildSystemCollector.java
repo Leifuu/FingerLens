@@ -15,7 +15,9 @@ import java.io.File;
 public final class BuildSystemCollector implements Collector {
     private static final String[] RISK_PROPERTY_KEYS={
             "ro.boot.verifiedbootstate","ro.boot.flash.locked","ro.boot.vbmeta.device_state",
-            "ro.boot.veritymode","ro.boot.warranty_bit","ro.debuggable","ro.secure",
+            "ro.boot.veritymode","ro.boot.warranty_bit","ro.boot.vbmeta.digest","ro.boot.slot_suffix",
+            "ro.boot.dynamic_partitions","ro.boot.selinux","ro.boot.hardware","ro.product.hardware.sku",
+            "ro.product.first_api_level","ro.product.cpu.abilist","ro.debuggable","ro.secure",
             "ro.adb.secure","ro.build.tags","ro.build.type","ro.build.version.security_patch"};
     private static final Set<String> RISK_PROPERTY_SET=new HashSet<>(Arrays.asList(RISK_PROPERTY_KEYS));
     private final String module;

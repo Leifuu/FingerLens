@@ -18,5 +18,5 @@
 
 - 远程 Play Integrity verdict 需要服务端请求、nonce 和云端凭据；离线 APK 不应伪造该结果。
 - 供应商 SDK 的私有字段没有公开契约；后续只实现能由公开 Android API、稳定 JNI 或明确授权的本地证据复现的项目。
-- 已补充 `build/risk-properties-summary`，把 `ro.boot.*`、`ro.debuggable`、`ro.secure`、`ro.adb.secure` 等字段整理为固定摘要；原始 `build/native-property/*` 继续保留。
+- 已补充 `build/risk-properties-summary`，把启动验证状态、锁定状态、VBMeta 摘要、启动槽、动态分区、SELinux 启动状态、硬件 SKU/ABI、首次 API 级别以及 `ro.debuggable`、`ro.secure`、`ro.adb.secure` 等字段整理为固定摘要；原始 `build/native-property/*` 继续保留。
 - 下一步优先评估摘要字段的 Android 版本可用性和前端差异展示，避免把缺失字段误报为异常。
