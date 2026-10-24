@@ -148,6 +148,24 @@ function trustStoreSections(value: Json): DisplaySection[] {
   return [section('certificates', 'CA 证书摘要（原始 DER 保留在 JSON）', rows, true)];
 }
 
+function attestationSections(key: string, value: Json): DisplaySection[] {
+  if (!object(value)) return [section('value', '密钥认证数据', [row('value', value)])];
+  const title = key === 'attestation/tee' ? 'TEE 密钥认证' : key === 'attestation/strongbox' ? 'StrongBox 密钥认证' : 'AndroidKeyStore 密钥安全级别';
+  const summary = objectRows(value, ['requestedAttestation', 'requestedStrongBox', 'algorithm', 'insideSecureHardware', 'securityLevel']);
+  const encoded: DisplayRow[] = [];
+  for (const field of ['challengeBase64', 'signatureBase64', 'publicKeyBase64']) if (typeof value[field] === 'string') encoded.push(row(`${field}.length`, value[field].length, `${field} 长度`));
+  if (Array.isArray(value.certificateChainBase64)) {
+    encoded.push(row('certificateChainBase64.count', value.certificateChainBase64.length, '证书链数量'));
+    value.certificateChainBase64.forEach((certificate, index) => { if (typeof certificate === 'string') encoded.push(row(`certificateChainBase64[${index}].length`, certificate.length, `证书 ${index + 1} 长度`)); });
+  }
+  const sections: DisplaySection[] = [section('summary', title, summary)];
+  if (encoded.length) sections.push(section('encoded', '编码字段长度（原始值保留在 JSON）', encoded, true));
+  const covered = new Set(['requestedAttestation', 'requestedStrongBox', 'algorithm', 'insideSecureHardware', 'securityLevel', 'challengeBase64', 'signatureBase64', 'publicKeyBase64', 'certificateChainBase64']);
+  const extra = Object.fromEntries(Object.entries(value).filter(([field]) => !covered.has(field)));
+  if (Object.keys(extra).length) sections.push(...genericSections(extra).map(item => ({ ...item, key: `extra-${item.key}` })));
+  return sections.filter(item => item.rows.length);
+}
+
 function riskSummarySections(key: string, value: Json): DisplaySection[] | undefined {
   if (!object(value)) return undefined;
   const definitions: Record<string, { title: string; order: string[]; arrays: string[] }> = {
@@ -218,6 +236,7 @@ export function buildSections(item?: Item): DisplaySection[] {
   // visibility 是采集器写入的固定范围说明，不是从设备读取的返回值。
   if (item.key === 'packages/enumeration' && object(value)) return [section('enumeration', '应用枚举结果', objectRows(value, ['returnedCount']))];
   if (item.key === 'security/trust-store') return trustStoreSections(value);
+  if (item.key === 'attestation/tee' || item.key === 'attestation/plain' || item.key === 'attestation/strongbox') return attestationSections(item.key, value);
   const riskSummary = riskSummarySections(item.key, value);
   if (riskSummary) return riskSummary;
   if (item.key === 'build/getprop' || item.source.api === '/system/bin/getprop' || item.category === 'build' && item.key.includes('property')) return buildProperties(value);

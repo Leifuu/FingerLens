@@ -81,6 +81,16 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.map(row => row.key)).toContain('appOpsAllowedCount');
     expect(sections[0].rows.find(row => row.key === 'securityProviderCount')?.value).toBe('4');
   });
+  it('密钥认证展示能力与长度，不展开 Base64 证书链', () => {
+    const value = item('attestation/tee', 'attestation', { requestedAttestation: true, requestedStrongBox: false, algorithm: 'SHA256withECDSA', insideSecureHardware: true, securityLevel: 2, challengeBase64: 'C'.repeat(128), signatureBase64: 'S'.repeat(160), publicKeyBase64: 'P'.repeat(88), certificateChainBase64: ['A'.repeat(512), 'B'.repeat(256)] });
+    const original = JSON.stringify(value);
+    const sections = buildSections(value);
+    expect(sections[0].title).toBe('TEE 密钥认证');
+    expect(sections.find(section => section.key === 'encoded')?.rows.find(row => row.key === 'challengeBase64.length')?.value).toBe('128');
+    expect(JSON.stringify(sections)).not.toContain('C'.repeat(32));
+    expect(JSON.stringify(sections)).not.toContain('A'.repeat(32));
+    expect(JSON.stringify(value)).toBe(original);
+  });
   it('原生风控属性摘要保持固定字段与可读分组', () => {
     const sections = buildSections(item('build/risk-properties-summary', 'build', { observedCount: 4, knownCount: 19, observedProperties: ['ro.debuggable'], missingProperties: ['ro.boot.flash.locked'], properties: { 'ro.boot.verifiedbootstate': 'green', 'ro.debuggable': '0', 'ro.adb.secure': '1' } }));
     expect(sections[0].title).toBe('风控原生属性摘要');
