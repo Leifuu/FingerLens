@@ -87,6 +87,11 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.map(row => row.key)).toContain('transportCounts.1');
     expect(sections[0].rows.find(row => row.key === 'activeNetworkHandle')?.value).toBe('42');
   });
+  it('网络接口摘要展示受控前缀和地址族计数', () => {
+    const sections = buildSections(item('network/interface-summary', 'network', { available: true, status: 'ok', interfaceCount: 3, upCount: 2, downCount: 1, loopbackCount: 1, virtualCount: 1, pointToPointCount: 1, hardwareAddressPresentCount: 2, addressCount: 4, ipv4Count: 2, ipv6Count: 2, mtuMin: 1500, mtuMax: 1500, prefixCounts: { loopback: 1, wifi: 1, vpn_or_tunnel: 1 } }));
+    expect(sections[0].title).toBe('网络接口摘要');
+    expect(sections[0].rows.map(row => row.key)).toEqual(['available', 'status', 'interfaceCount', 'upCount', 'downCount', 'loopbackCount', 'virtualCount', 'pointToPointCount', 'hardwareAddressPresentCount', 'addressCount', 'ipv4Count', 'ipv6Count', 'mtuMin', 'mtuMax', 'prefixCounts.loopback', 'prefixCounts.wifi', 'prefixCounts.vpn_or_tunnel']);
+  });
   it('安全摘要展示调试、设备管理和访问边界', () => {
     const sections = buildSections(item('security/summary', 'security', { selfDebuggable: false, debuggerConnected: false, waitingForDebugger: false, deviceOwnerForSelf: false, profileOwnerForSelf: false, managedProfile: false, userUnlocked: true, specialAccessAvailable: true, appOpsCheckedCount: 5, appOpsAllowedCount: 1, canDrawOverlays: false, keyguardSecure: true, keyguardLocked: false, deviceSecure: true, deviceLocked: false, fingerprintFeature: true, faceFeature: false, irisFeature: false, accessibilityServiceCount: 0, securityProviderCount: 4 }));
     expect(sections[0].title).toBe('安全环境摘要');

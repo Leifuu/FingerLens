@@ -200,6 +200,11 @@ public class CollectionChecks {
         JSONObject summary=null,raw=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("network/connectivity-summary"))summary=item;if(item.getString("key").equals("network/connectivity"))raw=item;}
         assertNotNull("应生成网络集合摘要",summary);assertNotNull("应保留网络连接原始清单",raw);assertEquals("ok",summary.getString("status"));assertEquals("ok",raw.getString("status"));JSONObject value=summary.getJSONObject("value");assertTrue(value.has("networkCount"));assertTrue(value.has("activePresent"));assertTrue(value.has("capabilitiesAvailableCount"));assertTrue(value.has("transportCounts"));
     }
+    @Test public void interfaceSummaryKeepsRawInterfacesSeparate()throws Exception{
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new NetworkCollector("network").collect(sink);
+        JSONObject summary=null,raw=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("network/interface-summary"))summary=item;if(item.getString("key").equals("network/interfaces"))raw=item;}
+        assertNotNull("应生成网络接口摘要",summary);assertNotNull("应保留网络接口原始条目",raw);assertEquals("ok",summary.getString("status"));assertEquals("ok",raw.getString("status"));JSONObject value=summary.getJSONObject("value");assertTrue(value.has("available"));if(value.getBoolean("available"))assertTrue(value.getInt("interfaceCount")>=0);else assertTrue(value.isNull("interfaceCount"));assertTrue(value.has("prefixCounts"));assertFalse(summary.toString().matches(".*(?:wlan|rmnet|eth|tun|tap|ppp)[0-9A-Za-z_-]*.*"));assertFalse(summary.toString().matches(".*(?:\\b\\d{1,3}\\.){3}\\d{1,3}\\b.*"));assertFalse(summary.toString().matches(".*(?i)(?:[0-9a-f]{2}:){5}[0-9a-f]{2}.*"));
+    }
     @Test public void playIntegrityEnvironmentIsExplicitlyOffline()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new SecurityCollector("attestation").collect(sink);
         JSONObject environment=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("attestation/play-integrity-environment")){environment=item;break;}}
