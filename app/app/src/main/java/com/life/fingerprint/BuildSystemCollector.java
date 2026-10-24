@@ -55,9 +55,9 @@ public final class BuildSystemCollector implements Collector {
             Object value=Json.bytes(property.getString("valueBase64"));
             if(value instanceof String)observed.put((String)name,(String)value);
         }
-        JSONObject values=new JSONObject();int observedCount=0;
-        for(String key:RISK_PROPERTY_KEYS){String value=observed.get(key);Json.put(values,key,value);if(value!=null)observedCount++;}
-        return Json.obj("observedCount",observedCount,"knownCount",RISK_PROPERTY_KEYS.length,"properties",values);
+        JSONObject values=new JSONObject();JSONArray observedProperties=new JSONArray(),missingProperties=new JSONArray();int observedCount=0;
+        for(String key:RISK_PROPERTY_KEYS){String value=observed.get(key);Json.put(values,key,value);if(value!=null){observedProperties.put(key);observedCount++;}else missingProperties.put(key);}
+        return Json.obj("observedCount",observedCount,"knownCount",RISK_PROPERTY_KEYS.length,"observedProperties",observedProperties,"missingProperties",missingProperties,"properties",values);
     }
     private void kernel(ItemSink s)throws Exception {
         s.ok("kernel","kernel/uname","内核 uname","jni","uname",new JSONObject(NativeProbe.kernel()));

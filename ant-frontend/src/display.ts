@@ -151,7 +151,7 @@ function trustStoreSections(value: Json): DisplaySection[] {
 function riskSummarySections(key: string, value: Json): DisplaySection[] | undefined {
   if (!object(value)) return undefined;
   const definitions: Record<string, { title: string; order: string[]; arrays: string[] }> = {
-    'build/risk-properties-summary': { title: '风控原生属性摘要', order: ['observedCount', 'knownCount', 'properties'], arrays: [] },
+    'build/risk-properties-summary': { title: '风控原生属性摘要', order: ['observedCount', 'knownCount', 'properties'], arrays: ['observedProperties', 'missingProperties'] },
     'network/risk-signals': { title: '活动链路摘要', order: ['present', 'capabilitiesAvailable', 'networkHandle', 'vpn', 'validated', 'captivePortal', 'notVpn', 'notMetered', 'notRoaming', 'notRestricted', 'trusted', 'foreground', 'metered', 'interfaceName', 'httpProxy'], arrays: ['transports'] },
     'virtualization/risk-summary': { title: '虚拟化与提权线索摘要', order: ['pathChecks', 'evidenceOnly', 'testKeys', 'conclusion'], arrays: ['presentPaths', 'pathErrors', 'matchedBuildMarkers'] },
     'hardware/drm/widevine': { title: 'Widevine DRM 能力', order: ['supported', 'schemeUuid', 'vendor', 'version', 'description', 'algorithms', 'maxSecurityLevel', 'deviceUniqueId'], arrays: [] },
@@ -170,7 +170,12 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
   if (!definition) return undefined;
   const sections: DisplaySection[] = [section('summary', definition.title, objectRows(value, definition.order))];
   for (const arrayKey of definition.arrays) {
-    if (Array.isArray(value[arrayKey])) sections.push(section(arrayKey, arrayKey, arrayRows(value[arrayKey] as Json[], arrayKey), true));
+    if (Array.isArray(value[arrayKey])) {
+      const title = key === 'build/risk-properties-summary'
+        ? arrayKey === 'observedProperties' ? '已观察属性' : '当前缺失属性'
+        : arrayKey;
+      sections.push(section(arrayKey, title, arrayRows(value[arrayKey] as Json[], arrayKey), true));
+    }
   }
   if (key === 'network/risk-signals' && typeof value.capabilitiesRaw === 'string') sections.push(section('capabilitiesRaw', '系统原始能力字符串', [row('value', value.capabilitiesRaw)], false));
   return sections.filter(item => item.rows.length);
