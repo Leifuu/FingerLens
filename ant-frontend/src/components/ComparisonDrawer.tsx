@@ -31,7 +31,27 @@ export function ComparisonDrawer({ row, open, onClose }: { row?: CompareRow; ope
   return <Drawer open={open} onClose={onClose} width="min(1180px, 100vw)" title={<div><Typography.Title level={4} style={{ margin: 0 }}>{row.name}</Typography.Title><Typography.Text type="secondary">{row.key}</Typography.Text></div>} extra={<Space size={8}>{hasTableSections && <Button size="small" type={onlyDiffRows ? 'primary' : 'default'} onClick={() => setOnlyDiffRows(value => !value)}>只展示差异</Button>}<Tag color={row.state === 'same' ? 'success' : row.state === 'incomparable' ? 'default' : 'error'}>{diffLabels[row.state]}</Tag></Space>} className="comparison-drawer" destroyOnHidden>
     <Space direction="vertical" size={16} style={{ display: 'flex' }}>
       <Descriptions size="small" bordered column={{ xs: 1, sm: 2 }} items={[{ key: 'a', label: '设备 A', children: <Descriptions size="small" column={1} items={itemMeta(row.left).map(([label, value]) => ({ key: label, label, children: value }))} /> }, { key: 'b', label: '设备 B', children: <Descriptions size="small" column={1} items={itemMeta(row.right).map(([label, value]) => ({ key: label, label, children: value }))} /> }]} />
-      {[row.left, row.right].map((item, index) => item && (item.error || item.truncation || item.installer) ? <Alert key={index} type={item.error || item.truncation ? 'warning' : 'info'} message={`设备 ${index === 0 ? 'A' : 'B'} · 采集边界`} description={<Space direction="vertical">{item.error && <Typography.Text>错误：{JSON.stringify(item.error)}</Typography.Text>}{item.truncation && <Typography.Text>截断：{JSON.stringify(item.truncation)}</Typography.Text>}{item.installer && <Typography.Text>安装来源：{item.installer.source.api} · {statusLabels[item.installer.status]}</Typography.Text>}</Space>} /> : null)}
+      {[row.left, row.right].map((item, index) => {
+        if (!item) return null;
+        const device = `设备 ${index === 0 ? 'A' : 'B'}`;
+        const hasCollectionLimit = Boolean(item.error || item.truncation);
+        if (!hasCollectionLimit && !item.installer) return null;
+        return <Space key={index} direction="vertical" size={8} style={{ display: 'flex' }}>
+          {hasCollectionLimit && <Alert
+            type="warning"
+            message={`${device} · 采集限制`}
+            description={<Space direction="vertical">
+              {item.error && <Typography.Text>错误：{JSON.stringify(item.error)}</Typography.Text>}
+              {item.truncation && <Typography.Text>截断：{JSON.stringify(item.truncation)}</Typography.Text>}
+            </Space>}
+          />}
+          {item.installer && <Alert
+            type="info"
+            message={`${device} · 安装来源`}
+            description={<Typography.Text>{item.installer.source.api} · {statusLabels[item.installer.status]}</Typography.Text>}
+          />}
+        </Space>;
+      })}
       {row.category === 'collection' ? <Alert type="info" showIcon message="采集会话元数据" description="该项用于解释两份指纹的采集条件，不属于设备原始字段，因此详情不展开会话时间、配置或权限包装。" /> : sections.map(section => <Card key={section.key} title={section.title} size="small" className="comparison-section">
         <Table<MergedDisplayRow> rowKey="key" size="small" bordered pagination={(onlyDiffRows ? section.rows.filter(record => record.state !== 'same').length : section.rows.length) > 50 ? { pageSize: 50, showSizeChanger: false, showQuickJumper: true } : false} dataSource={onlyDiffRows ? section.rows.filter(record => record.state !== 'same') : section.rows} rowClassName={record => `row-${record.state}`} columns={[{ title: '字段', dataIndex: 'label', key: 'label', width: 220, fixed: 'left', render: value => <Typography.Text className="field-label">{value}</Typography.Text> }, { title: '设备 A', dataIndex: 'left', key: 'left', render: (value, record) => cell(value, 'A', record.label) }, { title: '设备 B', dataIndex: 'right', key: 'right', render: (value, record) => cell(value, 'B', record.label) }, { title: '对比', key: 'state', width: 110, render: (_, record) => <Tag color={record.state === 'same' ? 'success' : record.state === 'changed' ? 'error' : 'warning'}>{record.state === 'same' ? '相同' : record.state === 'changed' ? '差异' : record.state === 'left-only' ? '仅 A' : '仅 B'}</Tag> }] as ColumnsType<MergedDisplayRow>} scroll={{ x: 760 }} />
       </Card>)}
