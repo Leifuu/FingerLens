@@ -15,6 +15,7 @@ import java.util.*;
 import java.io.File;
 
 public final class BuildSystemCollector implements Collector {
+    private static final String[] SYSTEM_ENVIRONMENT_KEYS={"screen_brightness","screen_brightness_mode","screen_off_timeout","accelerometer_rotation","user_rotation","window_animation_scale","transition_animation_scale","animator_duration_scale"};
     private static final String[] RISK_PROPERTY_KEYS={
             "ro.boot.verifiedbootstate","ro.boot.flash.locked","ro.boot.vbmeta.device_state",
             "ro.boot.veritymode","ro.boot.warranty_bit","ro.boot.vbmeta.digest","ro.boot.slot_suffix",
@@ -82,6 +83,8 @@ public final class BuildSystemCollector implements Collector {
         s.read("environment","environment/locales","语言与区域","Configuration / LocaleList / TimeZone",()->{Configuration c=s.context.getResources().getConfiguration();TimeZone z=TimeZone.getDefault();return Json.obj("locales",c.getLocales().toLanguageTags(),"timezoneId",z.getID(),"timezoneDisplayName",z.getDisplayName(),"rawOffset",z.getRawOffset(),"daylightSavings",z.getDSTSavings(),"configuration",c.toString(),"fontScale",c.fontScale,"densityDpi",c.densityDpi,"uiMode",c.uiMode,"keyboard",c.keyboard,"navigation",c.navigation,"touchscreen",c.touchscreen);});
         s.ok("environment","environment/clocks","单次时钟快照","android-api","SystemClock",Json.obj("elapsedRealtime",SystemClock.elapsedRealtime(),"uptimeMillis",SystemClock.uptimeMillis(),"wallClockMillis",System.currentTimeMillis()));
         s.read("environment","environment/risk-settings","系统风控相关设置摘要","Settings.Global / Settings.Secure",()->riskSettings(s.context));
+        s.read("environment","environment/system-settings","显示与动画设置摘要","Settings.System",()->systemSettings(s.context));
+        for(String key:SYSTEM_ENVIRONMENT_KEYS)s.read("environment","environment/system/"+key,key,"Settings.System.getString",()->Settings.System.getString(s.context.getContentResolver(),key));
         s.read("environment","environment/device-state","设备初始化与运行状态","ActivityManager / UserManager / Settings",()->deviceState(s.context));
         s.read("environment","environment/app-standby","当前 App 待机分桶","UsageStatsManager.getAppStandbyBucket",()->appStandby(s.context));
         s.read("environment","environment/process-exits","当前 App 进程退出历史","ActivityManager.getHistoricalProcessExitReasons",()->processExitEnvironment(s.context));
@@ -133,6 +136,12 @@ public final class BuildSystemCollector implements Collector {
                 "accessibilityEnabled",settingFlag(resolver,false,"accessibility_enabled"),
                 "mockLocation",settingFlag(resolver,false,"mock_location"),
                 "installNonMarketApps",settingFlag(resolver,false,"install_non_market_apps"));
+    }
+    // 业务块：整理固定的显示/动画设置；原始键值继续逐项保留，读取失败不伪造结果。
+    private static JSONObject systemSettings(Context context){
+        JSONObject values=new JSONObject();String status="allowed";android.content.ContentResolver resolver=context.getContentResolver();
+        for(String key:SYSTEM_ENVIRONMENT_KEYS)try{Json.put(values,key,Settings.System.getString(resolver,key));}catch(SecurityException e){Json.put(values,key,null);status="denied";}
+        return Json.obj("available",true,"status",status,"settings",values);
     }
     // 业务块：只记录当前设备初始化和当前用户运行状态，不读取用户身份或位置。
     private static JSONObject deviceState(Context context){
