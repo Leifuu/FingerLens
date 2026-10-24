@@ -84,6 +84,7 @@ public final class BuildSystemCollector implements Collector {
         s.read("environment","environment/risk-settings","系统风控相关设置摘要","Settings.Global / Settings.Secure",()->riskSettings(s.context));
         s.read("environment","environment/device-state","设备初始化与运行状态","ActivityManager / UserManager / Settings",()->deviceState(s.context));
         s.read("environment","environment/app-standby","当前 App 待机分桶","UsageStatsManager.getAppStandbyBucket",()->appStandby(s.context));
+        s.read("environment","environment/process-exits","当前 App 进程退出历史","ActivityManager.getHistoricalProcessExitReasons",()->processExitEnvironment(s.context));
         s.read("environment","environment/location","定位与 GNSS 能力","LocationManager public state",()->locationEnvironment(s.context));
         String[] globals={"adb_enabled","development_settings_enabled","airplane_mode_on","auto_time","auto_time_zone","http_proxy","private_dns_mode","private_dns_specifier","wifi_on","bluetooth_on"};
         for(String k:globals)s.read("environment","environment/global/"+k,k,"Settings.Global.getString",()->Settings.Global.getString(s.context.getContentResolver(),k));
@@ -172,6 +173,49 @@ public final class BuildSystemCollector implements Collector {
         if(bucket==UsageStatsManager.STANDBY_BUCKET_RARE)return "rare";
         if(bucket==UsageStatsManager.STANDBY_BUCKET_RESTRICTED)return "restricted";
         return "unknown";
+    }
+    // 业务块：只保留当前 App 最近的进程退出元数据，限制条数且不读取 trace/描述文本。
+    private static JSONObject processExitEnvironment(Context context){
+        if(Build.VERSION.SDK_INT<30)return Json.obj("available",false,"status","unsupported","count",null,"entries",new JSONArray());
+        ActivityManager activity=context.getSystemService(ActivityManager.class);
+        if(activity==null)return Json.obj("available",false,"status","unavailable","count",null,"entries",new JSONArray());
+        try{
+            List<android.app.ApplicationExitInfo> history=activity.getHistoricalProcessExitReasons(context.getPackageName(),0,32);
+            if(history==null)return Json.obj("available",false,"status","unavailable","count",null,"entries",new JSONArray());
+            JSONObject reasons=new JSONObject(),statuses=new JSONObject();JSONArray entries=new JSONArray();
+            for(android.app.ApplicationExitInfo info:history){
+                if(info==null)continue;
+                String reason=exitReasonName(info.getReason());Json.put(reasons,reason,reasons.optInt(reason,0)+1);
+                String status=String.valueOf(info.getStatus());Json.put(statuses,status,statuses.optInt(status,0)+1);
+                byte[] state=info.getProcessStateSummary();
+                entries.put(Json.obj("processName",info.getProcessName(),"pid",info.getPid(),"reason",info.getReason(),"reasonName",reason,"status",info.getStatus(),"importance",info.getImportance(),"timestamp",info.getTimestamp(),"pssBytes",info.getPss(),"rssBytes",info.getRss(),"processStateSummaryLength",state==null?0:state.length,"processStateSummarySha256",state==null?null:PackageInputCollector.sha(state)));
+            }
+            return Json.obj("available",true,"status","ok","count",entries.length(),"limit",32,"reasons",reasons,"statuses",statuses,"entries",entries);
+        }catch(SecurityException e){
+            return Json.obj("available",false,"status","denied","count",null,"entries",new JSONArray());
+        }catch(Exception e){
+            return Json.obj("available",false,"status","error","count",null,"entries",new JSONArray(),"error",e.getClass().getName());
+        }
+    }
+    private static String exitReasonName(int reason){
+        if(reason==android.app.ApplicationExitInfo.REASON_ANR)return "anr";
+        if(reason==android.app.ApplicationExitInfo.REASON_CRASH)return "crash";
+        if(reason==android.app.ApplicationExitInfo.REASON_CRASH_NATIVE)return "crash_native";
+        if(reason==android.app.ApplicationExitInfo.REASON_DEPENDENCY_DIED)return "dependency_died";
+        if(reason==android.app.ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE)return "excessive_resource_usage";
+        if(reason==android.app.ApplicationExitInfo.REASON_EXIT_SELF)return "exit_self";
+        if(reason==android.app.ApplicationExitInfo.REASON_FREEZER)return "freezer";
+        if(reason==android.app.ApplicationExitInfo.REASON_INITIALIZATION_FAILURE)return "initialization_failure";
+        if(reason==android.app.ApplicationExitInfo.REASON_LOW_MEMORY)return "low_memory";
+        if(reason==android.app.ApplicationExitInfo.REASON_OTHER)return "other";
+        if(reason==android.app.ApplicationExitInfo.REASON_PACKAGE_STATE_CHANGE)return "package_state_change";
+        if(reason==android.app.ApplicationExitInfo.REASON_PACKAGE_UPDATED)return "package_updated";
+        if(reason==android.app.ApplicationExitInfo.REASON_PERMISSION_CHANGE)return "permission_change";
+        if(reason==android.app.ApplicationExitInfo.REASON_SIGNALED)return "signaled";
+        if(reason==android.app.ApplicationExitInfo.REASON_UNKNOWN)return "unknown";
+        if(reason==android.app.ApplicationExitInfo.REASON_USER_REQUESTED)return "user_requested";
+        if(reason==android.app.ApplicationExitInfo.REASON_USER_STOPPED)return "user_stopped";
+        return "code_"+reason;
     }
     private static Boolean settingFlag(android.content.ContentResolver resolver,boolean global,String key){
         String value=global?Settings.Global.getString(resolver,key):Settings.Secure.getString(resolver,key);
