@@ -119,6 +119,13 @@ describe('设备格式化展示边界', () => {
     expect(sections.find(section => section.key === 'glEsVersions')?.title).toBe('OpenGL ES 要求版本');
     expect(sections.find(section => section.key === 'featureNames')?.rows[0].value).toBe('android.hardware.camera');
   });
+  it('编解码摘要展示数量与媒体类型列表', () => {
+    const sections = buildSections(item('hardware/codecs-summary', 'hardware', { count: 2, encoderCount: 1, decoderCount: 1, hardwareAcceleratedCount: 1, softwareOnlyCount: 1, vendorCount: 1, codecNamesTruncated: false, mimeTypesTruncated: false, codecNames: ['c2.android.avc.decoder'], mimeTypes: ['video/avc'] }));
+    expect(sections[0].title).toBe('媒体编解码能力摘要');
+    expect(sections[0].rows.map(row => row.key)).toContain('hardwareAcceleratedCount');
+    expect(sections.find(section => section.key === 'codecNames')?.title).toBe('编解码器名');
+    expect(sections.find(section => section.key === 'mimeTypes')?.rows[0].value).toBe('video/avc');
+  });
   it('锁屏与生物识别摘要只展示公开状态', () => {
     const sections = buildSections(item('security/lock-biometric', 'security', { keyguardSecure: true, keyguardLocked: false, deviceSecure: true, deviceLocked: false, fingerprintFeature: true, faceFeature: false, irisFeature: false }));
     expect(sections[0].title).toBe('锁屏与生物识别环境');

@@ -20,6 +20,7 @@ public final class HardwareCollector implements Collector {
         s.ok("hardware","hardware/graphics","图形能力查询","jni","EGL / OpenGL ES / vkEnumerateInstanceExtensionProperties",new JSONObject(NativeProbe.graphics()));
         s.read("hardware","hardware/features","系统声明特性","PackageManager.getSystemAvailableFeatures",()->{JSONArray a=new JSONArray();for(FeatureInfo f:s.context.getPackageManager().getSystemAvailableFeatures())a.put(Json.obj("name",f.name,"version",f.version,"flags",f.flags,"reqGlEsVersion",f.reqGlEsVersion));return a;});
         s.read("hardware","hardware/features-summary","系统特性能力摘要","PackageManager.getSystemAvailableFeatures",()->featureSummary(s.context));
+        s.read("hardware","hardware/codecs-summary","媒体编解码能力摘要","MediaCodecList.ALL_CODECS",HardwareCollector::codecSummary);
         usb(s);
         drm(s);
         CameraManager cameras=s.context.getSystemService(CameraManager.class);
@@ -32,6 +33,13 @@ public final class HardwareCollector implements Collector {
         for(FeatureInfo feature:features){if(feature.name!=null){namedCount++;names.add(feature.name);}if(feature.version>0){versionedCount++;maxVersion=Math.max(maxVersion,feature.version);}if(feature.reqGlEsVersion>0)glEsVersions.add(feature.reqGlEsVersion);}
         JSONArray featureNames=new JSONArray();for(String name:names)if(featureNames.length()<256)featureNames.put(name);JSONArray glEs=new JSONArray();for(Integer version:glEsVersions)glEs.put(version);
         return Json.obj("count",features.length,"namedCount",namedCount,"versionedCount",versionedCount,"maxVersion",maxVersion,"featureNames",featureNames,"featureNamesTruncated",names.size()>256,"glEsVersions",glEs);
+    }
+    // 业务块：把编解码器集合压缩成可比较摘要；原始 hardware/codecs 继续保留。
+    private static JSONObject codecSummary(){
+        MediaCodecInfo[] codecs=new MediaCodecList(MediaCodecList.ALL_CODECS).getCodecInfos();TreeSet<String> names=new TreeSet<>(String.CASE_INSENSITIVE_ORDER);TreeSet<String> types=new TreeSet<>(String.CASE_INSENSITIVE_ORDER);int encoderCount=0,decoderCount=0;Integer hardwareAcceleratedCount=Build.VERSION.SDK_INT>=29?0:null,softwareOnlyCount=Build.VERSION.SDK_INT>=29?0:null,vendorCount=Build.VERSION.SDK_INT>=29?0:null;
+        for(MediaCodecInfo codec:codecs){names.add(codec.getName());String[] supported=codec.getSupportedTypes();if(supported!=null)for(String type:supported)if(type!=null)types.add(type);if(codec.isEncoder())encoderCount++;else decoderCount++;if(Build.VERSION.SDK_INT>=29){if(codec.isHardwareAccelerated())hardwareAcceleratedCount++;if(codec.isSoftwareOnly())softwareOnlyCount++;if(codec.isVendor())vendorCount++;}}
+        JSONArray codecNames=new JSONArray();for(String name:names)if(codecNames.length()<256)codecNames.put(name);JSONArray mimeTypes=new JSONArray();for(String type:types)if(mimeTypes.length()<256)mimeTypes.put(type);
+        return Json.obj("count",codecs.length,"encoderCount",encoderCount,"decoderCount",decoderCount,"hardwareAcceleratedCount",hardwareAcceleratedCount,"softwareOnlyCount",softwareOnlyCount,"vendorCount",vendorCount,"codecNames",codecNames,"codecNamesTruncated",names.size()>256,"mimeTypes",mimeTypes,"mimeTypesTruncated",types.size()>256);
     }
     // 业务块：只读取 UsbManager 已公开的设备描述符，不申请 USB 权限、不读取序列号。
     private void usb(ItemSink s){
