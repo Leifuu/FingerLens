@@ -166,6 +166,25 @@ function componentSections(key: string, value: Json[]): DisplaySection {
   return section(key, `${labels[key] || key} 摘要（原始条目保留在 JSON）`, objectRows(summary));
 }
 
+function usbSections(value: Json): DisplaySection[] {
+  if (!object(value) || !Array.isArray(value.devices)) return genericSections(value);
+  const vendorIds: number[] = [], productIds: number[] = [], classCounts: JsonObject = {};
+  let interfaceCount = 0, endpointCount = 0;
+  for (const device of value.devices) {
+    if (!object(device)) continue;
+    if (typeof device.vendorId === 'number' && !vendorIds.includes(device.vendorId) && vendorIds.length < 64) vendorIds.push(device.vendorId);
+    if (typeof device.productId === 'number' && !productIds.includes(device.productId) && productIds.length < 64) productIds.push(device.productId);
+    if (!Array.isArray(device.interfaces)) continue;
+    interfaceCount += device.interfaces.length;
+    for (const face of device.interfaces) if (object(face)) {
+      if (typeof face.endpointCount === 'number') endpointCount += face.endpointCount;
+      if (typeof face.class === 'number') classCounts[String(face.class)] = typeof classCounts[String(face.class)] === 'number' ? (classCounts[String(face.class)] as number) + 1 : 1;
+    }
+  }
+  const summary = objectRows({ count: typeof value.count === 'number' ? value.count : value.devices.length, vendorIdCount: vendorIds.length, productIdCount: productIds.length, interfaceCount, endpointCount, interfaceClassCounts: classCounts });
+  return [section('summary', 'USB 设备摘要（原始描述符保留在 JSON）', summary), section('vendorIds', '厂商 ID', vendorIds.map((id, index) => row(`[${index}]`, id)), true), section('productIds', '产品 ID', productIds.map((id, index) => row(`[${index}]`, id)), true)].filter(item => item.rows.length);
+}
+
 function genericSections(value: Json): DisplaySection[] {
   if (typeof value === 'string' && value.includes('\n')) return textLines(value);
   if (Array.isArray(value)) return [section('array', '采集数组', arrayRows(value, 'item'), true)];
@@ -283,6 +302,7 @@ export function buildSections(item?: Item): DisplaySection[] {
   if (item.key === 'packages/enumeration' && object(value)) return [section('enumeration', '应用枚举结果', objectRows(value, ['returnedCount']))];
   if (item.key === 'security/trust-store') return trustStoreSections(value);
   if (item.key === 'attestation/tee' || item.key === 'attestation/plain' || item.key === 'attestation/strongbox') return attestationSections(item.key, value);
+  if (item.key === 'hardware/usb') return usbSections(value);
   const riskSummary = riskSummarySections(item.key, value);
   if (riskSummary) return riskSummary;
   if (item.key === 'build/getprop' || item.source.api === '/system/bin/getprop' || item.category === 'build' && item.key.includes('property')) return buildProperties(value);

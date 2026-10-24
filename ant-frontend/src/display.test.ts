@@ -142,9 +142,11 @@ describe('设备格式化展示边界', () => {
   it('USB 设备详情按数量与接口摘要展示', () => {
     const value = item('hardware/usb', 'hardware', { count: 1, devices: [{ deviceName: '/dev/bus/usb/001/002', vendorId: 18, productId: 52, interfaces: [{ id: 0, endpointCount: 2 }] }] });
     const sections = buildSections(value);
-    expect(sections[0].title).toBe('USB 设备公开清单');
-    expect(sections[0].rows.map(row => row.key)).toContain('count');
-    expect(sections.find(section => section.key === 'devices')?.rows.some(row => row.key === '[0].vendorId')).toBe(true);
+    expect(sections[0].title).toContain('原始描述符保留');
+    expect(sections[0].rows.map(row => row.key)).toContain('interfaceCount');
+    expect(sections.find(section => section.key === 'vendorIds')?.rows[0].value).toBe('18');
+    expect(JSON.stringify(sections)).not.toContain('/dev/bus/usb/001/002');
+    expect(JSON.stringify(value)).toContain('/dev/bus/usb/001/002');
   });
   it('电源与热状态按公开快照字段展示', () => {
     const sections = buildSections(item('environment/power-thermal', 'environment', { powerSaveMode: false, interactive: true, deviceIdleMode: false, thermalStatus: 0, thermalHeadroom: 1.25 }));
