@@ -30,6 +30,7 @@
 - [KeyguardManager](https://developer.android.com/reference/android/app/KeyguardManager) 与 [PackageManager 系统特性](https://developer.android.com/reference/android/content/pm/PackageManager#hasSystemFeature(java.lang.String))：公开锁屏是否安全、当前锁定状态及设备声明的指纹/面部/虹膜能力。本工程新增 `security/lock-biometric`，只记录能力和状态，不读取生物特征或模板。
 - [AccessibilityManager](https://developer.android.com/reference/android/view/accessibility/AccessibilityManager) 与 [AccessibilityServiceInfo](https://developer.android.com/reference/android/accessibilityservice/AccessibilityServiceInfo)：公开已启用无障碍服务的组件、反馈类型和能力位。本工程新增 `security/accessibility`，只读取服务元数据，不读取窗口内容、文本或用户操作。
 - [PackageManager.getPackageInfo](https://developer.android.com/reference/android/content/pm/PackageManager#getPackageInfo(java.lang.String,%20int)) 与 [InstallSourceInfo](https://developer.android.com/reference/android/content/pm/InstallSourceInfo)：公开当前 App 自身的版本、安装来源和签名证书摘要。本工程新增 `security/self-integrity`，只保留 SHA-256，不导出证书 DER，不枚举其它包。
+- [PackageManager.getInstalledPackages](https://developer.android.com/reference/android/content/pm/PackageManager#getInstalledPackages(int))：公开当前 App 按包可见性策略可见的应用版本、组件、权限和应用标志。本工程新增 `packages/summary`，只输出包环境统计，同时保留 `packages/*` 原始条目。
 - Play Integrity 的本地依赖摘要位于 `attestation/play-integrity-environment`，仅记录 Google Play services 与 Play 商店的存在、版本、安装来源和签名 SHA-256；`verdictAvailable=false`，不把本地包状态冒充远程完整性结论。
 
 ## GitHub 上的公开 SDK/实现

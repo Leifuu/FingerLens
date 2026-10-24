@@ -28,6 +28,11 @@ public class CollectionChecks {
         JSONObject truncated=new JSONObject(NativeProbe.readFile(f.getPath(),content.length-1));assertTrue(truncated.getBoolean("truncated"));assertEquals(content.length-1,android.util.Base64.decode(truncated.getString("base64"),0).length);
         assertEquals(22,new JSONObject(NativeProbe.readFile(f.getPath(),0)).getInt("errno"));
     }
+    @Test public void packageSummaryKeepsRawEnumerationSeparate()throws Exception{
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new PackageInputCollector("packages").collect(sink);
+        JSONObject summary=null,enumeration=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("packages/summary"))summary=item;if(item.getString("key").equals("packages/enumeration"))enumeration=item;}
+        assertNotNull("应生成应用清单摘要",summary);assertNotNull("应保留应用枚举范围",enumeration);assertEquals("ok",summary.getString("status"));assertEquals("ok",enumeration.getString("status"));JSONObject value=summary.getJSONObject("value");assertEquals(value.getInt("returnedCount"),enumeration.getJSONObject("value").getInt("returnedCount"));assertTrue(value.has("debuggableCount"));assertTrue(value.has("systemAppCount"));assertTrue(value.has("targetSdkCounts"));
+    }
     @Test public void binaryLongAndStatusBoundaries()throws Exception{
         Object binary=Json.bytes(android.util.Base64.encodeToString(new byte[]{(byte)255,0},android.util.Base64.NO_WRAP));assertTrue(binary instanceof JSONObject);assertEquals("base64",((JSONObject)binary).getString("$type"));
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());sink.ok("build","test/long","long","java","test",Long.MAX_VALUE);sink.read("build","test/null","null","test",()->null);sink.read("build","test/empty","empty","test",()->"");sink.read("build","test/denied","denied","test",()->{throw new SecurityException("合成拒绝");});sink.read("build","test/unsupported","unsupported","test",()->{throw new UnsupportedOperationException("合成不支持");});
