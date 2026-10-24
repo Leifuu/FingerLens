@@ -159,6 +159,12 @@ describe('设备格式化展示边界', () => {
     expect(sections.find(section => section.key === 'productNames')?.title).toBe('音频设备名');
     expect(sections.find(section => section.key === 'sampleRates')?.rows[0].value).toBe('48000');
   });
+  it('电池摘要展示电量、供电状态和公开属性', () => {
+    const sections = buildSections(item('battery/summary', 'battery', { available: true, level: 80, scale: 100, percentage: 80, status: 2, charging: true, plugged: 1, pluggedAc: true, pluggedUsb: false, pluggedWireless: false, health: 2, temperatureC: 30.5, voltageMv: 4000, technology: 'Li-ion', present: true, capacityPercent: 80, chargeCounterUah: 3000000, currentNowUa: -500000, currentAverageUa: -400000, energyCounterNwh: 1000000000 }));
+    expect(sections[0].title).toBe('电池环境摘要');
+    expect(sections[0].rows.map(row => row.key)).toEqual(['available', 'level', 'scale', 'percentage', 'status', 'charging', 'plugged', 'pluggedAc', 'pluggedUsb', 'pluggedWireless', 'health', 'temperatureC', 'voltageMv', 'technology', 'present', 'capacityPercent', 'chargeCounterUah', 'currentNowUa', 'currentAverageUa', 'energyCounterNwh']);
+    expect(sections[0].rows.find(row => row.key === 'currentNowUa')?.value).toBe('-500000');
+  });
   it('蓝牙摘要展示访问状态与已配对设备计数', () => {
     const sections = buildSections(item('network/bluetooth-summary', 'network', { available: true, access: 'allowed', adapterState: 12, adapterNamePresent: true, adapterAddressPresent: true, bondedCount: 1, bondedNameCount: 1, bondedAddressCount: 1, bondedTypeCounts: { '1': 1 }, bondedClassCounts: { '1028': 1 } }));
     expect(sections[0].title).toBe('蓝牙能力摘要');

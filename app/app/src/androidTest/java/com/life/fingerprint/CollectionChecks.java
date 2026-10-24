@@ -206,4 +206,9 @@ public class CollectionChecks {
         JSONObject summary=null,list=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("sensors/summary"))summary=item;if(item.getString("key").equals("sensors/list"))list=item;}
         assertNotNull("应生成传感器能力摘要",summary);assertNotNull("应保留传感器完整清单",list);assertEquals("ok",summary.getString("status"));assertEquals("ok",list.getString("status"));JSONObject value=summary.getJSONObject("value");assertTrue(value.has("count"));assertTrue(value.has("typeCounts"));assertTrue(value.has("vendors"));assertTrue(value.getJSONArray("vendors").length()<=128);assertTrue(value.has("vendorsTruncated"));assertEquals(value.getInt("count"),list.getJSONArray("value").length());
     }
+    @Test public void batterySummaryKeepsRawBatteryEvidenceSeparate()throws Exception{
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new HardwareCollector("battery").collect(sink);
+        JSONObject summary=null,broadcast=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("battery/summary"))summary=item;if(item.getString("key").equals("battery/broadcast"))broadcast=item;}
+        assertNotNull("应生成电池环境摘要",summary);assertNotNull("应保留电池广播快照",broadcast);assertEquals("ok",summary.getString("status"));JSONObject value=summary.getJSONObject("value");assertTrue(value.has("available"));assertTrue(value.has("percentage"));assertTrue(value.has("charging"));assertTrue(value.has("temperatureC"));assertTrue(value.has("present"));
+    }
 }
