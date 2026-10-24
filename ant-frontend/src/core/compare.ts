@@ -5,6 +5,11 @@ function object(v: Json | undefined): v is Record<string, Json> { return v !== n
 function canonical(v: Json): string { if (Array.isArray(v)) return `[${v.map(canonical).join(',')}]`; if (object(v)) return `{${Object.keys(v).sort().map(k => `${JSON.stringify(k)}:${canonical(v[k])}`).join(',')}}`; return JSON.stringify(v); }
 // 智能过滤只忽略采集进程、运行时和启动时间会自然变化的字段，稳定设备字段仍参与比较。
 const transient = new Set(['pid', 'uid', 'startedAt', 'finishedAt', 'startTime', 'startTimeMillis', 'processStartTime', 'processStartTimeMillis', 'runTime', 'runtime', 'runningTime', 'elapsedRealtime', 'uptimeMillis', 'wallClockMillis', 'firstInstallTime', 'lastUpdateTime', 'challengeBase64', 'signatureBase64', 'publicKeyBase64', 'certificateChainBase64', 'timestamp']);
+function isDynamicField(itemKey: string, field: string, path: string): boolean {
+  if (transient.has(field)) return true;
+  // 应用清单的旧/新对象都可能把 UID 放在 application.uid；按路径兼容两种表示。
+  return itemKey.startsWith('packages/') && (field === 'application.uid' || path.endsWith('.application.uid'));
+}
 function project(v: Json, rules: Rules, counter: { n: number }, key: string, path = ''): Json {
   if (Array.isArray(v)) {
     const result = v.map(x => project(x, rules, counter, key, path + '[]'));
@@ -15,7 +20,7 @@ function project(v: Json, rules: Rules, counter: { n: number }, key: string, pat
   if (object(v)) {
     const result: Record<string, Json> = Object.create(null);
     for (const k of Object.keys(v)) {
-      if (rules.ignoreDynamic && (transient.has(k) || key.startsWith('directories/path/') && ['mtimeSeconds', 'size'].includes(k))) { counter.n++; continue; }
+      if (rules.ignoreDynamic && (isDynamicField(key, k, path ? `${path}.${k}` : k) || key.startsWith('directories/path/') && ['mtimeSeconds', 'size'].includes(k))) { counter.n++; continue; }
       result[k] = project(v[k], rules, counter, key, path ? `${path}.${k}` : k);
     }
     return result;
