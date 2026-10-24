@@ -24,6 +24,12 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.map(row => row.key)).toContain('debuggableCount');
     expect(sections[0].rows.map(row => row.key)).toContain('targetSdkCounts.35');
   });
+  it('输入设备摘要展示虚拟化与能力计数', () => {
+    const sections = buildSections(item('input/summary', 'input', { count: 2, virtualCount: 1, externalCount: 0, microphoneCount: 1, vibratorCount: 1, motionRangeCount: 3, accessErrorCount: 0, keyboardTypeCounts: { '1': 2 }, sourceCounts: { '16777232': 1 } }));
+    expect(sections[0].title).toBe('输入设备能力摘要');
+    expect(sections[0].rows.map(row => row.key)).toContain('virtualCount');
+    expect(sections[0].rows.map(row => row.key)).toContain('keyboardTypeCounts.1');
+  });
   it('屏幕字段只属于对应子面板，支持模式和 HDR 数组不遗漏', () => {
     const value = item('display/0', 'display', { displayId: 0, name: '内置屏幕', widthPixels: 720, refreshRate: 60, supportedModes: [{ modeId: 1, physicalWidth: 720 }], presentationDeadlineNanos: { $type: 'int64', value: '9007199254740993' }, hdr: { types: [1], minLuminance: 0 }, futureField: null });
     const sections = buildSections(value);
