@@ -16,6 +16,7 @@
 - [MediaDrm](https://developer.android.com/reference/android/media/MediaDrm)：公开 DRM 厂商、版本、算法、Widevine 支持和安全级别能力。本工程新增 `hardware/drm/widevine`，只保留 `deviceUniqueId` 的 SHA-256 与长度，原始唯一值永不写入指纹。
 - [WebView.getCurrentWebViewPackage](https://developer.android.com/reference/android/webkit/WebView#getCurrentWebViewPackage())：公开当前设备选择的 WebView 提供方包和版本。本工程新增 `environment/webview-provider`，同时保留提供方签名摘要，用于人工核对运行环境，不把版本或签名直接判定为风险。
 - [DevicePolicyManager](https://developer.android.com/reference/android/app/admin/DevicePolicyManager) 与 [UserManager](https://developer.android.com/reference/android/os/UserManager)：公开当前 App 的设备/资料所有者状态、当前用户是否为托管资料、用户解锁状态和有限用户限制。本工程新增 `security/device-management`，只记录当前 App 与当前用户范围，不枚举其它管理包，不自动判定风险。
+- [AppOpsManager](https://developer.android.com/reference/android/app/AppOpsManager) 与 [Settings.canDrawOverlays](https://developer.android.com/reference/android/provider/Settings#canDrawOverlays(android.content.Context))：公开当前 UID 的特殊访问模式和悬浮窗状态。本工程新增 `security/special-access`，只调用无副作用的 `checkOpNoThrow`，不申请权限、不调用 `noteOp`。
 - Play Integrity 的本地依赖摘要位于 `attestation/play-integrity-environment`，仅记录 Google Play services 与 Play 商店的存在、版本、安装来源和签名 SHA-256；`verdictAvailable=false`，不把本地包状态冒充远程完整性结论。
 
 ## GitHub 上的公开 SDK/实现

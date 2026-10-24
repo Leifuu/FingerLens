@@ -5,7 +5,9 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.app.admin.DevicePolicyManager;
+import android.app.AppOpsManager;
 import android.os.*;
+import android.provider.Settings;
 import android.security.keystore.*;
 import android.util.Base64;
 import org.json.*;
@@ -24,6 +26,7 @@ public final class SecurityCollector implements Collector {
         if(module.equals("virtualization")){virtualization(s);return;}
         s.ok("security","security/self","应用安全上下文","android-api","Process / ApplicationInfo / Debug",Json.obj("uid",android.os.Process.myUid(),"pid",android.os.Process.myPid(),"debuggable",(s.context.getApplicationInfo().flags&ApplicationInfo.FLAG_DEBUGGABLE)!=0,"debuggerConnected",Debug.isDebuggerConnected(),"waitingForDebugger",Debug.waitingForDebugger()));
         s.read("security","security/device-management","设备管理与用户环境","DevicePolicyManager / UserManager",()->managementEnvironment(s.context));
+        s.read("security","security/special-access","本 App 特殊访问状态","AppOpsManager / Settings.canDrawOverlays",()->specialAccess(s.context));
         for(String p:new String[]{"/proc/self/attr/current","/proc/self/status","/sys/fs/selinux/enforce","/sys/fs/selinux/policyvers","/sys/fs/selinux/checkreqprot","/proc/cmdline","/proc/bootconfig","/system/etc/selinux/plat_sepolicy.cil","/vendor/etc/selinux/vendor_sepolicy.cil"})s.file("security","security/file"+p,p);
         s.read("security","security/buildSerial","Build 序列号（可能受限）","Build.getSerial",()->Build.VERSION.SDK_INT>=26?Build.getSerial():Build.SERIAL);
         s.read("security","security/providers","安全提供者","Security.getProviders",()->{JSONArray a=new JSONArray();for(Provider p:Security.getProviders()){JSONArray services=new JSONArray();for(Provider.Service v:p.getServices())services.put(Json.obj("type",v.getType(),"algorithm",v.getAlgorithm(),"className",v.getClassName()));a.put(Json.obj("name",p.getName(),"info",p.getInfo(),"version",p.getVersion(),"services",services));}return a;});
@@ -43,6 +46,17 @@ public final class SecurityCollector implements Collector {
                 "userUnlocked",Build.VERSION.SDK_INT<24||users==null||users.isUserUnlocked(),
                 "storageEncryptionStatus",policy==null?null:policy.getStorageEncryptionStatus(),
                 "restrictions",restrictions);
+    }
+    // 业务块：只查询本 App UID 的 AppOps，不调用 noteOp、不申请授权，也不枚举其它包。
+    private static JSONObject specialAccess(Context context){
+        AppOpsManager ops=context.getSystemService(AppOpsManager.class);
+        JSONObject out=Json.obj("available",ops!=null,"canDrawOverlays",Settings.canDrawOverlays(context));
+        if(ops==null)return out;
+        JSONObject appOps=new JSONObject();
+        String[] names={AppOpsManager.OPSTR_SYSTEM_ALERT_WINDOW,AppOpsManager.OPSTR_GET_USAGE_STATS,AppOpsManager.OPSTR_PICTURE_IN_PICTURE,AppOpsManager.OPSTR_MOCK_LOCATION,AppOpsManager.OPSTR_WRITE_SETTINGS};
+        for(String name:names){int mode=ops.checkOpNoThrow(name,android.os.Process.myUid(),context.getPackageName());Json.put(appOps,name,Json.obj("mode",mode,"allowed",mode==AppOpsManager.MODE_ALLOWED));}
+        Json.put(out,"appOps",appOps);
+        return out;
     }
     public static JSONObject key(String alias,boolean attest,boolean strong)throws Exception {
         KeyStore store=KeyStore.getInstance("AndroidKeyStore");store.load(null);

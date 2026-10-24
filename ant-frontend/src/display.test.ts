@@ -63,6 +63,12 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.some(row => row.key.includes('deviceOwnerForSelf'))).toBe(true);
     expect(sections[0].rows.some(row => row.key.includes('restrictions.no_debugging_features'))).toBe(true);
   });
+  it('特殊访问摘要保留 AppOps 与悬浮窗状态', () => {
+    const sections = buildSections(item('security/special-access', 'security', { available: true, canDrawOverlays: false, appOps: { 'android:system_alert_window': { mode: 1, allowed: false } } }));
+    expect(sections[0].title).toBe('本 App 特殊访问状态');
+    expect(sections[0].rows.some(row => row.key.includes('canDrawOverlays'))).toBe(true);
+    expect(sections[0].rows.some(row => row.key.includes('appOps.android:system_alert_window.mode'))).toBe(true);
+  });
   it('proc 多行文本按行拆分，正确行不会因另一行变化而整体标红', () => {
     const sections = buildSections(item('kernel/proc/diskstats', 'kernel', '8 0 sda 1 2\n8 1 sda1 3 4\n'));
     expect(sections[0].table).toBe(true);
