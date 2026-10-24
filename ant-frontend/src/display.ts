@@ -23,8 +23,13 @@ const STATUS_LABELS: Record<string, string> = {
   security_update_required: '需要安全更新', error: '读取异常', skipped: '未执行', truncated: '已截断', ok: '成功',
 };
 
+const APP_OP_MODE_LABELS: Record<number, string> = {
+  0: '允许', 1: '忽略', 2: '拒绝', 3: '默认', 4: '前台允许',
+};
+
 function displayText(key: string, value: Json): string {
   const field = key.split('.').pop() || key;
+  if (typeof value === 'number' && field === 'mode' && key.startsWith('appOps.')) return APP_OP_MODE_LABELS[value] || `模式 ${value}`;
   if (typeof value === 'string' && (field === 'access' || field.endsWith('Access') || field.endsWith('Status'))) {
     return STATUS_LABELS[value] || (value.startsWith('error_') ? `异常（${value.slice(6)}）` : value);
   }

@@ -286,6 +286,14 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.map(row => row.key)).toContain('glRenderer');
     expect(sections.find(section => section.key === 'vulkanExtensionNames')?.title).toBe('Vulkan 扩展名');
   });
+  it('AppOps 模式码显示为可读状态并保留允许标志', () => {
+    const sections = buildSections(item('security/special-access', 'security', { available: true, appOps: { 'android:camera': { mode: 0, allowed: true }, 'android:record_audio': { mode: 1, allowed: false }, 'android:fine_location': { mode: 4, allowed: false } } }));
+    const rows = sections[0].rows;
+    expect(rows.find(row => row.key === 'appOps.android:camera.mode')?.value).toBe('允许');
+    expect(rows.find(row => row.key === 'appOps.android:record_audio.mode')?.value).toBe('忽略');
+    expect(rows.find(row => row.key === 'appOps.android:fine_location.mode')?.value).toBe('前台允许');
+    expect(rows.find(row => row.key === 'appOps.android:camera.allowed')?.value).toBe('true');
+  });
   it('设备初始化与运行状态摘要按稳定字段顺序展示', () => {
     const sections = buildSections(item('environment/device-state', 'environment', { deviceProvisioned: true, userSetupComplete: true, bootCount: '7', lowRamDevice: false, userUnlocked: true, userRunning: true }));
     expect(sections[0].title).toBe('设备初始化与运行状态');
