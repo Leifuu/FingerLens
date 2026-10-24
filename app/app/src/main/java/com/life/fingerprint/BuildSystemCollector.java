@@ -88,6 +88,7 @@ public final class BuildSystemCollector implements Collector {
         s.read("environment","environment/device-state","设备初始化与运行状态","ActivityManager / UserManager / Settings",()->deviceState(s.context));
         s.read("environment","environment/app-standby","当前 App 待机分桶","UsageStatsManager.getAppStandbyBucket",()->appStandby(s.context));
         s.read("environment","environment/process-exits","当前 App 进程退出历史","ActivityManager.getHistoricalProcessExitReasons",()->processExitEnvironment(s.context));
+        s.read("environment","environment/low-power-standby","低功耗待机与重启能力","PowerManager",()->lowPowerStandby(s.context));
         s.read("environment","environment/location","定位与 GNSS 能力","LocationManager public state",()->locationEnvironment(s.context));
         String[] globals={"adb_enabled","development_settings_enabled","airplane_mode_on","auto_time","auto_time_zone","http_proxy","private_dns_mode","private_dns_specifier","wifi_on","bluetooth_on"};
         for(String k:globals)s.read("environment","environment/global/"+k,k,"Settings.Global.getString",()->Settings.Global.getString(s.context.getContentResolver(),k));
@@ -225,6 +226,22 @@ public final class BuildSystemCollector implements Collector {
         if(reason==android.app.ApplicationExitInfo.REASON_USER_REQUESTED)return "user_requested";
         if(reason==android.app.ApplicationExitInfo.REASON_USER_STOPPED)return "user_stopped";
         return "code_"+reason;
+    }
+    // 业务块：读取公开的低功耗待机和用户空间重启能力，不改变电源策略。
+    private static JSONObject lowPowerStandby(Context context){
+        if(Build.VERSION.SDK_INT<30)return Json.obj("available",false,"status","unsupported","lowPowerStandbyEnabled",null,"lowPowerStandbyExempt",null,"rebootingUserspaceSupported",null);
+        PowerManager power=context.getSystemService(PowerManager.class);
+        if(power==null)return Json.obj("available",false,"status","unavailable","lowPowerStandbyEnabled",null,"lowPowerStandbyExempt",null,"rebootingUserspaceSupported",null);
+        try{
+            return Json.obj("available",true,"status","ok",
+                    "lowPowerStandbyEnabled",Build.VERSION.SDK_INT>=33?power.isLowPowerStandbyEnabled():null,
+                    "lowPowerStandbyExempt",Build.VERSION.SDK_INT>=34?power.isExemptFromLowPowerStandby():null,
+                    "rebootingUserspaceSupported",power.isRebootingUserspaceSupported());
+        }catch(SecurityException e){
+            return Json.obj("available",false,"status","denied","lowPowerStandbyEnabled",null,"lowPowerStandbyExempt",null,"rebootingUserspaceSupported",null);
+        }catch(RuntimeException e){
+            return Json.obj("available",false,"status","error","lowPowerStandbyEnabled",null,"lowPowerStandbyExempt",null,"rebootingUserspaceSupported",null,"error",e.getClass().getName());
+        }
     }
     private static Boolean settingFlag(android.content.ContentResolver resolver,boolean global,String key){
         String value=global?Settings.Global.getString(resolver,key):Settings.Secure.getString(resolver,key);

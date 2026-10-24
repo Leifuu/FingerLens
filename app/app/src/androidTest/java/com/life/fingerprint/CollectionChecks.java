@@ -231,6 +231,11 @@ public class CollectionChecks {
         JSONObject exits=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("environment/process-exits")){exits=item;break;}}
         assertNotNull("应记录进程退出历史",exits);assertEquals("ok",exits.getString("status"));JSONObject value=exits.getJSONObject("value");assertTrue(value.has("available"));assertTrue(value.has("count"));assertTrue(value.getInt("count")<=32);assertTrue(value.has("reasons"));assertTrue(value.has("statuses"));assertTrue(value.has("entries"));JSONArray entries=value.getJSONArray("entries");for(int i=0;i<entries.length();i++){JSONObject entry=entries.getJSONObject(i);assertFalse(entry.has("description"));assertFalse(entry.has("traceInputStream"));}
     }
+    @Test public void lowPowerStandbyEvidenceKeepsVersionBoundaries()throws Exception{
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new BuildSystemCollector("environment").collect(sink);
+        JSONObject standby=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("environment/low-power-standby")){standby=item;break;}}
+        assertNotNull("应记录低功耗待机与重启能力",standby);assertEquals("ok",standby.getString("status"));JSONObject value=standby.getJSONObject("value");assertTrue(value.has("available"));assertTrue(value.has("status"));assertTrue(value.has("lowPowerStandbyEnabled"));assertTrue(value.has("lowPowerStandbyExempt"));assertTrue(value.has("rebootingUserspaceSupported"));
+    }
     @Test public void webViewUserAgentKeepsLengthMetadata()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new BuildSystemCollector("environment").collect(sink);
         JSONObject userAgent=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("environment/webview-user-agent")){userAgent=item;break;}}
