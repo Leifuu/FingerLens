@@ -165,6 +165,11 @@ public class CollectionChecks {
         JSONObject summary=null,raw=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("network/wifi-summary"))summary=item;if(item.getString("key").equals("network/wifi-cached-scan"))raw=item;}
         assertNotNull("应生成 Wi-Fi 能力摘要",summary);assertNotNull("应保留 Wi-Fi 缓存原始条目",raw);assertEquals("ok",summary.getString("status"));JSONObject value=summary.getJSONObject("value");assertTrue(value.has("connectionAccess"));assertTrue(value.has("scanAccess"));assertTrue(value.has("cachedScanCount"));assertTrue(value.getJSONArray("frequencies").length()<=64);assertTrue(value.has("frequenciesTruncated"));
     }
+    @Test public void wifiCapabilitiesKeepApiBoundariesExplicit()throws Exception{
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new NetworkCollector("network").collect(sink);
+        JSONObject item=null;for(int i=0;i<sink.items.length();i++){JSONObject candidate=sink.items.getJSONObject(i);if(candidate.getString("key").equals("network/wifi-capabilities")){item=candidate;break;}}
+        assertNotNull("应记录 Wi-Fi 链路能力",item);assertEquals("ok",item.getString("status"));JSONObject value=item.getJSONObject("value");assertTrue(value.has("available"));assertTrue(value.has("access"));assertTrue(value.has("wifiStandard"));assertTrue(value.has("maxSupportedRxLinkSpeedMbps"));assertTrue(value.has("maxSupportedTxLinkSpeedMbps"));assertTrue(value.has("apMldMacPresent"));assertTrue(value.has("apMloLinkId"));assertTrue(value.has("affiliatedMloLinkCount"));assertFalse(item.toString().contains("apMldMacAddress"));
+    }
     @Test public void connectivitySummaryKeepsRawNetworksSeparate()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new NetworkCollector("network").collect(sink);
         JSONObject summary=null,raw=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("network/connectivity-summary"))summary=item;if(item.getString("key").equals("network/connectivity"))raw=item;}

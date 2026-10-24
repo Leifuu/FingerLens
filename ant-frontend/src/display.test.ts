@@ -242,6 +242,11 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.map(row => row.key)).toContain('scanAccess');
     expect(sections.find(section => section.key === 'frequencies')?.title).toBe('缓存扫描频率（MHz）');
   });
+  it('Wi-Fi 链路能力展示标准、速率与 MLO 摘要', () => {
+    const sections = buildSections(item('network/wifi-capabilities', 'network', { available: true, access: 'allowed', wifiStandard: 6, maxSupportedRxLinkSpeedMbps: 1201, maxSupportedTxLinkSpeedMbps: 1201, apMldMacPresent: true, apMloLinkId: 0, affiliatedMloLinkCount: 2 }));
+    expect(sections[0].title).toBe('Wi-Fi 链路能力');
+    expect(sections[0].rows.map(row => row.key)).toEqual(['available', 'access', 'wifiStandard', 'maxSupportedRxLinkSpeedMbps', 'maxSupportedTxLinkSpeedMbps', 'apMldMacPresent', 'apMloLinkId', 'affiliatedMloLinkCount']);
+  });
   it('锁屏与生物识别摘要只展示公开状态', () => {
     const sections = buildSections(item('security/lock-biometric', 'security', { keyguardSecure: true, keyguardLocked: false, deviceSecure: true, deviceLocked: false, fingerprintFeature: true, faceFeature: false, irisFeature: false, biometricStrongCode: 0, biometricStrongStatus: 'success', biometricWeakCode: 11, biometricWeakStatus: 'none_enrolled' }));
     expect(sections[0].title).toBe('锁屏与生物识别环境');
