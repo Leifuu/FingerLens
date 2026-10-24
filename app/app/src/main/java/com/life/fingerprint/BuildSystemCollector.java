@@ -13,6 +13,11 @@ import java.util.*;
 import java.io.File;
 
 public final class BuildSystemCollector implements Collector {
+    private static final String[] RISK_PROPERTY_KEYS={
+            "ro.boot.verifiedbootstate","ro.boot.flash.locked","ro.boot.vbmeta.device_state",
+            "ro.boot.veritymode","ro.boot.warranty_bit","ro.debuggable","ro.secure",
+            "ro.adb.secure","ro.build.tags","ro.build.type","ro.build.version.security_patch"};
+    private static final Set<String> RISK_PROPERTY_SET=new HashSet<>(Arrays.asList(RISK_PROPERTY_KEYS));
     private final String module;
     public BuildSystemCollector(String name){module=name;}
     public void collect(ItemSink s)throws Exception {
@@ -34,8 +39,23 @@ public final class BuildSystemCollector implements Collector {
         if(Build.VERSION.SDK_INT>=26){
             JSONArray props=new JSONArray(NativeProbe.properties());
             for(int i=0;i<props.length();i++){JSONObject p=props.getJSONObject(i);Object name=Json.bytes(p.getString("nameBase64"));Object value=Json.bytes(p.getString("valueBase64"));s.ok("build","build/native-property/"+String.valueOf(name),String.valueOf(name),"jni","__system_property_foreach + __system_property_read_callback",value);}
+            s.ok("build","build/risk-properties-summary","风控相关原生属性摘要","jni","__system_property_foreach + __system_property_read_callback",riskPropertiesSummary(props));
         }else s.add("build","build/native-properties","原生属性枚举","jni","__system_property_read_callback","unsupported",null,Json.obj("minSdk",26),null);
         Commands.collect(s,"build","build/getprop","/system/bin/getprop");
+    }
+    // 业务块：从完整原生属性中提取稳定的风控字段；原始属性条目继续完整保留。
+    private static JSONObject riskPropertiesSummary(JSONArray props)throws JSONException{
+        Map<String,String> observed=new HashMap<>();
+        for(int i=0;i<props.length();i++){
+            JSONObject property=props.getJSONObject(i);
+            Object name=Json.bytes(property.getString("nameBase64"));
+            if(!(name instanceof String)||!RISK_PROPERTY_SET.contains((String)name))continue;
+            Object value=Json.bytes(property.getString("valueBase64"));
+            if(value instanceof String)observed.put((String)name,(String)value);
+        }
+        JSONObject values=new JSONObject();int observedCount=0;
+        for(String key:RISK_PROPERTY_KEYS){String value=observed.get(key);Json.put(values,key,value);if(value!=null)observedCount++;}
+        return Json.obj("observedCount",observedCount,"knownCount",RISK_PROPERTY_KEYS.length,"properties",values);
     }
     private void kernel(ItemSink s)throws Exception {
         s.ok("kernel","kernel/uname","内核 uname","jni","uname",new JSONObject(NativeProbe.kernel()));

@@ -4,7 +4,7 @@
 
 | 信号方向 | 公开来源与可核验事实 | 当前采集映射 | 状态与边界 |
 |---|---|---|---|
-| Root / 提权线索 | [RootBeer](https://github.com/scottyab/rootbeer) README 公开列出 test-keys、危险系统属性、`su`/BusyBox、Root 管理应用和可写系统分区等检查类别，并说明存在漏报和绕过限制。 | `virtualization/path*`、`virtualization/build-evidence`、`virtualization/build-markers`、`build/native-property/*` | 已有证据采集；不扫描第三方应用清单形成结论，不输出“已 root”判定。 |
+| Root / 提权线索 | [RootBeer](https://github.com/scottyab/rootbeer) README 公开列出 test-keys、危险系统属性、`su`/BusyBox、Root 管理应用和可写系统分区等检查类别，并说明存在漏报和绕过限制。 | `virtualization/path*`、`virtualization/build-evidence`、`virtualization/build-markers`、`build/native-property/*`、`build/risk-properties-summary` | 已有证据采集；不扫描第三方应用清单形成结论，不输出“已 root”判定。 |
 | 模拟器 / 虚拟化线索 | [Android Build](https://developer.android.com/reference/android/os/Build) 提供公开构建字段；RootBeer 类公开规则使用 `generic`、`goldfish`、`ranchu`、`qemu` 等字符串作为线索。 | `virtualization/build-evidence`、`virtualization/build-markers`、`virtualization/path*` | 已有线索采集；字符串或路径命中只能进入人工复核。 |
 | Hook / 调试 / 篡改 | [Talsec Free-RASP Community](https://github.com/talsec/Free-RASP-Community) 项目说明公开包含 root、Magisk、Frida、模拟器、VPN、篡改等检测方向。 | `security/self` 的 `debuggerConnected`、`waitingForDebugger`；`security/self-integrity` 的签名摘要、debuggable、安装来源；`virtualization` 的公开路径和属性证据 | 已覆盖可由普通 App 公开读取的部分；Frida 等运行时检测不能从供应商描述反推出私有字段，暂不伪造。 |
 | 网络环境 | [NetworkCapabilities](https://developer.android.com/reference/android/net/NetworkCapabilities) 公开 transport/capability，包括 VPN、VALIDATED、CAPTIVE_PORTAL、NOT_METERED、TRUSTED 等。 | `network/risk-signals`、`network/proxy`、`network/interfaces`、`network/wifi` | 已有活动链路快照；VPN、代理或私有 DNS 不自动等同于风险。 |
@@ -18,4 +18,5 @@
 
 - 远程 Play Integrity verdict 需要服务端请求、nonce 和云端凭据；离线 APK 不应伪造该结果。
 - 供应商 SDK 的私有字段没有公开契约；后续只实现能由公开 Android API、稳定 JNI 或明确授权的本地证据复现的项目。
-- 下一步优先补充“已有原始属性的可读摘要”，让 `ro.boot.*`、`ro.debuggable`、`ro.secure`、`ro.adb.secure` 等证据在不改变旧 JSON 字段的前提下可筛选；原始 `build/native-property/*` 继续保留。
+- 已补充 `build/risk-properties-summary`，把 `ro.boot.*`、`ro.debuggable`、`ro.secure`、`ro.adb.secure` 等字段整理为固定摘要；原始 `build/native-property/*` 继续保留。
+- 下一步优先评估摘要字段的 Android 版本可用性和前端差异展示，避免把缺失字段误报为异常。
