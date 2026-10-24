@@ -125,13 +125,12 @@ export default function App() {
     { title: '结果', dataIndex: 'state', key: 'state', width: 130, render: (value: CompareRow['state']) => <Tag color={value === 'same' ? 'success' : value === 'incomparable' ? 'default' : 'error'}>{value === 'status' ? '状态不同' : diffLabels[value]}</Tag> },
   ];
 
-  return <ConfigProvider locale={zhCN} theme={{ algorithm: theme.darkAlgorithm, token: { colorPrimary: '#4096ff', borderRadius: 10, fontSize: 18, colorBgLayout: '#0d1117' } }}>
+  return <ConfigProvider locale={zhCN} theme={{ algorithm: theme.darkAlgorithm, token: { colorPrimary: '#4096ff', borderRadius: 10, fontSize: 16, colorBgLayout: '#0d1117' } }}>
     <Layout className="app-layout">
       <Sider breakpoint="lg" collapsedWidth="0" theme="dark" width={260}><div className="brand"><div className="brand-mark">F</div><div><Typography.Title level={4}>FingerLens • 观纹</Typography.Title><Typography.Link className="brand-byline" href="https://www.yuque.com/again-719bb" target="_blank" rel="noreferrer">By 小T</Typography.Link></div></div><Menu theme="dark" mode="inline" selectedKeys={[category]} items={menuItems} onClick={({ key }) => setCategory(key)} /></Sider>
       <Layout><Header className="app-header"><div><Typography.Text type="secondary">设备研究 / </Typography.Text><Typography.Text strong>指纹对比工作台</Typography.Text></div><Tag color="success">本地处理 · 不上传文件</Tag></Header>
         <Content className="app-content"><div className="content-inner">
           {category === 'all' && <>
-          <div className="hero"><div><Typography.Title>两份指纹，一处核对。</Typography.Title><Typography.Paragraph type="secondary">用模块化视图定位设备差异，保留原始采集值与来源边界。</Typography.Paragraph></div></div>
           <Row gutter={[16, 16]}><Col xs={24} xl={12}><FileImportCard side="A" value={files.left} original={originals.current.left} busy={busy} adb={adb} onFile={file => importFile('left', file)} /></Col><Col xs={24} xl={12}><FileImportCard side="B" value={files.right} original={originals.current.right} busy={busy} adb={adb} onFile={file => importFile('right', file)} /></Col></Row>
           <Space wrap className="action-row"><Button type="primary" disabled={!ready || busy} onClick={() => exportHtmlReport('current')}>导出 HTML 报告</Button><Button disabled={!ready || busy} onClick={() => exportHtmlReport('all-diff')}>导出完整差异</Button><Button disabled={!ready || busy} onClick={exportJsonReport}>导出 JSON 摘要</Button><Button disabled={!ready || busy} onClick={() => setAttestationOpen(true)}>离线认证检查</Button>{busy && <Button onClick={stopProcessing}>取消处理</Button>}</Space>
           <StatCards stats={stats} />
