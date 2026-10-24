@@ -165,6 +165,14 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.map(row => row.key)).toEqual(['available', 'level', 'scale', 'percentage', 'status', 'charging', 'plugged', 'pluggedAc', 'pluggedUsb', 'pluggedWireless', 'health', 'temperatureC', 'voltageMv', 'technology', 'present', 'capacityPercent', 'chargeCounterUah', 'currentNowUa', 'currentAverageUa', 'energyCounterNwh']);
     expect(sections[0].rows.find(row => row.key === 'currentNowUa')?.value).toBe('-500000');
   });
+  it('SIM 摘要展示电话环境并保留订阅元数据数组', () => {
+    const sections = buildSections(item('sim/summary', 'sim', { available: true, phoneType: 1, phoneCount: 2, simState: 5, simOperator: '46001', simOperatorName: 'carrier', simCountry: 'cn', networkOperator: '46001', networkName: 'network', networkCountry: 'cn', dataNetworkType: 13, roaming: false, dataEnabled: true, subscriptionAccess: 'allowed', subscriptionCount: 1, embeddedCount: 0, simStates: [5, 1], simSlotIndexes: [0], carrierNames: ['carrier'], mccs: ['460'], mncs: ['01'] }));
+    const summary = sections[0];
+    expect(summary.title).toBe('SIM 与电话环境摘要');
+    expect(summary.rows.map(row => row.key)).toContain('subscriptionCount');
+    expect(sections.find(section => section.key === 'simStates')?.rows.map(row => row.value)).toEqual(['5', '1']);
+    expect(sections.find(section => section.key === 'mccs')?.rows[0].value).toBe('460');
+  });
   it('蓝牙摘要展示访问状态与已配对设备计数', () => {
     const sections = buildSections(item('network/bluetooth-summary', 'network', { available: true, access: 'allowed', adapterState: 12, adapterNamePresent: true, adapterAddressPresent: true, bondedCount: 1, bondedNameCount: 1, bondedAddressCount: 1, bondedTypeCounts: { '1': 1 }, bondedClassCounts: { '1028': 1 } }));
     expect(sections[0].title).toBe('蓝牙能力摘要');

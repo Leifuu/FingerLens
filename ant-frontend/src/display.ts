@@ -160,6 +160,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     'hardware/camera-summary': { title: '摄像头能力摘要', order: ['available', 'count', 'cameraIdsTruncated', 'flashAvailableCount', 'logicalMultiCameraCount', 'physicalCameraIdCount', 'cameraAccessErrorCount'], arrays: ['cameraIds'] },
     'hardware/audio-summary': { title: '音频能力摘要', order: ['available', 'count', 'sourceCount', 'sinkCount', 'productNamesTruncated', 'typeCounts'], arrays: ['productNames', 'sampleRates', 'encodings'] },
     'battery/summary': { title: '电池环境摘要', order: ['available', 'level', 'scale', 'percentage', 'status', 'charging', 'plugged', 'pluggedAc', 'pluggedUsb', 'pluggedWireless', 'health', 'temperatureC', 'voltageMv', 'technology', 'present', 'capacityPercent', 'chargeCounterUah', 'currentNowUa', 'currentAverageUa', 'energyCounterNwh'], arrays: [] },
+    'sim/summary': { title: 'SIM 与电话环境摘要', order: ['available', 'phoneType', 'phoneCount', 'simState', 'simOperator', 'simOperatorName', 'simCountry', 'networkOperator', 'networkName', 'networkCountry', 'dataNetworkType', 'roaming', 'dataEnabled', 'subscriptionAccess', 'subscriptionCount', 'embeddedCount'], arrays: ['simStates', 'simSlotIndexes', 'carrierNames', 'mccs', 'mncs'] },
     'network/bluetooth-summary': { title: '蓝牙能力摘要', order: ['available', 'access', 'adapterState', 'adapterNamePresent', 'adapterAddressPresent', 'bondedCount', 'bondedNameCount', 'bondedAddressCount', 'bondedTypeCounts', 'bondedClassCounts'], arrays: [] },
     'network/wifi-summary': { title: 'Wi-Fi 能力摘要', order: ['available', 'wifiState', 'connectionAccess', 'scanAccess', 'connectionInfoAvailable', 'ssidPresent', 'bssidPresent', 'macAddressPresent', 'frequency', 'rssi', 'linkSpeed', 'cachedScanCount', 'ssidPresentCount', 'bssidPresentCount', 'band2_4GHzCount', 'band5GHzCount', 'band6GHzCount', 'frequenciesTruncated'], arrays: ['frequencies'] },
     'packages/summary': { title: '应用清单摘要', order: ['returnedCount', 'applicationInfoCount', 'enabledCount', 'debuggableCount', 'systemAppCount', 'updatedSystemAppCount', 'nativeCodeCount', 'splitPackageCount', 'sharedUserIdCount', 'versionNameCount', 'requestedPermissionCount', 'activityCount', 'receiverCount', 'serviceCount', 'providerCount', 'targetSdkCounts'], arrays: [] },
@@ -198,6 +199,8 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
           : key === 'network/wifi-summary' && arrayKey === 'frequencies' ? '缓存扫描频率（MHz）'
           : key === 'display/summary'
             ? arrayKey === 'widths' ? '显示宽度（px）' : arrayKey === 'heights' ? '显示高度（px）' : arrayKey === 'densityDpi' ? '密度（dpi）' : '刷新率（Hz）'
+          : key === 'sim/summary'
+            ? arrayKey === 'simStates' ? 'SIM 槽位状态' : arrayKey === 'simSlotIndexes' ? '订阅槽位' : arrayKey === 'carrierNames' ? '运营商名称' : arrayKey === 'mccs' ? 'MCC' : 'MNC'
           : arrayKey;
       sections.push(section(arrayKey, title, arrayRows(value[arrayKey] as Json[], arrayKey), true));
     }

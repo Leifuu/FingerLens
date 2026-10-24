@@ -18,6 +18,8 @@ public final class NetworkCollector implements Collector {
     @android.annotation.SuppressLint("MissingPermission")
     private void sim(ItemSink s){
         TelephonyManager t=s.context.getSystemService(TelephonyManager.class);
+        s.read("sim","sim/summary","SIM 与电话环境摘要","TelephonyManager / SubscriptionManager",()->simSummary(s.context));
+        if(t==null)return;
         s.read("sim","sim/phoneType","电话类型","TelephonyManager.getPhoneType",t::getPhoneType);
         s.read("sim","sim/count","电话数量","TelephonyManager.getPhoneCount",t::getPhoneCount);
         s.read("sim","sim/state","SIM 状态","TelephonyManager.getSimState",t::getSimState);
@@ -37,6 +39,18 @@ public final class NetworkCollector implements Collector {
         s.read("sim","sim/subscriptions","活动订阅","SubscriptionManager.getActiveSubscriptionInfoList",()->{SubscriptionManager m=s.context.getSystemService(SubscriptionManager.class);java.util.List<SubscriptionInfo> list=m.getActiveSubscriptionInfoList();if(list==null)return null;JSONArray a=new JSONArray();for(SubscriptionInfo i:list){JSONObject o=Json.obj("subscriptionId",i.getSubscriptionId(),"simSlotIndex",i.getSimSlotIndex(),"carrierName",String.valueOf(i.getCarrierName()),"displayName",String.valueOf(i.getDisplayName()),"countryIso",i.getCountryIso(),"iccId",i.getIccId(),"number",i.getNumber(),"dataRoaming",i.getDataRoaming());if(Build.VERSION.SDK_INT>=29){Json.put(o,"mcc",i.getMccString());Json.put(o,"mnc",i.getMncString());Json.put(o,"embedded",i.isEmbedded());}a.put(o);}return a;});
         int count=1;try{count=Math.min(16,Math.max(1,t.getPhoneCount()));}catch(Exception ignored){}for(int i=0;i<count;i++){final int slot=i;s.read("sim","sim/slot/"+i,"SIM 槽位 "+i,"TelephonyManager.getSimState(slot)",()->{if(Build.VERSION.SDK_INT<26)throw new UnsupportedOperationException("requires API 26");return t.getSimState(slot);});}
     }
+    // 业务块：只汇总电话/SIM 环境元数据，不复制 IMEI、IMSI、ICCID 或号码；原始 sim/* 条目继续保留。
+    @android.annotation.SuppressLint("MissingPermission")
+    private static JSONObject simSummary(Context context)throws Exception{
+        TelephonyManager t=context.getSystemService(TelephonyManager.class);if(t==null)return Json.obj("available",false,"simStates",new JSONArray(),"subscriptionAccess","unavailable");
+        Object phoneCount=simRead(t::getPhoneCount);JSONArray simStates=new JSONArray();int slots=phoneCount instanceof Integer?Math.min(16,Math.max(1,(Integer)phoneCount)):1;for(int i=0;i<slots;i++){final int slot=i;simStates.put(simRead(()->Build.VERSION.SDK_INT>=26?t.getSimState(slot):null));}
+        JSONObject value=Json.obj("available",true,"phoneType",simRead(t::getPhoneType),"phoneCount",phoneCount,"simState",simRead(t::getSimState),"simStates",simStates,"simOperator",simRead(t::getSimOperator),"simOperatorName",simRead(t::getSimOperatorName),"simCountry",simRead(t::getSimCountryIso),"networkOperator",simRead(t::getNetworkOperator),"networkName",simRead(t::getNetworkOperatorName),"networkCountry",simRead(t::getNetworkCountryIso),"dataNetworkType",simRead(t::getDataNetworkType),"roaming",simRead(t::isNetworkRoaming),"dataEnabled",Build.VERSION.SDK_INT>=26?simRead(t::isDataEnabled):null);
+        SubscriptionManager manager=context.getSystemService(SubscriptionManager.class);if(manager==null){Json.put(value,"subscriptionAccess","unavailable");Json.put(value,"subscriptionCount",null);Json.put(value,"simSlotIndexes",new JSONArray());Json.put(value,"carrierNames",new JSONArray());Json.put(value,"mccs",new JSONArray());Json.put(value,"mncs",new JSONArray());Json.put(value,"embeddedCount",null);return value;}
+        try{List<SubscriptionInfo> list=manager.getActiveSubscriptionInfoList();JSONArray simSlotIndexes=new JSONArray(),carrierNames=new JSONArray(),mccs=new JSONArray(),mncs=new JSONArray();int embeddedCount=0;if(list!=null)for(SubscriptionInfo info:list){if(simSlotIndexes.length()>=16)break;simSlotIndexes.put(info.getSimSlotIndex());CharSequence carrier=info.getCarrierName();if(carrier!=null)carrierNames.put(carrier.toString());if(Build.VERSION.SDK_INT>=29){String mcc=info.getMccString(),mnc=info.getMncString();if(mcc!=null)mccs.put(mcc);if(mnc!=null)mncs.put(mnc);if(info.isEmbedded())embeddedCount++;}}Json.put(value,"subscriptionAccess",list==null?"empty":"allowed");Json.put(value,"subscriptionCount",list==null?null:list.size());Json.put(value,"simSlotIndexes",simSlotIndexes);Json.put(value,"carrierNames",carrierNames);Json.put(value,"mccs",mccs);Json.put(value,"mncs",mncs);Json.put(value,"embeddedCount",Build.VERSION.SDK_INT>=29?embeddedCount:null);
+        }catch(SecurityException e){Json.put(value,"subscriptionAccess","denied");Json.put(value,"subscriptionCount",null);Json.put(value,"simSlotIndexes",new JSONArray());Json.put(value,"carrierNames",new JSONArray());Json.put(value,"mccs",new JSONArray());Json.put(value,"mncs",new JSONArray());Json.put(value,"embeddedCount",null);}return value;
+    }
+    private interface SimRead{Object get()throws Exception;}
+    private static Object simRead(SimRead read){try{return read.get();}catch(Exception|LinkageError ignored){return null;}}
     // 权限拒绝由 ItemSink 转成 denied；缓存只读，不主动扫描。
     @android.annotation.SuppressLint("MissingPermission")
     private void network(ItemSink s){
