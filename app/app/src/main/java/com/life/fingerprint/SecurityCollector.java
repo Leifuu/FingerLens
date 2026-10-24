@@ -34,7 +34,7 @@ public final class SecurityCollector implements Collector {
         s.read("security","security/self-integrity","当前 App 签名与安装环境","PackageManager.getPackageInfo / getInstallSourceInfo",()->selfIntegrity(s.context));
         s.read("security","security/device-management","设备管理与用户环境","DevicePolicyManager / UserManager",()->managementEnvironment(s.context));
         s.read("security","security/special-access","本 App 特殊访问状态","AppOpsManager / PackageManager / NotificationManager / Environment / Settings",()->specialAccess(s.context));
-        s.read("security","security/lock-biometric","锁屏与生物识别环境","KeyguardManager / PackageManager.hasSystemFeature",()->lockBiometricEnvironment(s.context));
+        s.read("security","security/lock-biometric","锁屏与生物识别环境","KeyguardManager / BiometricManager / PackageManager.hasSystemFeature",()->lockBiometricEnvironment(s.context));
         s.read("security","security/accessibility","启用的无障碍服务元数据","AccessibilityManager.getEnabledAccessibilityServiceList",()->accessibilityEnvironment(s.context));
         for(String p:new String[]{"/proc/self/attr/current","/proc/self/status","/sys/fs/selinux/enforce","/sys/fs/selinux/policyvers","/sys/fs/selinux/checkreqprot","/proc/cmdline","/proc/bootconfig","/system/etc/selinux/plat_sepolicy.cil","/vendor/etc/selinux/vendor_sepolicy.cil"})s.file("security","security/file"+p,p);
         s.read("security","security/buildSerial","Build 序列号（可能受限）","Build.getSerial",()->Build.VERSION.SDK_INT>=26?Build.getSerial():Build.SERIAL);
@@ -96,13 +96,38 @@ public final class SecurityCollector implements Collector {
     private static JSONObject lockBiometricEnvironment(Context context){
         KeyguardManager keyguard=context.getSystemService(KeyguardManager.class);
         PackageManager packages=context.getPackageManager();
-        return Json.obj("keyguardSecure",keyguard!=null&&keyguard.isKeyguardSecure(),
+        JSONObject out=Json.obj("keyguardSecure",keyguard!=null&&keyguard.isKeyguardSecure(),
                 "keyguardLocked",keyguard!=null&&keyguard.isKeyguardLocked(),
                 "deviceSecure",Build.VERSION.SDK_INT<23||keyguard!=null&&keyguard.isDeviceSecure(),
                 "deviceLocked",Build.VERSION.SDK_INT<23||keyguard!=null&&keyguard.isDeviceLocked(),
                 "fingerprintFeature",packages.hasSystemFeature(PackageManager.FEATURE_FINGERPRINT),
                 "faceFeature",Build.VERSION.SDK_INT>=29&&packages.hasSystemFeature(PackageManager.FEATURE_FACE),
-                "irisFeature",Build.VERSION.SDK_INT>=29&&packages.hasSystemFeature(PackageManager.FEATURE_IRIS));
+                "irisFeature",Build.VERSION.SDK_INT>=29&&packages.hasSystemFeature(PackageManager.FEATURE_IRIS),
+                "biometricManagerAvailable",false,
+                "biometricStrongCode",null,"biometricStrongStatus","unsupported",
+                "biometricWeakCode",null,"biometricWeakStatus","unsupported",
+                "deviceCredentialCode",null,"deviceCredentialStatus","unsupported");
+        if(Build.VERSION.SDK_INT<30)return out;
+        android.hardware.biometrics.BiometricManager biometric=context.getSystemService(android.hardware.biometrics.BiometricManager.class);
+        if(biometric==null){Json.put(out,"biometricStrongStatus","unavailable");Json.put(out,"biometricWeakStatus","unavailable");Json.put(out,"deviceCredentialStatus","unavailable");return out;}
+        Json.put(out,"biometricManagerAvailable",true);
+        putBiometricResult(out,biometric,"biometricStrong",android.hardware.biometrics.BiometricManager.Authenticators.BIOMETRIC_STRONG);
+        putBiometricResult(out,biometric,"biometricWeak",android.hardware.biometrics.BiometricManager.Authenticators.BIOMETRIC_WEAK);
+        putBiometricResult(out,biometric,"deviceCredential",android.hardware.biometrics.BiometricManager.Authenticators.DEVICE_CREDENTIAL);
+        return out;
+    }
+    private static void putBiometricResult(JSONObject out,android.hardware.biometrics.BiometricManager biometric,String prefix,int authenticators){
+        try{
+            int code=biometric.canAuthenticate(authenticators);Json.put(out,prefix+"Code",code);Json.put(out,prefix+"Status",biometricStatus(code));
+        }catch(SecurityException e){Json.put(out,prefix+"Code",null);Json.put(out,prefix+"Status","denied");}
+    }
+    private static String biometricStatus(int code){
+        if(code==android.hardware.biometrics.BiometricManager.BIOMETRIC_SUCCESS)return "success";
+        if(code==android.hardware.biometrics.BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED)return "none_enrolled";
+        if(code==android.hardware.biometrics.BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE)return "no_hardware";
+        if(code==android.hardware.biometrics.BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE)return "hardware_unavailable";
+        if(code==android.hardware.biometrics.BiometricManager.BIOMETRIC_ERROR_SECURITY_UPDATE_REQUIRED)return "security_update_required";
+        return "error_"+code;
     }
     // 业务块：只记录无障碍服务的组件与能力位，不读取窗口内容、文本或用户操作。
     private static JSONObject accessibilityEnvironment(Context context){
