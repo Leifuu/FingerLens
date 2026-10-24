@@ -17,7 +17,21 @@ function text(value: Json): string {
   return JSON.stringify(value, null, 2);
 }
 
-function row(key: string, value: Json, label = key): DisplayRow { return { key, label, value: text(value) }; }
+const STATUS_LABELS: Record<string, string> = {
+  allowed: '已授权', denied: '受限/未授权', unsupported: '系统不支持', unavailable: '接口不可用',
+  success: '可用', none_enrolled: '未录入', no_hardware: '无硬件', hardware_unavailable: '硬件暂不可用',
+  security_update_required: '需要安全更新', error: '读取异常', skipped: '未执行', truncated: '已截断', ok: '成功',
+};
+
+function displayText(key: string, value: Json): string {
+  const field = key.split('.').pop() || key;
+  if (typeof value === 'string' && (field === 'access' || field.endsWith('Access') || field.endsWith('Status'))) {
+    return STATUS_LABELS[value] || (value.startsWith('error_') ? `异常（${value.slice(6)}）` : value);
+  }
+  return text(value);
+}
+
+function row(key: string, value: Json, label = key): DisplayRow { return { key, label, value: displayText(key, value) }; }
 
 function objectRows(value: JsonObject, keys?: string[]): DisplayRow[] {
   const order = keys || Object.keys(value);

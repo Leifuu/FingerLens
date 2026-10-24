@@ -241,10 +241,12 @@ describe('设备格式化展示边界', () => {
     expect(sections.find(section => section.key === 'frequencies')?.title).toBe('缓存扫描频率（MHz）');
   });
   it('锁屏与生物识别摘要只展示公开状态', () => {
-    const sections = buildSections(item('security/lock-biometric', 'security', { keyguardSecure: true, keyguardLocked: false, deviceSecure: true, deviceLocked: false, fingerprintFeature: true, faceFeature: false, irisFeature: false }));
+    const sections = buildSections(item('security/lock-biometric', 'security', { keyguardSecure: true, keyguardLocked: false, deviceSecure: true, deviceLocked: false, fingerprintFeature: true, faceFeature: false, irisFeature: false, biometricStrongCode: 0, biometricStrongStatus: 'success', biometricWeakCode: 11, biometricWeakStatus: 'none_enrolled' }));
     expect(sections[0].title).toBe('锁屏与生物识别环境');
     expect(sections[0].rows.some(row => row.key === 'keyguardSecure')).toBe(true);
     expect(sections[0].rows.some(row => row.key === 'fingerprintFeature')).toBe(true);
+    expect(sections[0].rows.find(row => row.key === 'biometricStrongStatus')?.value).toBe('可用');
+    expect(sections[0].rows.find(row => row.key === 'biometricWeakStatus')?.value).toBe('未录入');
   });
   it('无障碍服务摘要只展示组件与能力元数据', () => {
     const value = item('security/accessibility', 'security', { available: true, count: 1, services: [{ packageName: 'com.example.a11y', serviceName: 'Service', capabilities: 1, canRetrieveWindowContent: true }] });
