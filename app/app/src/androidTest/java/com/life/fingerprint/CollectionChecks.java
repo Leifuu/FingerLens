@@ -261,6 +261,11 @@ public class CollectionChecks {
         JSONObject summary=null,broadcast=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("battery/summary"))summary=item;if(item.getString("key").equals("battery/broadcast"))broadcast=item;}
         assertNotNull("应生成电池环境摘要",summary);assertNotNull("应保留电池广播快照",broadcast);assertEquals("ok",summary.getString("status"));JSONObject value=summary.getJSONObject("value");assertTrue(value.has("available"));assertTrue(value.has("percentage"));assertTrue(value.has("charging"));assertTrue(value.has("temperatureC"));assertTrue(value.has("present"));
     }
+    @Test public void batteryCycleCountKeepsApiAndMissingValueBoundary()throws Exception{
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new HardwareCollector("battery").collect(sink);
+        JSONObject cycle=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("battery/cycle-count")){cycle=item;break;}}
+        assertNotNull("应记录电池循环次数",cycle);assertEquals("ok",cycle.getString("status"));JSONObject value=cycle.getJSONObject("value");assertTrue(value.has("available"));assertTrue(value.has("status"));assertTrue(value.has("cycleCount"));if(Build.VERSION.SDK_INT<34){assertEquals("unsupported",value.getString("status"));assertTrue(value.isNull("cycleCount"));}
+    }
     @Test public void simSummaryKeepsIdentifiersOutOfSummary()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new NetworkCollector("sim").collect(sink);
         JSONObject summary=null,imei=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("sim/summary"))summary=item;if(item.getString("key").equals("sim/imei"))imei=item;}

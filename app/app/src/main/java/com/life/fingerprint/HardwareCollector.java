@@ -160,6 +160,7 @@ public final class HardwareCollector implements Collector {
     }
     private void battery(ItemSink s){
         s.read("battery","battery/summary","电池环境摘要","BatteryManager / ACTION_BATTERY_CHANGED",()->batterySummary(s.context));
+        s.read("battery","battery/cycle-count","电池循环次数","ACTION_BATTERY_CHANGED EXTRA_CYCLE_COUNT",()->batteryCycleCount(s.context));
         s.read("battery","battery/broadcast","电池广播快照","ACTION_BATTERY_CHANGED sticky broadcast",()->{Intent i=s.context.registerReceiver(null,new IntentFilter(Intent.ACTION_BATTERY_CHANGED));if(i==null)return null;Bundle extras=i.getExtras();JSONObject v=new JSONObject();if(extras!=null)for(String k:extras.keySet()){Object x=extras.get(k);Json.put(v,k,x==null||x instanceof Number||x instanceof Boolean||x instanceof String?x:String.valueOf(x));}return v;});
         BatteryManager b=s.context.getSystemService(BatteryManager.class);for(int id:new int[]{BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER,BatteryManager.BATTERY_PROPERTY_CURRENT_NOW,BatteryManager.BATTERY_PROPERTY_CURRENT_AVERAGE,BatteryManager.BATTERY_PROPERTY_CAPACITY,BatteryManager.BATTERY_PROPERTY_ENERGY_COUNTER,BatteryManager.BATTERY_PROPERTY_STATUS})s.read("battery","battery/property/"+id,"电池属性 "+id,"BatteryManager property "+id,()->id==BatteryManager.BATTERY_PROPERTY_ENERGY_COUNTER?Json.obj("raw",b.getLongProperty(id),"unsupportedSentinel",String.valueOf(Long.MIN_VALUE)):Json.obj("raw",b.getIntProperty(id),"unsupportedSentinel",Integer.MIN_VALUE));
         for(String p:new String[]{"/sys/class/power_supply/battery/uevent","/sys/class/power_supply/battery/capacity","/sys/class/power_supply/battery/status","/sys/class/power_supply/battery/voltage_now","/sys/class/power_supply/battery/temp"})s.file("battery","battery/file"+p,p);
@@ -172,6 +173,15 @@ public final class HardwareCollector implements Collector {
         BatteryManager manager=context.getSystemService(BatteryManager.class);Integer capacity=null,chargeCounter=null,currentNow=null,currentAverage=null;Long energyCounter=null;
         if(manager!=null){capacity=knownPropertyInt(manager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY));chargeCounter=knownPropertyInt(manager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER));currentNow=knownPropertyInt(manager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW));currentAverage=knownPropertyInt(manager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_AVERAGE));energyCounter=knownLong(manager.getLongProperty(BatteryManager.BATTERY_PROPERTY_ENERGY_COUNTER));}
         return Json.obj("available",true,"level",knownInt(level),"scale",knownInt(scale),"percentage",level>=0&&scale>0?((double)level*100.0/scale):null,"status",knownInt(status),"charging",status==BatteryManager.BATTERY_STATUS_CHARGING||status==BatteryManager.BATTERY_STATUS_FULL,"plugged",knownInt(plugged),"pluggedAc",plugged>=0&&(plugged&BatteryManager.BATTERY_PLUGGED_AC)!=0,"pluggedUsb",plugged>=0&&(plugged&BatteryManager.BATTERY_PLUGGED_USB)!=0,"pluggedWireless",plugged>=0&&(plugged&BatteryManager.BATTERY_PLUGGED_WIRELESS)!=0,"health",knownInt(health),"temperatureC",temperature==Integer.MIN_VALUE?null:temperature/10.0,"voltageMv",knownInt(voltage),"technology",intent.getStringExtra(BatteryManager.EXTRA_TECHNOLOGY),"present",intent.getBooleanExtra(BatteryManager.EXTRA_PRESENT,false),"capacityPercent",capacity,"chargeCounterUah",chargeCounter,"currentNowUa",currentNow,"currentAverageUa",currentAverage,"energyCounterNwh",energyCounter);
+    }
+    // 业务块：只读取 Android 14+ 电池广播提供的循环次数，不把缺失值解释为零。
+    private static JSONObject batteryCycleCount(Context context){
+        if(Build.VERSION.SDK_INT<34)return Json.obj("available",false,"status","unsupported","cycleCount",null);
+        Intent intent=context.registerReceiver(null,new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        if(intent==null)return Json.obj("available",false,"status","unavailable","cycleCount",null);
+        if(!intent.hasExtra(BatteryManager.EXTRA_CYCLE_COUNT))return Json.obj("available",true,"status","unavailable","cycleCount",null);
+        int count=intent.getIntExtra(BatteryManager.EXTRA_CYCLE_COUNT,Integer.MIN_VALUE);
+        return Json.obj("available",true,"status",count==Integer.MIN_VALUE||count<0?"unknown":"ok","cycleCount",count==Integer.MIN_VALUE||count<0?null:count);
     }
     private static Integer knownInt(int value){return value<0||value==Integer.MIN_VALUE?null:value;}
     private static Integer knownPropertyInt(int value){return value==Integer.MIN_VALUE?null:value;}
