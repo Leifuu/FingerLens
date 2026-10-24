@@ -105,6 +105,11 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].title).toBe('当前 App 签名与安装环境');
     expect(sections.find(section => section.key === 'signingCertificateSha256')?.rows[0].value).toBe('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
   });
+  it('系统风控设置摘要按稳定字段顺序展示', () => {
+    const sections = buildSections(item('environment/risk-settings', 'environment', { adbEnabled: true, developmentSettingsEnabled: true, mockLocation: false, privateDnsMode: 'opportunistic' }));
+    expect(sections[0].title).toBe('系统风控相关设置');
+    expect(sections[0].rows.map(row => row.key)).toEqual(['adbEnabled', 'developmentSettingsEnabled', 'privateDnsMode', 'mockLocation']);
+  });
   it('信任库详情压缩 DER，只展示可读摘要并保留长度', () => {
     const value = item('security/trust-store', 'security', [{ alias: 'system:root', sha256: 'a'.repeat(64), derBase64: 'A'.repeat(10000) }]);
     const original = JSON.stringify(value);

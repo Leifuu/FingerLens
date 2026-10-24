@@ -147,6 +147,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     'security/lock-biometric': { title: '锁屏与生物识别环境', order: ['keyguardSecure', 'keyguardLocked', 'deviceSecure', 'deviceLocked', 'fingerprintFeature', 'faceFeature', 'irisFeature'], arrays: [] },
     'security/accessibility': { title: '启用的无障碍服务', order: ['available', 'count'], arrays: ['services'] },
     'security/self-integrity': { title: '当前 App 签名与安装环境', order: ['packageName', 'versionName', 'versionCode', 'installer', 'enabled', 'applicationFlags', 'debuggable', 'hasCode'], arrays: ['signingCertificateSha256'] },
+    'environment/risk-settings': { title: '系统风控相关设置', order: ['adbEnabled', 'developmentSettingsEnabled', 'airplaneModeOn', 'autoTime', 'autoTimeZone', 'privateDnsMode', 'privateDnsSpecifier', 'wifiOn', 'bluetoothOn', 'accessibilityEnabled', 'mockLocation', 'installNonMarketApps'], arrays: [] },
     'environment/webview-user-agent': { title: 'WebView 默认 User-Agent', order: ['userAgent', 'length'], arrays: [] },
     'environment/power-thermal': { title: '电源与热状态', order: ['powerSaveMode', 'interactive', 'deviceIdleMode', 'lightDeviceIdleMode', 'locationPowerSaveMode', 'thermalStatus', 'thermalHeadroom'], arrays: [] },
     'hardware/usb': { title: 'USB 设备公开清单', order: ['count'], arrays: ['devices'] },

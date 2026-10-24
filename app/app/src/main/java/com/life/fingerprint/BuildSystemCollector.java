@@ -50,6 +50,7 @@ public final class BuildSystemCollector implements Collector {
     private void environment(ItemSink s){
         s.read("environment","environment/locales","语言与区域","Configuration / LocaleList / TimeZone",()->{Configuration c=s.context.getResources().getConfiguration();TimeZone z=TimeZone.getDefault();return Json.obj("locales",c.getLocales().toLanguageTags(),"timezoneId",z.getID(),"timezoneDisplayName",z.getDisplayName(),"rawOffset",z.getRawOffset(),"daylightSavings",z.getDSTSavings(),"configuration",c.toString(),"fontScale",c.fontScale,"densityDpi",c.densityDpi,"uiMode",c.uiMode,"keyboard",c.keyboard,"navigation",c.navigation,"touchscreen",c.touchscreen);});
         s.ok("environment","environment/clocks","单次时钟快照","android-api","SystemClock",Json.obj("elapsedRealtime",SystemClock.elapsedRealtime(),"uptimeMillis",SystemClock.uptimeMillis(),"wallClockMillis",System.currentTimeMillis()));
+        s.read("environment","environment/risk-settings","系统风控相关设置摘要","Settings.Global / Settings.Secure",()->riskSettings(s.context));
         String[] globals={"adb_enabled","development_settings_enabled","airplane_mode_on","auto_time","auto_time_zone","http_proxy","private_dns_mode","private_dns_specifier","wifi_on","bluetooth_on"};
         for(String k:globals)s.read("environment","environment/global/"+k,k,"Settings.Global.getString",()->Settings.Global.getString(s.context.getContentResolver(),k));
         for(String k:new String[]{"android_id","enabled_accessibility_services","accessibility_enabled","default_input_method","enabled_input_methods","mock_location","install_non_market_apps"})s.read("environment","environment/secure/"+k,k,"Settings.Secure.getString",()->Settings.Secure.getString(s.context.getContentResolver(),k));
@@ -80,5 +81,28 @@ public final class BuildSystemCollector implements Collector {
         });
         ActivityManager.MemoryInfo memory=new ActivityManager.MemoryInfo();((ActivityManager)s.context.getSystemService(Context.ACTIVITY_SERVICE)).getMemoryInfo(memory);
         s.ok("environment","environment/memory","内存快照","android-api","ActivityManager.getMemoryInfo",Json.obj("totalMem",memory.totalMem,"availMem",memory.availMem,"threshold",memory.threshold,"lowMemory",memory.lowMemory,"runtimeProcessors",Runtime.getRuntime().availableProcessors()));
+    }
+    // 业务块：把公开系统设置整理成可读摘要；原始 Settings 条目仍单独保留供复核。
+    private static JSONObject riskSettings(Context context){
+        android.content.ContentResolver resolver=context.getContentResolver();
+        return Json.obj("adbEnabled",settingFlag(resolver,true,"adb_enabled"),
+                "developmentSettingsEnabled",settingFlag(resolver,true,"development_settings_enabled"),
+                "airplaneModeOn",settingFlag(resolver,true,"airplane_mode_on"),
+                "autoTime",settingFlag(resolver,true,"auto_time"),
+                "autoTimeZone",settingFlag(resolver,true,"auto_time_zone"),
+                "privateDnsMode",Settings.Global.getString(resolver,"private_dns_mode"),
+                "privateDnsSpecifier",Settings.Global.getString(resolver,"private_dns_specifier"),
+                "wifiOn",settingFlag(resolver,true,"wifi_on"),
+                "bluetoothOn",settingFlag(resolver,true,"bluetooth_on"),
+                "accessibilityEnabled",settingFlag(resolver,false,"accessibility_enabled"),
+                "mockLocation",settingFlag(resolver,false,"mock_location"),
+                "installNonMarketApps",settingFlag(resolver,false,"install_non_market_apps"));
+    }
+    private static Boolean settingFlag(android.content.ContentResolver resolver,boolean global,String key){
+        String value=global?Settings.Global.getString(resolver,key):Settings.Secure.getString(resolver,key);
+        if(value==null)return null;
+        if("1".equals(value)||"true".equalsIgnoreCase(value)||"on".equalsIgnoreCase(value))return true;
+        if("0".equals(value)||"false".equalsIgnoreCase(value)||"off".equalsIgnoreCase(value))return false;
+        return null;
     }
 }
