@@ -1,0 +1,28 @@
+# Android 风控指纹公开来源（第一批）
+
+更新时间：2026-10-24。本文只记录公开可核验的资料和可映射到普通 Android App 的信号，不把任何单一信号当作“欺诈结论”。
+
+## 官方 Android 网络资料
+
+- [ConnectivityManager](https://developer.android.com/reference/android/net/ConnectivityManager)：定义活动网络查询入口。
+- [NetworkCapabilities](https://developer.android.com/reference/android/net/NetworkCapabilities)：公开 transport 与 capability，例如 VPN、VALIDATED、CAPTIVE_PORTAL、NOT_METERED、NOT_ROAMING、TRUSTED 等。
+- 本工程新增 `network/risk-signals`，只保存活动链路的这些公开能力、是否计费、接口名和代理摘要；值仍由 `ItemSink` 独立记录状态，VPN 或代理不会被自动判定为恶意。
+
+## 官方 Android 设备标识资料
+
+- [Build](https://developer.android.com/reference/android/os/Build)：公开硬件、产品、指纹、ABI 等构建字段。
+- [Settings.Secure.ANDROID_ID](https://developer.android.com/reference/android/provider/Settings.Secure#ANDROID_ID)：系统设置中的应用可见标识，生命周期和作用域受 Android 版本、用户和签名影响；本工程以原始值/状态形式保留，不宣称它是永久硬件 ID。
+- [Play Integrity verdicts](https://developer.android.com/google/play/integrity/verdicts)：官方完整性服务的 verdict 维度；本工程当前保持离线采集，未接入远程 Play Integrity 请求，因此相关结论保持 `skipped/unknown`。
+
+## GitHub 上的公开 SDK/实现
+
+- [scottyab/rootbeer](https://github.com/scottyab/rootbeer)：README 列出 root 管理应用、危险应用、root cloaking、test-keys、危险属性、BusyBox、`su` 等检查，并明确说明这些规则有漏报和绕过限制。本工程只复用可观察证据（构建标记、属性、路径），不扫描或上传第三方应用清单作为结论。
+- [talsec/Free-RASP-Community](https://github.com/talsec/Free-RASP-Community)：公开项目说明其检测范围包含 root/Magisk、Frida、模拟器、VPN、篡改和设备识别。仓库描述是能力分类证据，不能推导其私有实现字段；本工程将 VPN/模拟器/完整性拆成可复核条目。
+- [fingerprintjs/fingerprintjs-pro-android](https://github.com/fingerprintjs/fingerprintjs-pro-android)：官方 Android SDK 仓库公开说明提供 Device Intelligence 与 Smart Signals。其具体信号由服务端返回，未在本工程复制未公开字段，后续仅作为供应商能力对照。
+
+## 技术论坛交叉核对
+
+- [Stack Overflow：Device identifier of Android emulator](https://stackoverflow.com/questions/4402262/device-identifier-of-android-emulator)
+- [Stack Overflow：When multiple users on android, is the ANDROID_ID unique for each user?](https://stackoverflow.com/questions/20876085/when-multiple-users-on-android-is-the-android-id-unique-for-each-user)
+
+论坛内容只作为边界案例索引；涉及标识生命周期时以 Android 官方文档为准，不能用论坛答案替代系统契约。

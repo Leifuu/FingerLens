@@ -58,14 +58,34 @@ public final class CollectionController {
     private Messenger remote,replyMessenger;
     private void complete(int token,String module,String status,String error,boolean kill){
         if(token!=generation||!running)return;detach(kill);
-        try{File part=ReportStore.part(context,session,module);if(part.isFile()){JSONArray got=new JSONArray(ReportStore.read(part));for(int i=0;i<got.length();i++){JSONObject item=got.getJSONObject(i);int bytes=item.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8).length;if(totalBytes+bytes>ReportStore.MAX_BYTES-1024*1024){marker(module,"truncated","整份指纹达到64MiB预算");stopReason="partial";break;}totalBytes+=bytes;items.put(item);String state=item.optString("status");if(!state.equals("ok")&&!state.equals("unsupported")&&!state.equals("skipped"))completedWithLimits=true;}}
-            if(status!=null)marker(module,status,error);index++;persist();next();
-        }catch(Exception e){abort(e);}
+        appendPart(module);
+        if(status!=null)marker(module,status,error);index++;
+        try{persist();next();}catch(Exception e){abort(e);}
+    }
+    // 业务块：模块超时可能与检查点写入同时发生；重试后仍损坏时只标记该模块，保留前序结果继续采集。
+    private void appendPart(String module){
+        File part;
+        try{part=ReportStore.part(context,session,module);}catch(Exception e){marker(module,"error","模块检查点路径无效");return;}
+        if(!part.isFile())return;
+        JSONArray got=null;
+        for(int attempt=0;attempt<3&&got==null;attempt++){
+            try{got=new JSONArray(ReportStore.read(part));}
+            catch(java.io.IOException|JSONException e){if(attempt<2)SystemClock.sleep(60L*(attempt+1));}
+        }
+        if(got==null){marker(module,"truncated","模块检查点未完成，已保留其他模块");return;}
+        for(int i=0;i<got.length();i++){
+            JSONObject item=got.optJSONObject(i);
+            if(item==null){marker(module,"truncated","模块检查点包含无效项目");return;}
+            int bytes=item.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+            if(totalBytes+bytes>ReportStore.MAX_BYTES-1024*1024){marker(module,"truncated","整份指纹达到64MiB预算");stopReason="partial";return;}
+            totalBytes+=bytes;items.put(item);String state=item.optString("status");
+            if(!state.equals("ok")&&!state.equals("unsupported")&&!state.equals("skipped"))completedWithLimits=true;
+        }
     }
     private void marker(String module,String status,String message){completedWithLimits=true;items.put(Json.obj("key","collection/"+module+"/"+items.length(),"category","collection","name",module+" 采集状态","source",Json.obj("kind","collector","api",module,"uid",android.os.Process.myUid(),"pid",android.os.Process.myPid(),"selinux","控制进程，未读取"),"dataType","null","status",status,"value",null,"error",Json.obj("message",message)));}
     private void detach(boolean kill){generation++;if(kill&&workerPid>0&&workerPid!=android.os.Process.myPid())android.os.Process.killProcess(workerPid);workerPid=0;if(connection!=null){try{context.unbindService(connection);}catch(Exception ignored){}connection=null;}remote=null;}
     private void finish(String state){try{
-        if(!state.equals("complete")&&index<Collectors.MODULES.length){File part=ReportStore.part(context,session,Collectors.MODULES[index]);if(part.isFile()){JSONArray got=new JSONArray(ReportStore.read(part));for(int i=0;i<got.length();i++){JSONObject item=got.getJSONObject(i);long n=item.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8).length;if(totalBytes+n>ReportStore.MAX_BYTES-1024*1024)break;items.put(item);totalBytes+=n;}}}
+        if(!state.equals("complete")&&index<Collectors.MODULES.length)appendPart(Collectors.MODULES[index]);
         Json.put(data,"state",state);Json.put(data,"finishedAt",now());progress=state.equals("complete")||index>=Collectors.MODULES.length?100:progress;text=(state.equals("complete")?"采集完成":state.equals("cancelled")?"已取消，保留已有结果":"采集完成，部分信息受限或截断")+"\n"+summary()+"\n"+reportFile.getAbsolutePath();persist();running=false;
     }catch(Exception e){abort(e);}}
     private void persist()throws Exception {String state=data.optString("state");JSONObject out=Json.obj("data",data,"message",state.equals("complete")?"采集完成":state.equals("running")?"采集中":"非完整结果，详见逐项状态","code",state.equals("complete")?0:state.equals("running")?2:1);ReportStore.write(reportFile,out.toString());publishBridge();}

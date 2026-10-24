@@ -238,6 +238,7 @@ node .\.codex\scripts\ant-browser-qa.mjs `
 ## 相关文件
 
 - [Android 数据契约](shared/fingerprint.schema.json)
+- [Android 风控指纹公开来源与字段映射](docs/android-risk-fingerprint-sources.md)
 - [公开信任根快照](shared/trust-roots.json)
 - [当前前端](ant-frontend/)
 - [ADB 网关](backend/fingerprint_backend.py)

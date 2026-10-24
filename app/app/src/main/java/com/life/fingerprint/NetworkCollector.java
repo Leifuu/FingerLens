@@ -41,6 +41,29 @@ public final class NetworkCollector implements Collector {
     @android.annotation.SuppressLint("MissingPermission")
     private void network(ItemSink s){
         ConnectivityManager c=s.context.getSystemService(ConnectivityManager.class);
+        // 业务块：记录公开网络能力，供风控人工复核；不把 VPN、代理或未验证链路直接判定为欺诈。
+        s.read("network","network/risk-signals","活动链路风控信号","ConnectivityManager.getActiveNetwork / NetworkCapabilities",()->{
+            Network active=c.getActiveNetwork();
+            if(active==null)return Json.obj("present",false);
+            NetworkCapabilities cap=c.getNetworkCapabilities(active);
+            if(cap==null)return Json.obj("present",true,"capabilitiesAvailable",false,"networkHandle",active.getNetworkHandle());
+            LinkProperties link=c.getLinkProperties(active);
+            JSONArray transports=new JSONArray();
+            for(int type=0;type<=6;type++)if(cap.hasTransport(type))transports.put(type);
+            return Json.obj("present",true,"capabilitiesAvailable",true,"networkHandle",active.getNetworkHandle(),
+                    "transports",transports,"vpn",cap.hasTransport(NetworkCapabilities.TRANSPORT_VPN),
+                    "validated",cap.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
+                    "captivePortal",cap.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL),
+                    "notVpn",cap.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN),
+                    "notMetered",cap.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED),
+                    "notRoaming",cap.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_ROAMING),
+                    "notRestricted",cap.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED),
+                    "trusted",cap.hasCapability(NetworkCapabilities.NET_CAPABILITY_TRUSTED),
+                    "foreground",cap.hasCapability(NetworkCapabilities.NET_CAPABILITY_FOREGROUND),
+                    "metered",c.isActiveNetworkMetered(),"interfaceName",link==null?null:link.getInterfaceName(),
+                    "httpProxy",link==null||link.getHttpProxy()==null?null:link.getHttpProxy().toString(),
+                    "capabilitiesRaw",cap.toString());
+        });
         s.read("network","network/connectivity","连接与链路","ConnectivityManager.getAllNetworks",()->{JSONArray a=new JSONArray();Network active=c.getActiveNetwork();for(Network n:c.getAllNetworks()){NetworkCapabilities cap=c.getNetworkCapabilities(n);LinkProperties link=c.getLinkProperties(n);JSONObject o=Json.obj("handle",n.getNetworkHandle(),"active",n.equals(active),"capabilitiesRaw",cap==null?null:cap.toString());if(cap!=null){JSONArray transports=new JSONArray();for(int type=0;type<=10;type++)if(cap.hasTransport(type))transports.put(type);Json.put(o,"transports",transports);Json.put(o,"downstreamKbps",cap.getLinkDownstreamBandwidthKbps());Json.put(o,"upstreamKbps",cap.getLinkUpstreamBandwidthKbps());}if(link!=null){JSONArray addresses=new JSONArray(),dns=new JSONArray(),routes=new JSONArray();for(LinkAddress x:link.getLinkAddresses())addresses.put(Json.obj("address",x.getAddress().getHostAddress(),"prefixLength",x.getPrefixLength(),"flags",x.getFlags(),"scope",x.getScope()));for(InetAddress x:link.getDnsServers())dns.put(x.getHostAddress());for(RouteInfo x:link.getRoutes())routes.put(Json.obj("destination",x.getDestination().toString(),"gateway",x.getGateway()==null?null:x.getGateway().getHostAddress(),"interface",x.getInterface(),"default",x.isDefaultRoute()));Json.put(o,"link",Json.obj("interfaceName",link.getInterfaceName(),"domains",link.getDomains(),"mtu",Build.VERSION.SDK_INT>=29?link.getMtu():null,"addresses",addresses,"dns",dns,"routes",routes,"httpProxy",link.getHttpProxy()==null?null:link.getHttpProxy().toString(),"raw",link.toString()));}a.put(o);}return a;});
         s.read("network","network/interfaces","网络接口","NetworkInterface.getNetworkInterfaces",()->{JSONArray a=new JSONArray();Enumeration<NetworkInterface> all=NetworkInterface.getNetworkInterfaces();if(all!=null)while(all.hasMoreElements()){NetworkInterface n=all.nextElement();JSONArray addresses=new JSONArray();for(InterfaceAddress x:n.getInterfaceAddresses())addresses.put(Json.obj("address",x.getAddress().getHostAddress(),"prefixLength",x.getNetworkPrefixLength(),"broadcast",x.getBroadcast()==null?null:x.getBroadcast().getHostAddress()));byte[] mac=null;String error=null;try{mac=n.getHardwareAddress();}catch(Exception e){error=e.toString();}a.put(Json.obj("name",n.getName(),"displayName",n.getDisplayName(),"index",n.getIndex(),"up",n.isUp(),"loopback",n.isLoopback(),"virtual",n.isVirtual(),"pointToPoint",n.isPointToPoint(),"mtu",n.getMTU(),"hardwareAddressBase64",mac==null?null:android.util.Base64.encodeToString(mac,android.util.Base64.NO_WRAP),"hardwareAddressError",error,"addresses",addresses));}return a;});
         WifiManager wifi=s.context.getApplicationContext().getSystemService(WifiManager.class);
