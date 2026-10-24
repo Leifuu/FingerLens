@@ -247,6 +247,11 @@ public class CollectionChecks {
         JSONObject state=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("environment/device-state")){state=item;break;}}
         assertNotNull("应记录设备初始化与运行状态",state);assertEquals("ok",state.getString("status"));JSONObject value=state.getJSONObject("value");assertTrue(value.has("deviceProvisioned"));assertTrue(value.has("userSetupComplete"));assertTrue(value.has("bootCount"));assertTrue(value.has("lowRamDevice"));assertTrue(value.has("userUnlocked"));assertTrue(value.has("userRunning"));assertFalse(state.toString().toLowerCase(java.util.Locale.ROOT).contains("latitude"));assertFalse(state.toString().toLowerCase(java.util.Locale.ROOT).contains("serial"));
     }
+    @Test public void userProfileSummaryKeepsIdentityOutOfEvidence()throws Exception{
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new BuildSystemCollector("environment").collect(sink);
+        JSONObject summary=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("environment/user-profiles")){summary=item;break;}}
+        assertNotNull("应记录用户与工作资料摘要",summary);assertEquals("ok",summary.getString("status"));JSONObject value=summary.getJSONObject("value");assertTrue(value.has("available"));assertTrue(value.has("profileCount"));assertTrue(value.has("managedProfile"));assertTrue(value.getInt("profileCount")>=0);assertFalse(summary.toString().contains("UserHandle"));assertFalse(summary.toString().toLowerCase(java.util.Locale.ROOT).contains("account"));
+    }
     @Test public void appStandbyEvidenceKeepsApiBoundary()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new BuildSystemCollector("environment").collect(sink);
         JSONObject standby=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("environment/app-standby")){standby=item;break;}}

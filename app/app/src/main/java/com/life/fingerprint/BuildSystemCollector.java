@@ -88,6 +88,7 @@ public final class BuildSystemCollector implements Collector {
         s.read("environment","environment/system-settings","显示与动画设置摘要","Settings.System",()->systemSettings(s.context));
         for(String key:SYSTEM_ENVIRONMENT_KEYS)s.read("environment","environment/system/"+key,key,"Settings.System.getString",()->Settings.System.getString(s.context.getContentResolver(),key));
         s.read("environment","environment/device-state","设备初始化与运行状态","ActivityManager / UserManager / Settings",()->deviceState(s.context));
+        s.read("environment","environment/user-profiles","用户与工作资料摘要","UserManager.getUserProfiles",()->userProfileSummary(s.context));
         s.read("environment","environment/app-standby","当前 App 待机分桶","UsageStatsManager.getAppStandbyBucket",()->appStandby(s.context));
         s.read("environment","environment/process-exits","当前 App 进程退出历史","ActivityManager.getHistoricalProcessExitReasons",()->processExitEnvironment(s.context));
         s.read("environment","environment/low-power-standby","低功耗待机与重启能力","PowerManager",()->lowPowerStandby(s.context));
@@ -175,6 +176,20 @@ public final class BuildSystemCollector implements Collector {
         if(Build.VERSION.SDK_INT>=29)Json.put(out,"testHarness",ActivityManager.isRunningInUserTestHarness());
         if(Build.VERSION.SDK_INT>=28)Json.put(out,"backgroundRestricted",activity!=null&&activity.isBackgroundRestricted());
         return out;
+    }
+    // 业务块：只记录当前用户可见的资料数量和托管资料状态，不导出用户句柄、账号或个人内容。
+    private static JSONObject userProfileSummary(Context context){
+        if(Build.VERSION.SDK_INT<21)return Json.obj("available",false,"status","unsupported","profileCount",null,"managedProfile",null);
+        UserManager users=context.getSystemService(UserManager.class);
+        if(users==null)return Json.obj("available",false,"status","unavailable","profileCount",null,"managedProfile",null);
+        try{
+            List<android.os.UserHandle> profiles=users.getUserProfiles();
+            return Json.obj("available",true,"status","ok","profileCount",profiles==null?0:profiles.size(),"managedProfile",Build.VERSION.SDK_INT>=24?users.isManagedProfile():null);
+        }catch(SecurityException e){
+            return Json.obj("available",false,"status","denied","profileCount",null,"managedProfile",null);
+        }catch(RuntimeException e){
+            return Json.obj("available",false,"status","error","profileCount",null,"managedProfile",null,"error",e.getClass().getName());
+        }
     }
     // 业务块：只读取当前 App 的系统待机分桶，不查询其它 App 的使用记录。
     private static JSONObject appStandby(Context context){

@@ -304,6 +304,11 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].title).toBe('设备初始化与运行状态');
     expect(sections[0].rows.map(row => row.key)).toEqual(['deviceProvisioned', 'userSetupComplete', 'bootCount', 'lowRamDevice', 'userUnlocked', 'userRunning']);
   });
+  it('用户与工作资料摘要只展示数量和托管状态', () => {
+    const sections = buildSections(item('environment/user-profiles', 'environment', { available: true, status: 'ok', profileCount: 2, managedProfile: true }));
+    expect(sections[0].title).toBe('用户与工作资料摘要');
+    expect(sections[0].rows.map(row => row.key)).toEqual(['available', 'status', 'profileCount', 'managedProfile']);
+  });
   it('信任库详情压缩 DER，只展示可读摘要并保留长度', () => {
     const value = item('security/trust-store', 'security', [{ alias: 'system:root', sha256: 'a'.repeat(64), derBase64: 'A'.repeat(10000) }]);
     const original = JSON.stringify(value);
