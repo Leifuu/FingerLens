@@ -145,6 +145,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     'security/device-management': { title: '设备管理与用户环境', order: ['deviceOwnerForSelf', 'profileOwnerForSelf', 'managedProfile', 'userUnlocked', 'storageEncryptionStatus', 'restrictions'], arrays: [] },
     'security/special-access': { title: '本 App 特殊访问状态', order: ['available', 'canDrawOverlays', 'appOps'], arrays: [] },
     'security/lock-biometric': { title: '锁屏与生物识别环境', order: ['keyguardSecure', 'keyguardLocked', 'deviceSecure', 'deviceLocked', 'fingerprintFeature', 'faceFeature', 'irisFeature'], arrays: [] },
+    'security/accessibility': { title: '启用的无障碍服务', order: ['available', 'count'], arrays: ['services'] },
     'environment/webview-user-agent': { title: 'WebView 默认 User-Agent', order: ['userAgent', 'length'], arrays: [] },
     'environment/power-thermal': { title: '电源与热状态', order: ['powerSaveMode', 'interactive', 'deviceIdleMode', 'lightDeviceIdleMode', 'locationPowerSaveMode', 'thermalStatus', 'thermalHeadroom'], arrays: [] },
     'hardware/usb': { title: 'USB 设备公开清单', order: ['count'], arrays: ['devices'] },

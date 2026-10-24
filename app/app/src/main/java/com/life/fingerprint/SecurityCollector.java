@@ -7,6 +7,10 @@ import android.content.pm.PackageManager;
 import android.app.admin.DevicePolicyManager;
 import android.app.AppOpsManager;
 import android.app.KeyguardManager;
+import android.accessibilityservice.AccessibilityServiceInfo;
+import android.content.pm.ResolveInfo;
+import android.content.pm.ServiceInfo;
+import android.view.accessibility.AccessibilityManager;
 import android.os.*;
 import android.provider.Settings;
 import android.security.keystore.*;
@@ -29,6 +33,7 @@ public final class SecurityCollector implements Collector {
         s.read("security","security/device-management","设备管理与用户环境","DevicePolicyManager / UserManager",()->managementEnvironment(s.context));
         s.read("security","security/special-access","本 App 特殊访问状态","AppOpsManager / Settings.canDrawOverlays",()->specialAccess(s.context));
         s.read("security","security/lock-biometric","锁屏与生物识别环境","KeyguardManager / PackageManager.hasSystemFeature",()->lockBiometricEnvironment(s.context));
+        s.read("security","security/accessibility","启用的无障碍服务元数据","AccessibilityManager.getEnabledAccessibilityServiceList",()->accessibilityEnvironment(s.context));
         for(String p:new String[]{"/proc/self/attr/current","/proc/self/status","/sys/fs/selinux/enforce","/sys/fs/selinux/policyvers","/sys/fs/selinux/checkreqprot","/proc/cmdline","/proc/bootconfig","/system/etc/selinux/plat_sepolicy.cil","/vendor/etc/selinux/vendor_sepolicy.cil"})s.file("security","security/file"+p,p);
         s.read("security","security/buildSerial","Build 序列号（可能受限）","Build.getSerial",()->Build.VERSION.SDK_INT>=26?Build.getSerial():Build.SERIAL);
         s.read("security","security/providers","安全提供者","Security.getProviders",()->{JSONArray a=new JSONArray();for(Provider p:Security.getProviders()){JSONArray services=new JSONArray();for(Provider.Service v:p.getServices())services.put(Json.obj("type",v.getType(),"algorithm",v.getAlgorithm(),"className",v.getClassName()));a.put(Json.obj("name",p.getName(),"info",p.getInfo(),"version",p.getVersion(),"services",services));}return a;});
@@ -71,6 +76,36 @@ public final class SecurityCollector implements Collector {
                 "fingerprintFeature",packages.hasSystemFeature(PackageManager.FEATURE_FINGERPRINT),
                 "faceFeature",Build.VERSION.SDK_INT>=29&&packages.hasSystemFeature(PackageManager.FEATURE_FACE),
                 "irisFeature",Build.VERSION.SDK_INT>=29&&packages.hasSystemFeature(PackageManager.FEATURE_IRIS));
+    }
+    // 业务块：只记录无障碍服务的组件与能力位，不读取窗口内容、文本或用户操作。
+    private static JSONObject accessibilityEnvironment(Context context){
+        AccessibilityManager manager=context.getSystemService(AccessibilityManager.class);
+        if(manager==null)return Json.obj("available",false,"count",0,"services",new JSONArray());
+        List<AccessibilityServiceInfo> list=manager.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK);
+        if(list==null)return Json.obj("available",true,"count",0,"services",new JSONArray());
+        if(list.size()>256)throw new IllegalStateException("无障碍服务超过 256");
+        ArrayList<AccessibilityServiceInfo> sorted=new ArrayList<>(list);
+        sorted.sort(Comparator.comparing(SecurityCollector::accessibilityComponent,String.CASE_INSENSITIVE_ORDER));
+        JSONArray services=new JSONArray();
+        for(AccessibilityServiceInfo info:sorted){
+            ResolveInfo resolved=info.getResolveInfo();
+            ServiceInfo service=resolved==null?null:resolved.serviceInfo;
+            String packageName=service==null?null:service.packageName;
+            String serviceName=service==null?null:service.name;
+            int capabilities=info.getCapabilities();
+            services.put(Json.obj("packageName",packageName,"serviceName",serviceName,
+                    "feedbackType",info.feedbackType,"eventTypes",info.eventTypes,"capabilities",capabilities,
+                    "canRetrieveWindowContent",(capabilities&AccessibilityServiceInfo.CAPABILITY_CAN_RETRIEVE_WINDOW_CONTENT)!=0,
+                    "canRequestTouchExploration",(capabilities&AccessibilityServiceInfo.CAPABILITY_CAN_REQUEST_TOUCH_EXPLORATION)!=0,
+                    "canRequestFilterKeyEvents",(capabilities&AccessibilityServiceInfo.CAPABILITY_CAN_REQUEST_FILTER_KEY_EVENTS)!=0,
+                    "canPerformGestures",Build.VERSION.SDK_INT>=24&&(capabilities&AccessibilityServiceInfo.CAPABILITY_CAN_PERFORM_GESTURES)!=0));
+        }
+        return Json.obj("available",true,"count",services.length(),"services",services);
+    }
+    private static String accessibilityComponent(AccessibilityServiceInfo info){
+        ResolveInfo resolved=info.getResolveInfo();
+        ServiceInfo service=resolved==null?null:resolved.serviceInfo;
+        return service==null?"":service.packageName+"/"+service.name;
     }
     public static JSONObject key(String alias,boolean attest,boolean strong)throws Exception {
         KeyStore store=KeyStore.getInstance("AndroidKeyStore");store.load(null);

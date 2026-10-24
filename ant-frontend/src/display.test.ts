@@ -93,6 +93,12 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.some(row => row.key === 'keyguardSecure')).toBe(true);
     expect(sections[0].rows.some(row => row.key === 'fingerprintFeature')).toBe(true);
   });
+  it('无障碍服务摘要只展示组件与能力元数据', () => {
+    const value = item('security/accessibility', 'security', { available: true, count: 1, services: [{ packageName: 'com.example.a11y', serviceName: 'Service', capabilities: 1, canRetrieveWindowContent: true }] });
+    const sections = buildSections(value);
+    expect(sections[0].title).toBe('启用的无障碍服务');
+    expect(sections.find(section => section.key === 'services')?.rows.some(row => row.key === '[0].packageName')).toBe(true);
+  });
   it('信任库详情压缩 DER，只展示可读摘要并保留长度', () => {
     const value = item('security/trust-store', 'security', [{ alias: 'system:root', sha256: 'a'.repeat(64), derBase64: 'A'.repeat(10000) }]);
     const original = JSON.stringify(value);
