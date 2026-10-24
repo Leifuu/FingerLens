@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.app.admin.DevicePolicyManager;
 import android.os.*;
 import android.security.keystore.*;
 import android.util.Base64;
@@ -22,10 +23,26 @@ public final class SecurityCollector implements Collector {
         if(module.equals("attestation")){attestation(s);return;}
         if(module.equals("virtualization")){virtualization(s);return;}
         s.ok("security","security/self","应用安全上下文","android-api","Process / ApplicationInfo / Debug",Json.obj("uid",android.os.Process.myUid(),"pid",android.os.Process.myPid(),"debuggable",(s.context.getApplicationInfo().flags&ApplicationInfo.FLAG_DEBUGGABLE)!=0,"debuggerConnected",Debug.isDebuggerConnected(),"waitingForDebugger",Debug.waitingForDebugger()));
+        s.read("security","security/device-management","设备管理与用户环境","DevicePolicyManager / UserManager",()->managementEnvironment(s.context));
         for(String p:new String[]{"/proc/self/attr/current","/proc/self/status","/sys/fs/selinux/enforce","/sys/fs/selinux/policyvers","/sys/fs/selinux/checkreqprot","/proc/cmdline","/proc/bootconfig","/system/etc/selinux/plat_sepolicy.cil","/vendor/etc/selinux/vendor_sepolicy.cil"})s.file("security","security/file"+p,p);
         s.read("security","security/buildSerial","Build 序列号（可能受限）","Build.getSerial",()->Build.VERSION.SDK_INT>=26?Build.getSerial():Build.SERIAL);
         s.read("security","security/providers","安全提供者","Security.getProviders",()->{JSONArray a=new JSONArray();for(Provider p:Security.getProviders()){JSONArray services=new JSONArray();for(Provider.Service v:p.getServices())services.put(Json.obj("type",v.getType(),"algorithm",v.getAlgorithm(),"className",v.getClassName()));a.put(Json.obj("name",p.getName(),"info",p.getInfo(),"version",p.getVersion(),"services",services));}return a;});
         s.read("security","security/trust-store","当前 App 可见 CA 信任库","KeyStore AndroidCAStore",()->{KeyStore store=KeyStore.getInstance("AndroidCAStore");store.load(null);JSONArray a=new JSONArray();Enumeration<String> names=store.aliases();int count=0;while(names.hasMoreElements()){String name=names.nextElement();if(++count>4096)throw new IllegalStateException("CA 数量超过 4096");Certificate cert=store.getCertificate(name);a.put(Json.obj("alias",name,"derBase64",cert==null?null:Base64.encodeToString(cert.getEncoded(),Base64.NO_WRAP),"sha256",cert==null?null:PackageInputCollector.sha(cert.getEncoded())));}return a;});
+    }
+    // 业务块：只查询当前用户和本 App 的管理状态，避免枚举其它管理员或用户身份。
+    private static JSONObject managementEnvironment(Context context){
+        DevicePolicyManager policy=context.getSystemService(DevicePolicyManager.class);
+        UserManager users=context.getSystemService(UserManager.class);
+        String packageName=context.getPackageName();
+        JSONObject restrictions=new JSONObject();
+        String[] names={UserManager.DISALLOW_DEBUGGING_FEATURES,UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES,UserManager.DISALLOW_CONFIG_LOCATION,UserManager.DISALLOW_CONFIG_WIFI,UserManager.DISALLOW_CONFIG_BLUETOOTH,UserManager.DISALLOW_ADD_USER,UserManager.DISALLOW_FACTORY_RESET};
+        for(String name:names)Json.put(restrictions,name,users!=null&&users.hasUserRestriction(name));
+        return Json.obj("deviceOwnerForSelf",policy!=null&&policy.isDeviceOwnerApp(packageName),
+                "profileOwnerForSelf",policy!=null&&policy.isProfileOwnerApp(packageName),
+                "managedProfile",Build.VERSION.SDK_INT>=30&&users!=null&&users.isManagedProfile(),
+                "userUnlocked",Build.VERSION.SDK_INT<24||users==null||users.isUserUnlocked(),
+                "storageEncryptionStatus",policy==null?null:policy.getStorageEncryptionStatus(),
+                "restrictions",restrictions);
     }
     public static JSONObject key(String alias,boolean attest,boolean strong)throws Exception {
         KeyStore store=KeyStore.getInstance("AndroidKeyStore");store.load(null);

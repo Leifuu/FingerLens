@@ -57,6 +57,12 @@ describe('设备格式化展示边界', () => {
     expect(drm[0].rows.some(row => row.key.includes('deviceUniqueId.sha256'))).toBe(true);
     expect(integrity[0].title).toBe('Play Integrity 本地环境');
   });
+  it('设备管理摘要保留当前 App 范围和限制项', () => {
+    const sections = buildSections(item('security/device-management', 'security', { deviceOwnerForSelf: false, profileOwnerForSelf: false, managedProfile: false, userUnlocked: true, restrictions: { 'no_debugging_features': false } }));
+    expect(sections[0].title).toBe('设备管理与用户环境');
+    expect(sections[0].rows.some(row => row.key.includes('deviceOwnerForSelf'))).toBe(true);
+    expect(sections[0].rows.some(row => row.key.includes('restrictions.no_debugging_features'))).toBe(true);
+  });
   it('proc 多行文本按行拆分，正确行不会因另一行变化而整体标红', () => {
     const sections = buildSections(item('kernel/proc/diskstats', 'kernel', '8 0 sda 1 2\n8 1 sda1 3 4\n'));
     expect(sections[0].table).toBe(true);
