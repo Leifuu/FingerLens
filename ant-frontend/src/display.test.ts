@@ -272,6 +272,19 @@ describe('设备格式化展示边界', () => {
     expect(JSON.stringify(signatures)).not.toContain('B'.repeat(100));
     expect(JSON.stringify(value)).toBe(original);
   });
+  it('应用组件数组改为计数摘要并保留原始 JSON', () => {
+    const value = item('packages/com.example', 'packages', { packageName: 'com.example', activities: [{ name: 'com.example.Main', enabled: true, exported: true, processName: 'main', permission: 'android.permission.CAMERA' }], providers: [{ name: 'com.example.Provider', enabled: true, exported: false, processName: 'provider', authority: 'com.example', grantUriPermissions: true }] });
+    const original = JSON.stringify(value);
+    const sections = buildSections(value);
+    const activities = sections.find(section => section.key === 'activities');
+    const providers = sections.find(section => section.key === 'providers');
+    expect(activities?.title).toContain('原始条目保留');
+    expect(activities?.rows.find(row => row.key === 'count')?.value).toBe('1');
+    expect(activities?.rows.find(row => row.key === 'exportedCount')?.value).toBe('1');
+    expect(providers?.rows.find(row => row.key === 'authorityCount')?.value).toBe('1');
+    expect(JSON.stringify(sections)).not.toContain('com.example.Main');
+    expect(JSON.stringify(value)).toBe(original);
+  });
   it('proc 多行文本按行拆分，正确行不会因另一行变化而整体标红', () => {
     const sections = buildSections(item('kernel/proc/diskstats', 'kernel', '8 0 sda 1 2\n8 1 sda1 3 4\n'));
     expect(sections[0].table).toBe(true);

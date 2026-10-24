@@ -130,6 +130,7 @@ function packageSections(value: Json): DisplaySection[] {
   const sections: DisplaySection[] = [section('package', '包信息', objectRows(value))];
   for (const [key, child] of Object.entries(value)) if (Array.isArray(child)) {
     if (key === 'signatures') sections.push(signatureSections(child));
+    else if (key === 'activities' || key === 'receivers' || key === 'services' || key === 'providers') sections.push(componentSections(key, child));
     else sections.push(section(key, key, arrayRows(child, key), true));
   }
   return sections.filter(item => item.rows.length);
@@ -143,6 +144,26 @@ function signatureSections(value: Json[]): DisplaySection {
     if (typeof entry.derBase64 === 'string') rows.push(row(`[${index}].derBase64.length`, entry.derBase64.length, `签名 ${index + 1} · 原始 DER 长度`));
   });
   return section('signatures', '签名摘要（原始 DER 保留在 JSON）', rows, true);
+}
+
+function componentSections(key: string, value: Json[]): DisplaySection {
+  const labels: Record<string, string> = { activities: 'Activity', receivers: 'Receiver', services: 'Service', providers: 'Provider' };
+  let enabledCount = 0, exportedCount = 0, permissionCount = 0, authorityCount = 0, grantUriPermissionsCount = 0;
+  const processes = new Set<string>();
+  for (const entry of value) {
+    if (!object(entry)) continue;
+    if (entry.enabled === true) enabledCount++;
+    if (entry.exported === true) exportedCount++;
+    if (typeof entry.permission === 'string' && entry.permission) permissionCount++;
+    if (typeof entry.processName === 'string' && entry.processName) processes.add(entry.processName);
+    if (key === 'providers') {
+      if (typeof entry.authority === 'string' && entry.authority) authorityCount++;
+      if (entry.grantUriPermissions === true) grantUriPermissionsCount++;
+    }
+  }
+  const summary: JsonObject = { count: value.length, enabledCount, exportedCount, permissionCount, processNameCount: processes.size };
+  if (key === 'providers') Object.assign(summary, { authorityCount, grantUriPermissionsCount });
+  return section(key, `${labels[key] || key} 摘要（原始条目保留在 JSON）`, objectRows(summary));
 }
 
 function genericSections(value: Json): DisplaySection[] {
