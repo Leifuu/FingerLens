@@ -30,6 +30,13 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.map(row => row.key)).toContain('virtualCount');
     expect(sections[0].rows.map(row => row.key)).toContain('keyboardTypeCounts.1');
   });
+  it('显示摘要展示能力计数并保留尺寸数组', () => {
+    const sections = buildSections(item('display/summary', 'display', { count: 2, validCount: 2, secureCount: 2, presentationCount: 0, presentationCategoryCount: 0, hdrCount: 1, widths: [1080, 1920], heights: [2400, 1080], densityDpi: [420], refreshRates: [60, 120] }));
+    expect(sections[0].title).toBe('显示能力摘要');
+    expect(sections[0].rows.map(row => row.key)).toContain('hdrCount');
+    expect(sections.find(section => section.key === 'widths')?.title).toBe('显示宽度（px）');
+    expect(sections.find(section => section.key === 'refreshRates')?.rows.map(row => row.value)).toEqual(['60', '120']);
+  });
   it('屏幕字段只属于对应子面板，支持模式和 HDR 数组不遗漏', () => {
     const value = item('display/0', 'display', { displayId: 0, name: '内置屏幕', widthPixels: 720, refreshRate: 60, supportedModes: [{ modeId: 1, physicalWidth: 720 }], presentationDeadlineNanos: { $type: 'int64', value: '9007199254740993' }, hdr: { types: [1], minLuminance: 0 }, futureField: null });
     const sections = buildSections(value);

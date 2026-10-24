@@ -163,6 +163,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     'network/wifi-summary': { title: 'Wi-Fi 能力摘要', order: ['available', 'wifiState', 'connectionAccess', 'scanAccess', 'connectionInfoAvailable', 'ssidPresent', 'bssidPresent', 'macAddressPresent', 'frequency', 'rssi', 'linkSpeed', 'cachedScanCount', 'ssidPresentCount', 'bssidPresentCount', 'band2_4GHzCount', 'band5GHzCount', 'band6GHzCount', 'frequenciesTruncated'], arrays: ['frequencies'] },
     'packages/summary': { title: '应用清单摘要', order: ['returnedCount', 'applicationInfoCount', 'enabledCount', 'debuggableCount', 'systemAppCount', 'updatedSystemAppCount', 'nativeCodeCount', 'splitPackageCount', 'sharedUserIdCount', 'versionNameCount', 'requestedPermissionCount', 'activityCount', 'receiverCount', 'serviceCount', 'providerCount', 'targetSdkCounts'], arrays: [] },
     'input/summary': { title: '输入设备能力摘要', order: ['count', 'virtualCount', 'externalCount', 'microphoneCount', 'vibratorCount', 'motionRangeCount', 'accessErrorCount', 'keyboardTypeCounts', 'sourceCounts'], arrays: [] },
+    'display/summary': { title: '显示能力摘要', order: ['count', 'validCount', 'secureCount', 'presentationCount', 'presentationCategoryCount', 'hdrCount'], arrays: ['widths', 'heights', 'densityDpi', 'refreshRates'] },
     'attestation/play-integrity-environment': { title: 'Play Integrity 本地环境', order: ['verdictAvailable', 'conclusion', 'playServices', 'playStore'], arrays: [] },
     'security/device-management': { title: '设备管理与用户环境', order: ['deviceOwnerForSelf', 'profileOwnerForSelf', 'managedProfile', 'userUnlocked', 'storageEncryptionStatus', 'restrictions'], arrays: [] },
     'security/special-access': { title: '本 App 特殊访问状态', order: ['available', 'canDrawOverlays', 'appOps'], arrays: [] },
@@ -194,6 +195,8 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
           : key === 'hardware/audio-summary'
             ? arrayKey === 'productNames' ? '音频设备名' : arrayKey === 'sampleRates' ? '采样率' : '编码格式'
           : key === 'network/wifi-summary' && arrayKey === 'frequencies' ? '缓存扫描频率（MHz）'
+          : key === 'display/summary'
+            ? arrayKey === 'widths' ? '显示宽度（px）' : arrayKey === 'heights' ? '显示高度（px）' : arrayKey === 'densityDpi' ? '密度（dpi）' : '刷新率（Hz）'
           : arrayKey;
       sections.push(section(arrayKey, title, arrayRows(value[arrayKey] as Json[], arrayKey), true));
     }
