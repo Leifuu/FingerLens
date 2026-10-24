@@ -88,6 +88,7 @@ public final class NetworkCollector implements Collector {
         s.read("network","network/proxy","默认代理","ConnectivityManager.getDefaultProxy",()->{ProxyInfo p=c.getDefaultProxy();return p==null?null:Json.obj("host",p.getHost(),"port",p.getPort(),"exclusionList",p.getExclusionList(),"pacFileUrl",p.getPacFileUrl().toString());});
         s.read("network","network/bluetooth","蓝牙及已配对设备","BluetoothManager / BluetoothAdapter.getBondedDevices",()->{BluetoothManager m=s.context.getSystemService(BluetoothManager.class);BluetoothAdapter b=m==null?null:m.getAdapter();if(b==null)return null;JSONArray devices=new JSONArray();for(BluetoothDevice d:b.getBondedDevices())devices.put(Json.obj("address",d.getAddress(),"name",d.getName(),"type",d.getType(),"bondState",d.getBondState()));return Json.obj("name",b.getName(),"address",b.getAddress(),"state",b.getState(),"pairedDevices",devices);});
         s.read("network","network/bluetooth-summary","蓝牙能力摘要","BluetoothManager / BluetoothAdapter",()->bluetoothSummary(s.context));
+        s.read("network","network/bluetooth-capabilities","蓝牙 LE 能力","BluetoothAdapter LE capability APIs",()->bluetoothCapabilities(s.context));
         for(String p:new String[]{"/proc/net/route","/proc/net/ipv6_route","/proc/net/if_inet6","/proc/net/arp","/proc/net/dev"})s.file("network","network/file"+p,p);
     }
     // 业务块：汇总所有公开网络能力，不复制地址、DNS、路由或原始字符串；network/connectivity 继续保留。
@@ -105,6 +106,15 @@ public final class NetworkCollector implements Collector {
         Set<BluetoothDevice> bonded;try{bonded=adapter.getBondedDevices();}catch(SecurityException e){return Json.obj("available",true,"access","denied","adapterState",state,"adapterNamePresent",namePresent,"adapterAddressPresent",addressPresent,"bondedCount",null,"bondedNameCount",null,"bondedAddressCount",null,"bondedTypeCounts",new JSONObject(),"bondedClassCounts",new JSONObject());}
         JSONObject typeCounts=new JSONObject(),classCounts=new JSONObject();int nameCount=0,addressCount=0;for(BluetoothDevice device:bonded){try{if(device.getName()!=null&&!device.getName().isEmpty())nameCount++;}catch(SecurityException ignored){}try{if(device.getAddress()!=null&&!device.getAddress().isEmpty())addressCount++;}catch(SecurityException ignored){}count(typeCounts,String.valueOf(device.getType()));try{BluetoothClass clazz=device.getBluetoothClass();if(clazz!=null)count(classCounts,String.valueOf(clazz.getDeviceClass()));}catch(SecurityException ignored){}}
         return Json.obj("available",true,"access","allowed","adapterState",state,"adapterNamePresent",namePresent,"adapterAddressPresent",addressPresent,"bondedCount",bonded.size(),"bondedNameCount",nameCount,"bondedAddressCount",addressCount,"bondedTypeCounts",typeCounts,"bondedClassCounts",classCounts);
+    }
+    // 业务块：只查询蓝牙适配器公开 LE 能力，不读取设备地址、名称或广播内容。
+    private static JSONObject bluetoothCapabilities(Context context){
+        if(Build.VERSION.SDK_INT<26)return Json.obj("available",false,"access","unsupported","adapterState",null,"le2MPhySupported",null,"leCodedPhySupported",null,"leExtendedAdvertisingSupported",null,"leMaximumAdvertisingDataLength",null);
+        BluetoothManager manager=context.getSystemService(BluetoothManager.class);BluetoothAdapter adapter=manager==null?null:manager.getAdapter();
+        if(adapter==null)return Json.obj("available",false,"access","unavailable","adapterState",null,"le2MPhySupported",null,"leCodedPhySupported",null,"leExtendedAdvertisingSupported",null,"leMaximumAdvertisingDataLength",null);
+        try{return Json.obj("available",true,"access","allowed","adapterState",adapter.getState(),"le2MPhySupported",adapter.isLe2MPhySupported(),"leCodedPhySupported",adapter.isLeCodedPhySupported(),"leExtendedAdvertisingSupported",adapter.isLeExtendedAdvertisingSupported(),"leMaximumAdvertisingDataLength",adapter.getLeMaximumAdvertisingDataLength());}
+        catch(SecurityException e){return Json.obj("available",true,"access","denied","adapterState",null,"le2MPhySupported",null,"leCodedPhySupported",null,"leExtendedAdvertisingSupported",null,"leMaximumAdvertisingDataLength",null);}
+        catch(RuntimeException e){return Json.obj("available",true,"access","error","adapterState",null,"le2MPhySupported",null,"leCodedPhySupported",null,"leExtendedAdvertisingSupported",null,"leMaximumAdvertisingDataLength",null,"error",e.getClass().getName());}
     }
     private static void count(JSONObject counts,String key){Json.put(counts,key,counts.optInt(key,0)+1);}
     // 业务块：Wi-Fi 摘要只记录连接/频段元数据，不导出 SSID、BSSID 或主动发起扫描。
