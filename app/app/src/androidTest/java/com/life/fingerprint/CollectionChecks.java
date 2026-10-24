@@ -154,6 +154,6 @@ public class CollectionChecks {
     @Test public void locationEvidenceUsesProviderMetadataOnly()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new BuildSystemCollector("environment").collect(sink);
         JSONObject location=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("environment/location")){location=item;break;}}
-        assertNotNull("应记录定位环境摘要",location);assertEquals("ok",location.getString("status"));JSONObject value=location.getJSONObject("value");assertTrue(value.has("available"));assertTrue(value.has("providerCount"));assertTrue(value.has("providers"));assertFalse(location.toString().contains("latitude"));assertFalse(location.toString().contains("longitude"));assertFalse(location.toString().contains("lastKnown"));
+        assertNotNull("应记录定位环境摘要",location);assertEquals("ok",location.getString("status"));JSONObject value=location.getJSONObject("value");assertTrue(value.has("available"));assertTrue(value.has("providerCount"));assertTrue(value.has("providers"));if(Build.VERSION.SDK_INT>=31){assertTrue(value.has("gnssAntennaCount"));assertTrue(value.has("gnssAntennaCarrierFrequenciesMHz"));assertTrue(value.getJSONArray("gnssAntennaCarrierFrequenciesMHz").length()<=64);}assertFalse(location.toString().contains("latitude"));assertFalse(location.toString().contains("longitude"));assertFalse(location.toString().contains("lastKnown"));
     }
 }

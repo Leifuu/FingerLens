@@ -130,7 +130,7 @@ public final class BuildSystemCollector implements Collector {
         return null;
     }
     // 业务块：只读取定位开关、provider 元数据与 GNSS 能力，不获取位置样本或坐标。
-    private static JSONObject locationEnvironment(Context context){
+    private static JSONObject locationEnvironment(Context context)throws JSONException{
         LocationManager location=context.getSystemService(LocationManager.class);
         if(location==null)return Json.obj("available",false,"providerCount",0,"providers",new JSONArray());
         ArrayList<String> names=new ArrayList<>();List<String> all=location.getAllProviders();if(all!=null)names.addAll(all);Collections.sort(names,String.CASE_INSENSITIVE_ORDER);
@@ -138,7 +138,11 @@ public final class BuildSystemCollector implements Collector {
         for(String name:names)providers.put(Json.obj("name",name,"enabled",location.isProviderEnabled(name)));
         JSONObject out=Json.obj("available",true,"providerCount",providers.length(),"providers",providers,
                 "hasGpsProvider",null,"hasNetworkProvider",null,"hasFusedProvider",null);
-        if(Build.VERSION.SDK_INT>=31){Json.put(out,"hasGpsProvider",location.hasProvider(LocationManager.GPS_PROVIDER));Json.put(out,"hasNetworkProvider",location.hasProvider(LocationManager.NETWORK_PROVIDER));Json.put(out,"hasFusedProvider",location.hasProvider(LocationManager.FUSED_PROVIDER));}
+        if(Build.VERSION.SDK_INT>=31){
+            Json.put(out,"hasGpsProvider",location.hasProvider(LocationManager.GPS_PROVIDER));Json.put(out,"hasNetworkProvider",location.hasProvider(LocationManager.NETWORK_PROVIDER));Json.put(out,"hasFusedProvider",location.hasProvider(LocationManager.FUSED_PROVIDER));
+            List<android.location.GnssAntennaInfo> antennas=location.getGnssAntennaInfos();int antennaCount=antennas==null?0:antennas.size(),limit=Math.min(64,antennaCount);JSONArray frequencies=new JSONArray();for(int i=0;i<limit;i++)frequencies.put(antennas.get(i).getCarrierFrequencyMHz());
+            Json.put(out,"gnssAntennaCount",antennaCount);Json.put(out,"gnssAntennaInfoTruncated",antennaCount>limit);Json.put(out,"gnssAntennaCarrierFrequenciesMHz",frequencies);
+        }
         if(Build.VERSION.SDK_INT>=28){Json.put(out,"locationEnabled",location.isLocationEnabled());Json.put(out,"gnssHardwareModelName",location.getGnssHardwareModelName());Json.put(out,"gnssYearOfHardware",location.getGnssYearOfHardware());}
         if(Build.VERSION.SDK_INT>=31)Json.put(out,"gnssCapabilities",String.valueOf(location.getGnssCapabilities()));
         return out;

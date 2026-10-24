@@ -99,10 +99,11 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.map(row => row.key)).toEqual(['powerSaveMode', 'interactive', 'deviceIdleMode', 'thermalStatus', 'thermalHeadroom']);
   });
   it('定位摘要只展示 provider 与 GNSS 元数据', () => {
-    const sections = buildSections(item('environment/location', 'environment', { available: true, locationEnabled: true, providerCount: 1, hasGpsProvider: true, providers: [{ name: 'gps', enabled: true }], gnssHardwareModelName: 'test-gnss' }));
+    const sections = buildSections(item('environment/location', 'environment', { available: true, locationEnabled: true, providerCount: 1, hasGpsProvider: true, providers: [{ name: 'gps', enabled: true }], gnssHardwareModelName: 'test-gnss', gnssAntennaCount: 1, gnssAntennaInfoTruncated: false, gnssAntennaCarrierFrequenciesMHz: [1575.42] }));
     expect(sections[0].title).toBe('定位与 GNSS 能力');
     expect(sections[0].rows.map(row => row.key)).toContain('gnssHardwareModelName');
     expect(sections.find(section => section.key === 'providers')?.rows[0].value).toBe('gps');
+    expect(sections.find(section => section.key === 'gnssAntennaCarrierFrequenciesMHz')?.title).toBe('GNSS 天线载波频率（MHz）');
   });
   it('锁屏与生物识别摘要只展示公开状态', () => {
     const sections = buildSections(item('security/lock-biometric', 'security', { keyguardSecure: true, keyguardLocked: false, deviceSecure: true, deviceLocked: false, fingerprintFeature: true, faceFeature: false, irisFeature: false }));
