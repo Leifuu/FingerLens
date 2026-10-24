@@ -1,6 +1,8 @@
 package com.life.fingerprint;
 
+import android.content.Context;
 import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.*;
 import android.security.keystore.*;
@@ -44,12 +46,32 @@ public final class SecurityCollector implements Collector {
     }
     private void attestation(ItemSink s){
         s.read("attestation","attestation/cleanup-before","回收本工具上次中断的临时密钥","AndroidKeyStore.deleteEntry(fp_collect_* only)",SecurityCollector::cleanupOwnedAliases);
+        s.read("attestation","attestation/play-integrity-environment","Play Integrity 本地运行环境（非 verdict）","PackageManager.getPackageInfo",()->integrityEnvironment(s.context));
         s.read("attestation","attestation/tee","临时密钥与挑战认证","AndroidKeyStore.setAttestationChallenge",()->key("fp_collect_"+s.session+"_tee",true,false));
         s.read("attestation","attestation/plain","无认证挑战的密钥安全级别","AndroidKeyStore / KeyInfo",()->key("fp_collect_"+s.session+"_plain",false,false));
         if(Build.VERSION.SDK_INT>=28&&s.context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_STRONGBOX_KEYSTORE))s.read("attestation","attestation/strongbox","StrongBox 实际生成与认证","setIsStrongBoxBacked(true)",()->key("fp_collect_"+s.session+"_strongbox",true,true));
         else s.add("attestation","attestation/strongbox","StrongBox 未声明","android-api","FEATURE_STRONGBOX_KEYSTORE","unsupported",null,null,null);
         s.add("attestation","attestation/play-integrity","Play Integrity 未接入","collector","离线采集配置","skipped",null,null,null);
         s.read("attestation","attestation/cleanup-after","本次临时密钥清理","AndroidKeyStore.deleteEntry(fp_collect_* only)",SecurityCollector::cleanupOwnedAliases);
+    }
+    // 业务块：只记录 Play Integrity 依赖包的本地可见元数据，不把包存在当作远程 verdict。
+    private static JSONObject integrityEnvironment(Context context)throws Exception{
+        PackageManager pm=context.getPackageManager();
+        JSONObject out=Json.obj("verdictAvailable",false,"conclusion","仅为本地环境证据，不等于 Play Integrity verdict");
+        Json.put(out,"playServices",packageEnvironment(pm,"com.google.android.gms"));
+        Json.put(out,"playStore",packageEnvironment(pm,"com.android.vending"));
+        return out;
+    }
+    private static JSONObject packageEnvironment(PackageManager pm,String packageName)throws Exception{
+        try{
+            PackageInfo info=pm.getPackageInfo(packageName,Build.VERSION.SDK_INT>=28?PackageManager.GET_SIGNING_CERTIFICATES:PackageManager.GET_SIGNATURES);
+            JSONArray hashes=new JSONArray();
+            android.content.pm.Signature[] signatures=Build.VERSION.SDK_INT>=28&&info.signingInfo!=null?info.signingInfo.getApkContentsSigners():info.signatures;
+            if(signatures!=null)for(android.content.pm.Signature signature:signatures)hashes.put(PackageInputCollector.sha(signature.toByteArray()));
+            String installer=null;if(Build.VERSION.SDK_INT>=30)installer=pm.getInstallSourceInfo(packageName).getInstallingPackageName();else installer=pm.getInstallerPackageName(packageName);
+            ApplicationInfo app=info.applicationInfo;
+            return Json.obj("present",true,"packageName",packageName,"versionName",info.versionName,"versionCode",Build.VERSION.SDK_INT>=28?info.getLongVersionCode():(long)info.versionCode,"enabled",app==null?null:app.enabled,"applicationFlags",app==null?null:app.flags,"installer",installer,"signingCertificateSha256",hashes);
+        }catch(PackageManager.NameNotFoundException e){return Json.obj("present",false,"packageName",packageName,"status","not-found");}
     }
     private void virtualization(ItemSink s)throws Exception {
         String[] paths={"/dev/qemu_pipe","/dev/socket/qemud","/system/lib/libc_malloc_debug_qemu.so","/sys/qemu_trace","/system/bin/qemu-props","/system/bin/su","/system/xbin/su","/sbin/su","/vendor/bin/su","/data/adb","/proc/vz","/proc/bc","/dev/kvm"};
