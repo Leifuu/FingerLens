@@ -280,6 +280,11 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.map(row => row.key)).toContain('applicationLocaleAccess');
     expect(sections[0].rows.map(row => row.key)).toContain('timezoneId');
   });
+  it('系统时钟摘要展示运行时与近似开机时间', () => {
+    const sections = buildSections(item('environment/clock-summary', 'environment', { elapsedRealtimeMillis: 1000, uptimeMillis: 900, wallClockMillis: 1700000001000, bootTimeMillis: 1700000000000, sleepMillis: 100 }));
+    expect(sections[0].title).toBe('系统时钟摘要');
+    expect(sections[0].rows.map(row => row.key)).toEqual(['elapsedRealtimeMillis', 'uptimeMillis', 'wallClockMillis', 'bootTimeMillis', 'sleepMillis']);
+  });
   it('图形摘要展示渲染器并限制 Vulkan 扩展列表', () => {
     const sections = buildSections(item('hardware/graphics-summary', 'hardware', { available: true, eglInitialized: true, eglError: 12288, eglVendor: 'Android', eglVersion: '1.5', glVendor: 'ARM', glRenderer: 'Mali', glVersion: 'OpenGL ES 3.2', eglExtensionsLength: 796, eglExtensionCount: 20, glExtensionsLength: 2910, glExtensionCount: 100, vulkanLibraryLoaded: true, vulkanExtensionResult: 0, vulkanExtensionCount: 10, vulkanExtensionNames: ['VK_KHR_surface'], vulkanExtensionNamesTruncated: false }));
     expect(sections[0].title).toBe('图形能力摘要');

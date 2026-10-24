@@ -236,6 +236,12 @@ public class CollectionChecks {
         JSONObject summary=null,raw=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("environment/locale-summary"))summary=item;if(item.getString("key").equals("environment/locales"))raw=item;}
         assertNotNull("应生成语言与时区摘要",summary);assertNotNull("应保留语言与时区原始条目",raw);assertEquals("ok",summary.getString("status"));JSONObject value=summary.getJSONObject("value");assertTrue(value.has("localeTags"));assertTrue(value.has("localeCount"));assertTrue(value.has("timezoneId"));assertTrue(value.has("is24HourFormat"));assertTrue(value.has("applicationLocaleAccess"));assertTrue(value.has("applicationLocaleTags"));assertFalse(summary.toString().contains("configuration"));
     }
+    private long int64(JSONObject value,String key)throws Exception{Object raw=value.get(key);return raw instanceof JSONObject?Long.parseLong(((JSONObject)raw).getString("value")):value.getLong(key);}
+    @Test public void clockSummaryKeepsRawClockEvidenceSeparate()throws Exception{
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new BuildSystemCollector("environment").collect(sink);
+        JSONObject summary=null,raw=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("environment/clock-summary"))summary=item;if(item.getString("key").equals("environment/clocks"))raw=item;}
+        assertNotNull("应生成系统时钟摘要",summary);assertNotNull("应保留原始时钟快照",raw);assertEquals("ok",summary.getString("status"));JSONObject value=summary.getJSONObject("value");assertTrue(value.has("elapsedRealtimeMillis"));assertTrue(value.has("uptimeMillis"));assertTrue(value.has("wallClockMillis"));assertTrue(value.has("bootTimeMillis"));assertTrue(value.has("sleepMillis"));assertTrue(int64(value,"elapsedRealtimeMillis")>=int64(value,"uptimeMillis"));assertTrue(int64(value,"sleepMillis")>=0);
+    }
     @Test public void deviceStateEvidenceUsesPublicStateOnly()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new BuildSystemCollector("environment").collect(sink);
         JSONObject state=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("environment/device-state")){state=item;break;}}

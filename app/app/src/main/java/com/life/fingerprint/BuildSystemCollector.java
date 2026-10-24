@@ -83,6 +83,7 @@ public final class BuildSystemCollector implements Collector {
         s.read("environment","environment/locales","语言与区域","Configuration / LocaleList / TimeZone",()->{Configuration c=s.context.getResources().getConfiguration();TimeZone z=TimeZone.getDefault();return Json.obj("locales",c.getLocales().toLanguageTags(),"timezoneId",z.getID(),"timezoneDisplayName",z.getDisplayName(),"rawOffset",z.getRawOffset(),"daylightSavings",z.getDSTSavings(),"configuration",c.toString(),"fontScale",c.fontScale,"densityDpi",c.densityDpi,"uiMode",c.uiMode,"keyboard",c.keyboard,"navigation",c.navigation,"touchscreen",c.touchscreen);});
         s.read("environment","environment/locale-summary","语言与时区摘要","Configuration / DateFormat / LocaleManager",()->localeSummary(s.context));
         s.ok("environment","environment/clocks","单次时钟快照","android-api","SystemClock",Json.obj("elapsedRealtime",SystemClock.elapsedRealtime(),"uptimeMillis",SystemClock.uptimeMillis(),"wallClockMillis",System.currentTimeMillis()));
+        s.ok("environment","environment/clock-summary","系统时钟摘要","android-api","SystemClock",clockSummary());
         s.read("environment","environment/risk-settings","系统风控相关设置摘要","Settings.Global / Settings.Secure",()->riskSettings(s.context));
         s.read("environment","environment/system-settings","显示与动画设置摘要","Settings.System",()->systemSettings(s.context));
         for(String key:SYSTEM_ENVIRONMENT_KEYS)s.read("environment","environment/system/"+key,key,"Settings.System.getString",()->Settings.System.getString(s.context.getContentResolver(),key));
@@ -122,6 +123,10 @@ public final class BuildSystemCollector implements Collector {
         });
         ActivityManager.MemoryInfo memory=new ActivityManager.MemoryInfo();((ActivityManager)s.context.getSystemService(Context.ACTIVITY_SERVICE)).getMemoryInfo(memory);
         s.ok("environment","environment/memory","内存快照","android-api","ActivityManager.getMemoryInfo",Json.obj("totalMem",memory.totalMem,"availMem",memory.availMem,"threshold",memory.threshold,"lowMemory",memory.lowMemory,"runtimeProcessors",Runtime.getRuntime().availableProcessors()));
+    }
+    private static JSONObject clockSummary(){
+        long elapsedRealtime=SystemClock.elapsedRealtime();long uptimeMillis=SystemClock.uptimeMillis();long wallClockMillis=System.currentTimeMillis();
+        return Json.obj("elapsedRealtimeMillis",elapsedRealtime,"uptimeMillis",uptimeMillis,"wallClockMillis",wallClockMillis,"bootTimeMillis",wallClockMillis-elapsedRealtime,"sleepMillis",Math.max(0L,elapsedRealtime-uptimeMillis));
     }
     // 业务块：整理可比较的语言、时区与显示区域设置；完整 Configuration 仍保留在 environment/locales。
     private static JSONObject localeSummary(Context context){
