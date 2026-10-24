@@ -13,6 +13,7 @@ import { FileImportCard } from './components/FileImportCard';
 import { StatCards } from './components/StatCards';
 import { ComparisonDrawer } from './components/ComparisonDrawer';
 import { AttestationDrawer } from './components/AttestationDrawer';
+import { buildDiffReportHtml, reportFileName } from './report/report';
 import './styles.css';
 
 const { Header, Sider, Content } = Layout;
@@ -90,10 +91,19 @@ export default function App() {
     cancel(); setLoading({ left: false, right: false, compare: false });
     message.info('处理已取消；已成功导入的原件仍然保留。');
   }
-  function exportReport() {
+  function exportJsonReport() {
     const payload = { data: { files: { left: files.left?.sha256, right: files.right?.sha256 }, rules, conditions: warnings, rows: filtered.map(({ id, key, name, state, changedPaths, ignored }) => ({ id, key, name, state, changedPaths, ignored })) }, message: '本地差异报告，非设备原始指纹', code: 0 };
     const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
     const link = document.createElement('a'); link.href = url; link.download = 'fingerprint-diff-report.json'; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  function exportHtmlReport(scope: 'current' | 'all-diff') {
+    if (!files.left || !files.right) return;
+    const left = files.left, right = files.right;
+    const reportRows = scope === 'current' ? filtered : rows.filter(row => row.state !== 'same');
+    const html = buildDiffReportHtml({ left, right, rows: reportRows, rules, warnings, view: { category, search, onlyDiff, status, scope: scope === 'current' ? '当前视图' : '完整差异' } });
+    const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
+    const link = document.createElement('a'); link.href = url; link.download = reportFileName(left, right); link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+    message.success(`已导出 ${scope === 'current' ? '当前视图' : '完整差异'} HTML 报告`);
   }
   const stats = useMemo(() => ({ changed: rows.filter(row => ['different', 'status'].includes(row.state)).length, same: rows.filter(row => row.state === 'same').length, oneSide: rows.filter(row => row.state.endsWith('only')).length, unavailable: rows.filter(row => row.state === 'incomparable').length }), [rows]);
   const filtered = useMemo(() => {
@@ -121,7 +131,7 @@ export default function App() {
           {category === 'all' && <>
           <div className="hero"><div><Typography.Title>两份指纹，一处核对。</Typography.Title><Typography.Paragraph type="secondary">用模块化视图定位设备差异，保留原始采集值与来源边界。</Typography.Paragraph></div></div>
           <Row gutter={[16, 16]}><Col xs={24} xl={12}><FileImportCard side="A" value={files.left} original={originals.current.left} busy={busy} adb={adb} onFile={file => importFile('left', file)} /></Col><Col xs={24} xl={12}><FileImportCard side="B" value={files.right} original={originals.current.right} busy={busy} adb={adb} onFile={file => importFile('right', file)} /></Col></Row>
-          <Space wrap className="action-row"><Button disabled={!ready || busy} onClick={exportReport}>导出当前差异报告</Button><Button disabled={!ready || busy} onClick={() => setAttestationOpen(true)}>离线认证检查</Button>{busy && <Button onClick={stopProcessing}>取消处理</Button>}</Space>
+          <Space wrap className="action-row"><Button type="primary" disabled={!ready || busy} onClick={() => exportHtmlReport('current')}>导出 HTML 报告</Button><Button disabled={!ready || busy} onClick={() => exportHtmlReport('all-diff')}>导出完整差异</Button><Button disabled={!ready || busy} onClick={exportJsonReport}>导出 JSON 摘要</Button><Button disabled={!ready || busy} onClick={() => setAttestationOpen(true)}>离线认证检查</Button>{busy && <Button onClick={stopProcessing}>取消处理</Button>}</Space>
           <StatCards stats={stats} />
           </>}
           <Card className="results-card" title={<Space><span>{category === 'all' ? '信息对照' : categories[category]}</span><Tag>{filtered.length}</Tag></Space>} extra={<Typography.Text type="secondary">{ready ? `显示 ${filtered.length} / ${rows.length} 项` : '等待导入两份指纹'}</Typography.Text>}>
