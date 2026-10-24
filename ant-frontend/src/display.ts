@@ -284,6 +284,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     'kernel/process-status-summary': { title: '当前进程状态摘要', order: ['available', 'status', 'traced', 'tracerPid', 'state', 'threadCount', 'noNewPrivs', 'seccompMode', 'capEffPresent', 'capBndPresent', 'fieldsObserved', 'truncated'], arrays: [] },
     'kernel/mount-summary': { title: '挂载拓扑摘要', order: ['available', 'status', 'entryCount', 'readOnlyCount', 'sharedMountCount', 'masterMountCount', 'optionalFieldCount', 'overlayCount', 'tmpfsCount', 'procCount', 'sysfsCount', 'ext4Count', 'rootFsType', 'fsTypeCount', 'fsTypesTruncated', 'truncated', 'fsTypeCounts'], arrays: [] },
     'kernel/cgroup-summary': { title: 'Cgroup 环境摘要', order: ['available', 'status', 'cgroupVersion', 'entryCount', 'v1EntryCount', 'v2EntryCount', 'controllerCount', 'controllerNamesTruncated', 'maxPathDepth', 'dockerMarker', 'kubernetesMarker', 'lxcMarker', 'sandboxMarker', 'truncated'], arrays: ['controllerNames'] },
+    'kernel/cpu-summary': { title: 'CPU 拓扑与频率摘要', order: ['available', 'status', 'logicalProcessorCount', 'runtimeProcessorCount', 'presentCount', 'onlineCount', 'offlineCount', 'frequencyValueCount', 'minFrequencyKHz', 'maxFrequencyKHz', 'governorCounts', 'coreIdCount', 'physicalPackageIdCount', 'topologyValuesTruncated', 'cpuDirectoriesTruncated'], arrays: ['coreIds', 'physicalPackageIds'] },
     'environment/location': { title: '定位与 GNSS 能力', order: ['available', 'locationEnabled', 'providerCount', 'hasGpsProvider', 'hasNetworkProvider', 'hasFusedProvider', 'gnssHardwareModelName', 'gnssYearOfHardware', 'gnssCapabilities', 'gnssAntennaCount', 'gnssAntennaInfoTruncated'], arrays: ['providers', 'gnssAntennaCarrierFrequenciesMHz'] },
     'sensors/summary': { title: '传感器能力摘要', order: ['count', 'wakeUpCount', 'dynamicCount', 'directChannelCount', 'vendorsTruncated', 'typeCounts'], arrays: ['vendors'] },
     'environment/webview-user-agent': { title: 'WebView 默认 User-Agent', order: ['userAgent', 'length'], arrays: [] },
@@ -311,6 +312,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
           : key === 'hardware/audio-summary'
             ? arrayKey === 'productNames' ? '音频设备名' : arrayKey === 'sampleRates' ? '采样率' : '编码格式'
           : key === 'kernel/cgroup-summary' && arrayKey === 'controllerNames' ? 'Cgroup 控制器'
+          : key === 'kernel/cpu-summary' ? arrayKey === 'coreIds' ? 'CPU 核心 ID' : '物理封装 ID'
           : key === 'network/wifi-summary' && arrayKey === 'frequencies' ? '缓存扫描频率（MHz）'
           : key === 'display/summary'
             ? arrayKey === 'widths' ? '显示宽度（px）' : arrayKey === 'heights' ? '显示高度（px）' : arrayKey === 'densityDpi' ? '密度（dpi）' : '刷新率（Hz）'

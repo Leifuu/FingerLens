@@ -363,4 +363,10 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.map(row => row.key)).toEqual(['available', 'status', 'cgroupVersion', 'entryCount', 'v1EntryCount', 'v2EntryCount', 'controllerCount', 'controllerNamesTruncated', 'maxPathDepth', 'dockerMarker', 'kubernetesMarker', 'lxcMarker', 'sandboxMarker', 'truncated']);
     expect(sections.find(section => section.key === 'controllerNames')?.title).toBe('Cgroup 控制器');
   });
+  it('CPU 摘要展示拓扑、频率和调速器计数', () => {
+    const sections = buildSections(item('kernel/cpu-summary', 'kernel', { available: true, status: 'ok', logicalProcessorCount: 8, runtimeProcessorCount: 8, presentCount: 8, onlineCount: 8, offlineCount: 0, frequencyValueCount: 16, minFrequencyKHz: 300000, maxFrequencyKHz: 2200000, governorCounts: { schedutil: 8 }, coreIdCount: 4, physicalPackageIdCount: 1, topologyValuesTruncated: false, cpuDirectoriesTruncated: false, coreIds: [0, 1, 2, 3], physicalPackageIds: [0] }));
+    expect(sections[0].title).toBe('CPU 拓扑与频率摘要');
+    expect(sections[0].rows.map(row => row.key)).toEqual(['available', 'status', 'logicalProcessorCount', 'runtimeProcessorCount', 'presentCount', 'onlineCount', 'offlineCount', 'frequencyValueCount', 'minFrequencyKHz', 'maxFrequencyKHz', 'governorCounts.schedutil', 'coreIdCount', 'physicalPackageIdCount', 'topologyValuesTruncated', 'cpuDirectoriesTruncated']);
+    expect(sections.find(section => section.key === 'coreIds')?.title).toBe('CPU 核心 ID');
+  });
 });

@@ -69,6 +69,11 @@ public class CollectionChecks {
         JSONObject summary=null,raw=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("kernel/cgroup-summary"))summary=item;if(item.getString("key").equals("kernel/file/proc/self/cgroup"))raw=item;}
         assertNotNull("应生成 cgroup 环境摘要",summary);assertNotNull("应保留 cgroup 原始条目",raw);assertEquals("ok",summary.getString("status"));JSONObject value=summary.getJSONObject("value");assertTrue(value.getBoolean("available"));assertTrue(value.has("cgroupVersion"));assertTrue(value.getInt("entryCount")>0);assertTrue(value.has("controllerNames"));assertTrue(value.has("maxPathDepth"));assertTrue(value.has("dockerMarker"));assertFalse(summary.toString().contains("/uid_"));assertFalse(summary.toString().contains("/user.slice"));
     }
+    @Test public void cpuSummaryKeepsTopologyBounded()throws Exception{
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new BuildSystemCollector("kernel").collect(sink);
+        JSONObject summary=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("kernel/cpu-summary")){summary=item;break;}}
+        assertNotNull("应生成 CPU 拓扑摘要",summary);assertEquals("ok",summary.getString("status"));JSONObject value=summary.getJSONObject("value");assertTrue(value.getBoolean("available"));assertTrue(value.getInt("logicalProcessorCount")>0);assertTrue(value.getInt("runtimeProcessorCount")>0);assertTrue(value.has("presentCount"));assertTrue(value.has("onlineCount"));assertTrue(value.has("governorCounts"));assertTrue(value.getJSONArray("coreIds").length()<=64);assertTrue(value.getJSONArray("physicalPackageIds").length()<=64);
+    }
     @Test public void storageSummaryKeepsRawVolumesSeparate()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new BuildSystemCollector("storage").collect(sink);
         JSONObject summary=null,volumes=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("storage/summary"))summary=item;if(item.getString("key").equals("storage/volumes"))volumes=item;}
