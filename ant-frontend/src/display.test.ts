@@ -151,9 +151,11 @@ describe('设备格式化展示边界', () => {
     expect(JSON.stringify(value)).toContain('/dev/bus/usb/001/002');
   });
   it('电源与热状态按公开快照字段展示', () => {
-    const sections = buildSections(item('environment/power-thermal', 'environment', { powerSaveMode: false, interactive: true, deviceIdleMode: false, thermalStatus: 0, thermalHeadroom: 1.25 }));
+    const sections = buildSections(item('environment/power-thermal', 'environment', { powerSaveMode: false, interactive: true, ignoresBatteryOptimizations: null, batteryOptimizationQueryStatus: 'denied', deviceIdleMode: false, thermalStatus: 0, thermalHeadroom: 1.25 }));
     expect(sections[0].title).toBe('电源与热状态');
-    expect(sections[0].rows.map(row => row.key)).toEqual(['powerSaveMode', 'interactive', 'deviceIdleMode', 'thermalStatus', 'thermalHeadroom']);
+    expect(sections[0].rows.map(row => row.key)).toContain('batteryOptimizationQueryStatus');
+    expect(sections[0].rows.find(row => row.key === 'batteryOptimizationQueryStatus')?.value).toBe('受限/未授权');
+    expect(sections[0].rows.map(row => row.key)).toEqual(['powerSaveMode', 'interactive', 'ignoresBatteryOptimizations', 'batteryOptimizationQueryStatus', 'deviceIdleMode', 'thermalStatus', 'thermalHeadroom']);
   });
   it('定位摘要只展示 provider 与 GNSS 元数据', () => {
     const sections = buildSections(item('environment/location', 'environment', { available: true, locationEnabled: true, providerCount: 1, hasGpsProvider: true, providers: [{ name: 'gps', enabled: true }], gnssHardwareModelName: 'test-gnss', gnssAntennaCount: 1, gnssAntennaInfoTruncated: false, gnssAntennaCarrierFrequenciesMHz: [1575.42] }));

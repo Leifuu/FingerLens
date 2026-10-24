@@ -104,6 +104,7 @@ public final class BuildSystemCollector implements Collector {
             PowerManager power=s.context.getSystemService(PowerManager.class);
             if(power==null)return null;
             JSONObject value=Json.obj("powerSaveMode",power.isPowerSaveMode(),"interactive",power.isInteractive());
+            if(Build.VERSION.SDK_INT>=23){Boolean ignored=null;String queryStatus="allowed";try{ignored=power.isIgnoringBatteryOptimizations(s.context.getPackageName());}catch(SecurityException e){queryStatus="denied";}Json.put(value,"ignoresBatteryOptimizations",ignored);Json.put(value,"batteryOptimizationQueryStatus",queryStatus);}else{Json.put(value,"ignoresBatteryOptimizations",null);Json.put(value,"batteryOptimizationQueryStatus","unsupported");}
             if(Build.VERSION.SDK_INT>=23)Json.put(value,"deviceIdleMode",power.isDeviceIdleMode());
             if(Build.VERSION.SDK_INT>=33)Json.put(value,"lightDeviceIdleMode",power.isDeviceLightIdleMode());
             if(Build.VERSION.SDK_INT>=28)Json.put(value,"locationPowerSaveMode",power.getLocationPowerSaveMode());

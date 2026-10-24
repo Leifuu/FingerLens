@@ -224,7 +224,7 @@ public class CollectionChecks {
     @Test public void powerThermalEvidenceUsesPublicSnapshot()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new BuildSystemCollector("environment").collect(sink);
         JSONObject power=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("environment/power-thermal")){power=item;break;}}
-        assertNotNull("应记录电源与热状态",power);assertEquals("ok",power.getString("status"));JSONObject value=power.getJSONObject("value");assertTrue(value.has("powerSaveMode"));assertTrue(value.has("interactive"));assertFalse(value.has("thermalControl"));
+        assertNotNull("应记录电源与热状态",power);assertEquals("ok",power.getString("status"));JSONObject value=power.getJSONObject("value");assertTrue(value.has("powerSaveMode"));assertTrue(value.has("interactive"));assertTrue(value.has("ignoresBatteryOptimizations"));assertTrue(value.has("batteryOptimizationQueryStatus"));assertFalse(value.has("thermalControl"));
     }
     @Test public void locationEvidenceUsesProviderMetadataOnly()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new BuildSystemCollector("environment").collect(sink);
