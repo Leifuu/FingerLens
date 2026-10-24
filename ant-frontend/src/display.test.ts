@@ -351,4 +351,10 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].title).toBe('当前进程状态摘要');
     expect(sections[0].rows.map(row => row.key)).toEqual(['available', 'status', 'traced', 'tracerPid', 'state', 'threadCount', 'noNewPrivs', 'seccompMode', 'capEffPresent', 'capBndPresent', 'fieldsObserved', 'truncated']);
   });
+  it('挂载拓扑摘要展示文件系统计数而不展开路径', () => {
+    const value = item('kernel/mount-summary', 'kernel', { available: true, status: 'ok', entryCount: 12, readOnlyCount: 4, sharedMountCount: 2, masterMountCount: 1, optionalFieldCount: 3, overlayCount: 1, tmpfsCount: 4, procCount: 1, sysfsCount: 1, ext4Count: 2, rootFsType: 'overlay', fsTypeCount: 5, fsTypesTruncated: false, truncated: false, fsTypeCounts: { overlay: 1, tmpfs: 4 } });
+    const sections = buildSections(value);
+    expect(sections[0].title).toBe('挂载拓扑摘要');
+    expect(sections[0].rows.map(row => row.key)).toEqual(['available', 'status', 'entryCount', 'readOnlyCount', 'sharedMountCount', 'masterMountCount', 'optionalFieldCount', 'overlayCount', 'tmpfsCount', 'procCount', 'sysfsCount', 'ext4Count', 'rootFsType', 'fsTypeCount', 'fsTypesTruncated', 'truncated', 'fsTypeCounts.overlay', 'fsTypeCounts.tmpfs']);
+  });
 });
