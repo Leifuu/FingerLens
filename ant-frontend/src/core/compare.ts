@@ -3,7 +3,8 @@ import { mergePackageInstallers } from './package-items';
 
 function object(v: Json | undefined): v is Record<string, Json> { return v !== null && typeof v === 'object' && !Array.isArray(v); }
 function canonical(v: Json): string { if (Array.isArray(v)) return `[${v.map(canonical).join(',')}]`; if (object(v)) return `{${Object.keys(v).sort().map(k => `${JSON.stringify(k)}:${canonical(v[k])}`).join(',')}}`; return JSON.stringify(v); }
-const transient = new Set(['startedAt', 'finishedAt', 'sessionId', 'elapsedRealtime', 'uptimeMillis', 'wallClockMillis', 'firstInstallTime', 'lastUpdateTime', 'challengeBase64', 'signatureBase64', 'publicKeyBase64', 'certificateChainBase64', 'timestamp']);
+// 智能过滤只忽略采集进程、运行时和启动时间会自然变化的字段，稳定设备字段仍参与比较。
+const transient = new Set(['pid', 'uid', 'startedAt', 'finishedAt', 'startTime', 'startTimeMillis', 'processStartTime', 'processStartTimeMillis', 'runTime', 'runtime', 'runningTime', 'elapsedRealtime', 'uptimeMillis', 'wallClockMillis', 'firstInstallTime', 'lastUpdateTime', 'challengeBase64', 'signatureBase64', 'publicKeyBase64', 'certificateChainBase64', 'timestamp']);
 function project(v: Json, rules: Rules, counter: { n: number }, key: string, path = ''): Json {
   if (Array.isArray(v)) {
     const result = v.map(x => project(x, rules, counter, key, path + '[]'));
