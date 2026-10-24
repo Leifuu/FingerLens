@@ -257,11 +257,12 @@ describe('设备格式化展示边界', () => {
     expect(sections.find(section => section.key === 'services')?.rows.some(row => row.key === '[0].packageName')).toBe(true);
   });
   it('当前 App 完整性摘要保留签名哈希而不展开证书', () => {
-    const value = item('security/self-integrity', 'security', { packageName: 'com.example', versionName: '1.0', versionCode: { $type: 'int64', value: '1' }, signingCertificateSha256: ['a'.repeat(64)], signingCertificateHistorySha256: ['a'.repeat(64), 'b'.repeat(64)], hasPastSigningCertificates: true, debuggable: false, hasCode: true });
+    const value = item('security/self-integrity', 'security', { packageName: 'com.example', versionName: '1.0', versionCode: { $type: 'int64', value: '1' }, signingCertificateSha256: ['a'.repeat(64)], signingCertificateHistorySha256: ['a'.repeat(64), 'b'.repeat(64)], hasPastSigningCertificates: true, debuggable: false, hasCode: true, instantApp: false, packageSuspended: false, packageSuspensionQueryStatus: 'allowed' });
     const sections = buildSections(value);
     expect(sections[0].title).toBe('当前 App 签名与安装环境');
     expect(sections.find(section => section.key === 'signingCertificateSha256')?.rows[0].value).toBe('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
     expect(sections.find(section => section.key === 'signingCertificateHistorySha256')?.title).toBe('签名历史 SHA-256');
+    expect(sections[0].rows.find(row => row.key === 'packageSuspensionQueryStatus')?.value).toBe('已授权');
   });
   it('系统风控设置摘要按稳定字段顺序展示', () => {
     const sections = buildSections(item('environment/risk-settings', 'environment', { adbEnabled: true, developmentSettingsEnabled: true, mockLocation: false, privateDnsMode: 'opportunistic' }));

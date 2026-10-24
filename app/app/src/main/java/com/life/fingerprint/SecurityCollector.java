@@ -171,13 +171,17 @@ public final class SecurityCollector implements Collector {
         if(Build.VERSION.SDK_INT>=28&&info.signingInfo!=null){android.content.pm.Signature[] signingHistory=info.signingInfo.getSigningCertificateHistory();if(signingHistory!=null)for(android.content.pm.Signature signature:signingHistory)history.put(PackageInputCollector.sha(signature.toByteArray()));hasPast=info.signingInfo.hasPastSigningCertificates();}
         String installer=Build.VERSION.SDK_INT>=30?pm.getInstallSourceInfo(packageName).getInstallingPackageName():pm.getInstallerPackageName(packageName);
         ApplicationInfo application=info.applicationInfo;
+        Boolean instantApp=Build.VERSION.SDK_INT>=26?pm.isInstantApp():null,packageSuspended=null;
+        String packageSuspensionQueryStatus=Build.VERSION.SDK_INT<24?"unsupported":"allowed";
+        if(Build.VERSION.SDK_INT>=24)try{packageSuspended=pm.isPackageSuspended();}catch(SecurityException e){packageSuspensionQueryStatus="denied";}
         return Json.obj("packageName",packageName,"versionName",info.versionName,
                 "versionCode",Build.VERSION.SDK_INT>=28?info.getLongVersionCode():(long)info.versionCode,
                 "installer",installer,"signingCertificateSha256",hashes,"signingCertificateHistorySha256",history,"hasPastSigningCertificates",hasPast,
                 "enabled",application==null?null:application.enabled,
                 "applicationFlags",application==null?null:application.flags,
                 "debuggable",application!=null&&(application.flags&ApplicationInfo.FLAG_DEBUGGABLE)!=0,
-                "hasCode",application!=null&&(application.flags&ApplicationInfo.FLAG_HAS_CODE)!=0);
+                "hasCode",application!=null&&(application.flags&ApplicationInfo.FLAG_HAS_CODE)!=0,
+                "instantApp",instantApp,"packageSuspended",packageSuspended,"packageSuspensionQueryStatus",packageSuspensionQueryStatus);
     }
     public static JSONObject key(String alias,boolean attest,boolean strong)throws Exception {
         KeyStore store=KeyStore.getInstance("AndroidKeyStore");store.load(null);
