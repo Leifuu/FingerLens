@@ -140,6 +140,12 @@ describe('设备格式化展示边界', () => {
     expect(sections.find(section => section.key === 'productNames')?.title).toBe('音频设备名');
     expect(sections.find(section => section.key === 'sampleRates')?.rows[0].value).toBe('48000');
   });
+  it('蓝牙摘要展示访问状态与已配对设备计数', () => {
+    const sections = buildSections(item('network/bluetooth-summary', 'network', { available: true, access: 'allowed', adapterState: 12, adapterNamePresent: true, adapterAddressPresent: true, bondedCount: 1, bondedNameCount: 1, bondedAddressCount: 1, bondedTypeCounts: { '1': 1 }, bondedClassCounts: { '1028': 1 } }));
+    expect(sections[0].title).toBe('蓝牙能力摘要');
+    expect(sections[0].rows.map(row => row.key)).toContain('bondedCount');
+    expect(sections[0].rows.map(row => row.key)).toContain('bondedTypeCounts.1');
+  });
   it('锁屏与生物识别摘要只展示公开状态', () => {
     const sections = buildSections(item('security/lock-biometric', 'security', { keyguardSecure: true, keyguardLocked: false, deviceSecure: true, deviceLocked: false, fingerprintFeature: true, faceFeature: false, irisFeature: false }));
     expect(sections[0].title).toBe('锁屏与生物识别环境');

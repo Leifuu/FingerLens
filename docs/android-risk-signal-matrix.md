@@ -19,6 +19,7 @@
 | 媒体编解码能力 | [MediaCodecList](https://developer.android.com/reference/android/media/MediaCodecList) 与 [MediaCodecInfo](https://developer.android.com/reference/android/media/MediaCodecInfo) 公开编解码器名称、编码/解码方向、媒体类型以及 Android 29+ 的硬件加速、软件实现和厂商标记。 | `hardware/codecs-summary`、`hardware/codecs` | 已采集摘要并保留完整能力清单；摘要名称和媒体类型各最多 256 项，Android 29 以下的新增计数保持 `null`。 |
 | 摄像头能力 | [CameraManager](https://developer.android.com/reference/android/hardware/camera2/CameraManager) 与 [CameraCharacteristics](https://developer.android.com/reference/android/hardware/camera2/CameraCharacteristics) 公开镜头朝向、硬件级别、传感器方向、闪光灯和逻辑多摄像头能力。 | `hardware/camera-summary`、`hardware/camera/*` | 已采集摘要并保留每个摄像头完整公开特性；摘要最多保留 64 个 ID，不读取图像帧、不申请相机运行时权限。 |
 | 音频设备能力 | [AudioManager.getDevices](https://developer.android.com/reference/android/media/AudioManager#getDevices(int)) 与 [AudioDeviceInfo](https://developer.android.com/reference/android/media/AudioDeviceInfo) 公开输入/输出设备类型、产品名、声道、采样率和编码格式。 | `hardware/audio-summary`、`hardware/audio` | 已采集能力摘要并保留公开设备清单；只记录地址是否存在，不导出地址或音频样本。 |
+| 蓝牙环境 | [BluetoothManager](https://developer.android.com/reference/android/bluetooth/BluetoothManager)、[BluetoothAdapter](https://developer.android.com/reference/android/bluetooth/BluetoothAdapter) 与 [BluetoothDevice](https://developer.android.com/reference/android/bluetooth/BluetoothDevice) 公开适配器状态、已配对设备类型和设备类别；Android 12+ 的设备清单受 `BLUETOOTH_CONNECT` 运行时权限约束。 | `network/bluetooth-summary`、`network/bluetooth` | 已新增结构化摘要；权限不足时明确记录 `access=denied`，摘要不伪造配对数量，原始条目仍保留逐项状态。 |
 
 ## 当前缺口与下一步候选
 

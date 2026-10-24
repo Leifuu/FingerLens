@@ -159,6 +159,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     'hardware/codecs-summary': { title: '媒体编解码能力摘要', order: ['count', 'encoderCount', 'decoderCount', 'hardwareAcceleratedCount', 'softwareOnlyCount', 'vendorCount', 'codecNamesTruncated', 'mimeTypesTruncated'], arrays: ['codecNames', 'mimeTypes'] },
     'hardware/camera-summary': { title: '摄像头能力摘要', order: ['available', 'count', 'cameraIdsTruncated', 'flashAvailableCount', 'logicalMultiCameraCount', 'physicalCameraIdCount', 'cameraAccessErrorCount'], arrays: ['cameraIds'] },
     'hardware/audio-summary': { title: '音频能力摘要', order: ['available', 'count', 'sourceCount', 'sinkCount', 'productNamesTruncated', 'typeCounts'], arrays: ['productNames', 'sampleRates', 'encodings'] },
+    'network/bluetooth-summary': { title: '蓝牙能力摘要', order: ['available', 'access', 'adapterState', 'adapterNamePresent', 'adapterAddressPresent', 'bondedCount', 'bondedNameCount', 'bondedAddressCount', 'bondedTypeCounts', 'bondedClassCounts'], arrays: [] },
     'attestation/play-integrity-environment': { title: 'Play Integrity 本地环境', order: ['verdictAvailable', 'conclusion', 'playServices', 'playStore'], arrays: [] },
     'security/device-management': { title: '设备管理与用户环境', order: ['deviceOwnerForSelf', 'profileOwnerForSelf', 'managedProfile', 'userUnlocked', 'storageEncryptionStatus', 'restrictions'], arrays: [] },
     'security/special-access': { title: '本 App 特殊访问状态', order: ['available', 'canDrawOverlays', 'appOps'], arrays: [] },
