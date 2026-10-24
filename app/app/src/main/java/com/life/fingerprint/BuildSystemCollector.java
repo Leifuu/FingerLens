@@ -6,6 +6,7 @@ import android.content.*;
 import android.content.res.Configuration;
 import android.app.ActivityManager;
 import android.webkit.WebView;
+import android.webkit.WebSettings;
 import org.json.*;
 import java.lang.reflect.*;
 import java.util.*;
@@ -58,7 +59,12 @@ public final class BuildSystemCollector implements Collector {
             if(info==null)return null;
             return Json.obj("packageName",info.packageName,"versionName",info.versionName,
                     "versionCode",Build.VERSION.SDK_INT>=28?info.getLongVersionCode():(long)info.versionCode,
-                    "signatures",PackageInputCollector.signatures(info));
+                     "signatures",PackageInputCollector.signatures(info));
+        });
+        s.read("environment","environment/webview-user-agent","WebView 默认 User-Agent","WebSettings.getDefaultUserAgent",()->{
+            String userAgent=WebSettings.getDefaultUserAgent(s.context);
+            if(userAgent==null)return null;
+            return Json.obj("userAgent",userAgent,"length",userAgent.length());
         });
         ActivityManager.MemoryInfo memory=new ActivityManager.MemoryInfo();((ActivityManager)s.context.getSystemService(Context.ACTIVITY_SERVICE)).getMemoryInfo(memory);
         s.ok("environment","environment/memory","内存快照","android-api","ActivityManager.getMemoryInfo",Json.obj("totalMem",memory.totalMem,"availMem",memory.availMem,"threshold",memory.threshold,"lowMemory",memory.lowMemory,"runtimeProcessors",Runtime.getRuntime().availableProcessors()));

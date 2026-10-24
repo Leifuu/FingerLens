@@ -69,6 +69,12 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.some(row => row.key.includes('canDrawOverlays'))).toBe(true);
     expect(sections[0].rows.some(row => row.key.includes('appOps.android:system_alert_window.mode'))).toBe(true);
   });
+  it('WebView UA 摘要保留原始字符串和长度', () => {
+    const sections = buildSections(item('environment/webview-user-agent', 'environment', { userAgent: 'Mozilla/5.0 Android', length: 20 }));
+    expect(sections[0].title).toBe('WebView 默认 User-Agent');
+    expect(sections[0].rows.find(row => row.key === 'userAgent')?.value).toBe('Mozilla/5.0 Android');
+    expect(sections[0].rows.find(row => row.key === 'length')?.value).toBe('20');
+  });
   it('proc 多行文本按行拆分，正确行不会因另一行变化而整体标红', () => {
     const sections = buildSections(item('kernel/proc/diskstats', 'kernel', '8 0 sda 1 2\n8 1 sda1 3 4\n'));
     expect(sections[0].table).toBe(true);
