@@ -18,6 +18,7 @@
 - [WebSettings.getDefaultUserAgent](https://developer.android.com/reference/android/webkit/WebSettings#getDefaultUserAgent(android.content.Context))：公开当前 WebView 默认 User-Agent。本工程新增 `environment/webview-user-agent`，保留原始 UA 与长度供对照，不把 UA 单独当作设备真实性结论。
 - [DevicePolicyManager](https://developer.android.com/reference/android/app/admin/DevicePolicyManager) 与 [UserManager](https://developer.android.com/reference/android/os/UserManager)：公开当前 App 的设备/资料所有者状态、当前用户是否为托管资料、用户解锁状态和有限用户限制。本工程新增 `security/device-management`，只记录当前 App 与当前用户范围，不枚举其它管理包，不自动判定风险。
 - [AppOpsManager](https://developer.android.com/reference/android/app/AppOpsManager) 与 [Settings.canDrawOverlays](https://developer.android.com/reference/android/provider/Settings#canDrawOverlays(android.content.Context))：公开当前 UID 的特殊访问模式和悬浮窗状态。本工程新增 `security/special-access`，只调用无副作用的 `checkOpNoThrow`，不申请权限、不调用 `noteOp`。
+- [KeyguardManager](https://developer.android.com/reference/android/app/KeyguardManager) 与 [PackageManager 系统特性](https://developer.android.com/reference/android/content/pm/PackageManager#hasSystemFeature(java.lang.String))：公开锁屏是否安全、当前锁定状态及设备声明的指纹/面部/虹膜能力。本工程新增 `security/lock-biometric`，只记录能力和状态，不读取生物特征或模板。
 - Play Integrity 的本地依赖摘要位于 `attestation/play-integrity-environment`，仅记录 Google Play services 与 Play 商店的存在、版本、安装来源和签名 SHA-256；`verdictAvailable=false`，不把本地包状态冒充远程完整性结论。
 
 ## GitHub 上的公开 SDK/实现

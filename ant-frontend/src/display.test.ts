@@ -75,6 +75,12 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.find(row => row.key === 'userAgent')?.value).toBe('Mozilla/5.0 Android');
     expect(sections[0].rows.find(row => row.key === 'length')?.value).toBe('20');
   });
+  it('锁屏与生物识别摘要只展示公开状态', () => {
+    const sections = buildSections(item('security/lock-biometric', 'security', { keyguardSecure: true, keyguardLocked: false, deviceSecure: true, deviceLocked: false, fingerprintFeature: true, faceFeature: false, irisFeature: false }));
+    expect(sections[0].title).toBe('锁屏与生物识别环境');
+    expect(sections[0].rows.some(row => row.key === 'keyguardSecure')).toBe(true);
+    expect(sections[0].rows.some(row => row.key === 'fingerprintFeature')).toBe(true);
+  });
   it('proc 多行文本按行拆分，正确行不会因另一行变化而整体标红', () => {
     const sections = buildSections(item('kernel/proc/diskstats', 'kernel', '8 0 sda 1 2\n8 1 sda1 3 4\n'));
     expect(sections[0].table).toBe(true);
