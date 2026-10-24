@@ -197,6 +197,12 @@ describe('设备格式化展示边界', () => {
     expect(sections.find(section => section.key === 'productNames')?.title).toBe('音频设备名');
     expect(sections.find(section => section.key === 'sampleRates')?.rows[0].value).toBe('48000');
   });
+  it('振动器摘要展示硬件能力与设备列表', () => {
+    const sections = buildSections(item('hardware/vibrator', 'hardware', { available: true, count: 1, hasVibrator: true, hasAmplitudeControl: true, vibrators: [{ id: 0, hasVibrator: true, hasAmplitudeControl: true, effectSupportCodes: [0, 2, 2, 0] }] }));
+    expect(sections[0].title).toBe('振动器能力');
+    expect(sections[0].rows.map(row => row.key)).toContain('hasAmplitudeControl');
+    expect(sections.find(section => section.key === 'vibrators')?.rows.map(row => row.key)).toContain('[0].id');
+  });
   it('NFC 摘要只展示适配器能力状态', () => {
     const sections = buildSections(item('hardware/nfc', 'hardware', { available: true, enabled: true, secureNfcSupported: true, secureNfcEnabled: false, antennaInfoAvailable: true, antennaCount: 1, deviceWidth: 68, deviceHeight: 146, deviceFoldable: false }));
     expect(sections[0].title).toBe('NFC 能力');

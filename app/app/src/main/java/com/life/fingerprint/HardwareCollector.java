@@ -23,6 +23,7 @@ public final class HardwareCollector implements Collector {
         s.read("hardware","hardware/features-summary","系统特性能力摘要","PackageManager.getSystemAvailableFeatures",()->featureSummary(s.context));
         s.read("hardware","hardware/codecs-summary","媒体编解码能力摘要","MediaCodecList.ALL_CODECS",HardwareCollector::codecSummary);
         audio(s);
+        vibrator(s);
         usb(s);
         nfc(s);
         drm(s);
@@ -68,6 +69,29 @@ public final class HardwareCollector implements Collector {
         for(AudioDeviceInfo device:devices){if(device.isSource())sourceCount++;if(device.isSink())sinkCount++;count(typeCounts,String.valueOf(device.getType()));CharSequence productName=device.getProductName();String product=productName==null?"":productName.toString();if(product.length()>0&&!productNames.contains(product)){if(productNames.size()<128)productNames.add(product);else productNamesTruncated=true;}int[] rates=device.getSampleRates();if(rates!=null)for(int rate:rates)sampleRates.add(rate);int[] formats=device.getEncodings();if(formats!=null)for(int encoding:formats)encodings.add(encoding);}
         JSONArray names=new JSONArray();for(String name:productNames)names.put(name);JSONArray rates=new JSONArray();for(Integer rate:sampleRates)rates.put(rate);JSONArray formats=new JSONArray();for(Integer encoding:encodings)formats.put(encoding);
         return Json.obj("available",true,"count",devices.length,"sourceCount",sourceCount,"sinkCount",sinkCount,"typeCounts",typeCounts,"productNames",names,"productNamesTruncated",productNamesTruncated,"sampleRates",rates,"encodings",formats);
+    }
+    // 业务块：只读取振动器硬件能力，不触发振动或改变系统状态。
+    private void vibrator(ItemSink s){
+        s.read("hardware","hardware/vibrator","振动器能力","Vibrator / VibratorManager",()->{
+            JSONArray values=new JSONArray();
+            if(Build.VERSION.SDK_INT>=31){
+                VibratorManager manager=s.context.getSystemService(VibratorManager.class);
+                if(manager==null)return Json.obj("available",false,"count",0,"vibrators",values);
+                int[] ids=manager.getVibratorIds();if(ids.length>32)throw new IllegalStateException("振动器超过 32");
+                for(int id:ids)values.put(vibratorValue(manager.getVibrator(id),id));
+            }else{
+                Vibrator vibrator=s.context.getSystemService(Vibrator.class);
+                if(vibrator==null)return Json.obj("available",false,"count",0,"vibrators",values);
+                values.put(vibratorValue(vibrator,0));
+            }
+            boolean hasVibrator=false,hasAmplitudeControl=false;for(int i=0;i<values.length();i++){JSONObject value=values.optJSONObject(i);hasVibrator|=value!=null&&value.optBoolean("hasVibrator");hasAmplitudeControl|=value!=null&&value.optBoolean("hasAmplitudeControl");}
+            return Json.obj("available",true,"count",values.length(),"hasVibrator",hasVibrator,"hasAmplitudeControl",hasAmplitudeControl,"vibrators",values);
+        });
+    }
+    private static JSONObject vibratorValue(Vibrator vibrator,int id){
+        JSONObject value=Json.obj("id",id,"hasVibrator",vibrator.hasVibrator(),"hasAmplitudeControl",vibrator.hasAmplitudeControl());
+        if(Build.VERSION.SDK_INT>=30)try{Json.put(value,"effectSupportCodes",vibrator.areEffectsSupported(VibrationEffect.EFFECT_CLICK,VibrationEffect.EFFECT_DOUBLE_CLICK,VibrationEffect.EFFECT_HEAVY_CLICK,VibrationEffect.EFFECT_TICK));}catch(Exception e){Json.put(value,"effectSupportCodes",null);Json.put(value,"effectSupportStatus","error");}
+        return value;
     }
     // 业务块：只读取 UsbManager 已公开的设备描述符，不申请 USB 权限、不读取序列号。
     private void usb(ItemSink s){
