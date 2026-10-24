@@ -150,6 +150,11 @@ public class CollectionChecks {
         JSONObject summary=null,raw=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("network/wifi-summary"))summary=item;if(item.getString("key").equals("network/wifi-cached-scan"))raw=item;}
         assertNotNull("应生成 Wi-Fi 能力摘要",summary);assertNotNull("应保留 Wi-Fi 缓存原始条目",raw);assertEquals("ok",summary.getString("status"));JSONObject value=summary.getJSONObject("value");assertTrue(value.has("connectionAccess"));assertTrue(value.has("scanAccess"));assertTrue(value.has("cachedScanCount"));assertTrue(value.getJSONArray("frequencies").length()<=64);assertTrue(value.has("frequenciesTruncated"));
     }
+    @Test public void connectivitySummaryKeepsRawNetworksSeparate()throws Exception{
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new NetworkCollector("network").collect(sink);
+        JSONObject summary=null,raw=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("network/connectivity-summary"))summary=item;if(item.getString("key").equals("network/connectivity"))raw=item;}
+        assertNotNull("应生成网络集合摘要",summary);assertNotNull("应保留网络连接原始清单",raw);assertEquals("ok",summary.getString("status"));assertEquals("ok",raw.getString("status"));JSONObject value=summary.getJSONObject("value");assertTrue(value.has("networkCount"));assertTrue(value.has("activePresent"));assertTrue(value.has("capabilitiesAvailableCount"));assertTrue(value.has("transportCounts"));
+    }
     @Test public void playIntegrityEnvironmentIsExplicitlyOffline()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new SecurityCollector("attestation").collect(sink);
         JSONObject environment=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("attestation/play-integrity-environment")){environment=item;break;}}

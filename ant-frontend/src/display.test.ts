@@ -69,6 +69,12 @@ describe('设备格式化展示边界', () => {
     expect(sections.find(section => section.key === 'transports')?.rows[0].value).toBe('1');
     expect(sections.find(section => section.key === 'capabilitiesRaw')?.rows[0].value).toBe('raw-capabilities');
   });
+  it('网络集合摘要展示所有链路能力计数', () => {
+    const sections = buildSections(item('network/connectivity-summary', 'network', { available: true, networkCount: 2, activePresent: true, activeIndex: 0, activeNetworkHandle: { $type: 'int64', value: '42' }, capabilitiesAvailableCount: 2, linkPropertiesAvailableCount: 2, validatedCount: 1, vpnCount: 1, notMeteredCount: 2, transportCounts: { '1': 1, '4': 1 } }));
+    expect(sections[0].title).toBe('网络集合摘要');
+    expect(sections[0].rows.map(row => row.key)).toContain('transportCounts.1');
+    expect(sections[0].rows.find(row => row.key === 'activeNetworkHandle')?.value).toBe('42');
+  });
   it('原生风控属性摘要保持固定字段与可读分组', () => {
     const sections = buildSections(item('build/risk-properties-summary', 'build', { observedCount: 4, knownCount: 19, observedProperties: ['ro.debuggable'], missingProperties: ['ro.boot.flash.locked'], properties: { 'ro.boot.verifiedbootstate': 'green', 'ro.debuggable': '0', 'ro.adb.secure': '1' } }));
     expect(sections[0].title).toBe('风控原生属性摘要');

@@ -7,6 +7,7 @@
 - [ConnectivityManager](https://developer.android.com/reference/android/net/ConnectivityManager)：定义活动网络查询入口。
 - [NetworkCapabilities](https://developer.android.com/reference/android/net/NetworkCapabilities)：公开 transport 与 capability，例如 VPN、VALIDATED、CAPTIVE_PORTAL、NOT_METERED、NOT_ROAMING、TRUSTED 等。
 - 本工程新增 `network/risk-signals`，只保存活动链路的这些公开能力、是否计费、接口名和代理摘要；值仍由 `ItemSink` 独立记录状态，VPN 或代理不会被自动判定为恶意。
+- 本工程新增 `network/connectivity-summary`，汇总可见网络数量、活动链路、transport、VALIDATED、VPN 和链路属性可用性，不复制地址、DNS、路由或原始字符串。
 
 ## 官方 Android 设备标识资料
 
