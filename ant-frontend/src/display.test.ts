@@ -105,6 +105,13 @@ describe('设备格式化展示边界', () => {
     expect(sections.find(section => section.key === 'providers')?.rows[0].value).toBe('gps');
     expect(sections.find(section => section.key === 'gnssAntennaCarrierFrequenciesMHz')?.title).toBe('GNSS 天线载波频率（MHz）');
   });
+  it('传感器摘要分开展示计数、类型和厂商', () => {
+    const sections = buildSections(item('sensors/summary', 'sensors', { count: 2, wakeUpCount: 1, dynamicCount: 0, directChannelCount: 1, vendorsTruncated: false, typeCounts: { '1': 1, '4': 1 }, vendors: ['Google', 'Bosch'] }));
+    expect(sections[0].title).toBe('传感器能力摘要');
+    expect(sections[0].rows.map(row => row.key)).toEqual(['count', 'wakeUpCount', 'dynamicCount', 'directChannelCount', 'vendorsTruncated', 'typeCounts.1', 'typeCounts.4']);
+    expect(sections.find(section => section.key === 'vendors')?.title).toBe('传感器厂商');
+    expect(sections.find(section => section.key === 'vendors')?.rows.map(row => row.value)).toEqual(['Google', 'Bosch']);
+  });
   it('锁屏与生物识别摘要只展示公开状态', () => {
     const sections = buildSections(item('security/lock-biometric', 'security', { keyguardSecure: true, keyguardLocked: false, deviceSecure: true, deviceLocked: false, fingerprintFeature: true, faceFeature: false, irisFeature: false }));
     expect(sections[0].title).toBe('锁屏与生物识别环境');
