@@ -13,6 +13,7 @@
 - [Build](https://developer.android.com/reference/android/os/Build)：公开硬件、产品、指纹、ABI 等构建字段。
 - [Settings.Secure.ANDROID_ID](https://developer.android.com/reference/android/provider/Settings.Secure#ANDROID_ID)：系统设置中的应用可见标识，生命周期和作用域受 Android 版本、用户和签名影响；本工程以原始值/状态形式保留，不宣称它是永久硬件 ID。
 - [Play Integrity verdicts](https://developer.android.com/google/play/integrity/verdicts)：官方完整性服务的 verdict 维度；本工程当前保持离线采集，未接入远程 Play Integrity 请求，因此相关结论保持 `skipped/unknown`。
+- [MediaDrm](https://developer.android.com/reference/android/media/MediaDrm)：公开 DRM 厂商、版本、算法、Widevine 支持和安全级别能力。本工程新增 `hardware/drm/widevine`，只保留 `deviceUniqueId` 的 SHA-256 与长度，原始唯一值永不写入指纹。
 
 ## GitHub 上的公开 SDK/实现
 

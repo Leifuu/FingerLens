@@ -18,9 +18,32 @@ public final class HardwareCollector implements Collector {
         if(module.equals("sensors")){sensors(s);return;}
         s.ok("hardware","hardware/graphics","图形能力查询","jni","EGL / OpenGL ES / vkEnumerateInstanceExtensionProperties",new JSONObject(NativeProbe.graphics()));
         s.read("hardware","hardware/features","系统声明特性","PackageManager.getSystemAvailableFeatures",()->{JSONArray a=new JSONArray();for(FeatureInfo f:s.context.getPackageManager().getSystemAvailableFeatures())a.put(Json.obj("name",f.name,"version",f.version,"flags",f.flags,"reqGlEsVersion",f.reqGlEsVersion));return a;});
+        drm(s);
         CameraManager cameras=s.context.getSystemService(CameraManager.class);
         for(String id:cameras.getCameraIdList())s.read("hardware","hardware/camera/"+id,"摄像头 "+id,"CameraManager.getCameraCharacteristics",()->{CameraCharacteristics c=cameras.getCameraCharacteristics(id);JSONObject o=Json.obj("id",id);for(CameraCharacteristics.Key<?> k:c.getKeys()){try{Json.put(o,k.getName(),cameraValue(c.get(k)));}catch(Exception e){Json.put(o,k.getName(),Json.obj("error",e.getClass().getName(),"message",e.getMessage()));}}return o;});
         s.read("hardware","hardware/codecs","媒体编解码器","MediaCodecList.ALL_CODECS",()->{JSONArray a=new JSONArray();for(MediaCodecInfo info:new MediaCodecList(MediaCodecList.ALL_CODECS).getCodecInfos()){JSONObject o=Json.obj("name",info.getName(),"encoder",info.isEncoder(),"supportedTypes",info.getSupportedTypes());if(Build.VERSION.SDK_INT>=29){Json.put(o,"hardwareAccelerated",info.isHardwareAccelerated());Json.put(o,"softwareOnly",info.isSoftwareOnly());Json.put(o,"vendor",info.isVendor());Json.put(o,"canonicalName",info.getCanonicalName());}JSONArray types=new JSONArray();for(String type:info.getSupportedTypes())try{MediaCodecInfo.CodecCapabilities cap=info.getCapabilitiesForType(type);JSONArray profiles=new JSONArray();for(MediaCodecInfo.CodecProfileLevel p:cap.profileLevels)profiles.put(Json.obj("profile",p.profile,"level",p.level));types.put(Json.obj("type",type,"colorFormats",cap.colorFormats,"maxSupportedInstances",cap.getMaxSupportedInstances(),"profileLevels",profiles));}catch(Exception e){types.put(Json.obj("type",type,"error",e.getMessage()));}Json.put(o,"capabilities",types);a.put(o);}return a;});
+    }
+    // 业务块：只导出 Widevine 能力和唯一值摘要，绝不输出原始 DRM deviceUniqueId。
+    private void drm(ItemSink s){
+        final UUID widevine=UUID.fromString("edef8ba9-79d6-4ace-a3c8-27dcd51d21ed");
+        s.read("hardware","hardware/drm/widevine","Widevine DRM 能力","MediaDrm",()->{
+            if(!MediaDrm.isCryptoSchemeSupported(widevine))return Json.obj("supported",false,"schemeUuid",widevine.toString());
+            MediaDrm drm=null;
+            try{
+                drm=new MediaDrm(widevine);
+                JSONObject value=Json.obj("supported",true,"schemeUuid",widevine.toString(),
+                        "vendor",drm.getPropertyString(MediaDrm.PROPERTY_VENDOR),
+                        "version",drm.getPropertyString(MediaDrm.PROPERTY_VERSION),
+                        "description",drm.getPropertyString(MediaDrm.PROPERTY_DESCRIPTION),
+                        "algorithms",drm.getPropertyString(MediaDrm.PROPERTY_ALGORITHMS),
+                        "maxSecurityLevel",Build.VERSION.SDK_INT>=28?MediaDrm.getMaxSecurityLevel():null);
+                try{
+                    byte[] unique=drm.getPropertyByteArray(MediaDrm.PROPERTY_DEVICE_UNIQUE_ID);
+                    Json.put(value,"deviceUniqueId",unique==null?null:Json.obj("sha256",PackageInputCollector.sha(unique),"length",unique.length,"rawExported",false));
+                }catch(Exception e){Json.put(value,"deviceUniqueId",Json.obj("status","error","class",e.getClass().getName(),"rawExported",false));}
+                return value;
+            }finally{if(drm!=null)drm.release();}
+        });
     }
     private Object cameraValue(Object value){
         if(value==null)return null;
