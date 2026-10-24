@@ -126,6 +126,13 @@ describe('设备格式化展示边界', () => {
     expect(sections.find(section => section.key === 'codecNames')?.title).toBe('编解码器名');
     expect(sections.find(section => section.key === 'mimeTypes')?.rows[0].value).toBe('video/avc');
   });
+  it('摄像头摘要展示能力计数与 ID 列表', () => {
+    const sections = buildSections(item('hardware/camera-summary', 'hardware', { available: true, count: 2, cameraIdsTruncated: false, flashAvailableCount: 1, logicalMultiCameraCount: 1, physicalCameraIdCount: 2, cameraAccessErrorCount: 0, cameraIds: ['0', '1'], lensFacingCounts: { '0': 1, '1': 1 } }));
+    expect(sections[0].title).toBe('摄像头能力摘要');
+    expect(sections[0].rows.map(row => row.key)).toContain('cameraAccessErrorCount');
+    expect(sections.find(section => section.key === 'cameraIds')?.title).toBe('摄像头 ID');
+    expect(sections.find(section => section.key === 'cameraIds')?.rows.map(row => row.value)).toEqual(['0', '1']);
+  });
   it('锁屏与生物识别摘要只展示公开状态', () => {
     const sections = buildSections(item('security/lock-biometric', 'security', { keyguardSecure: true, keyguardLocked: false, deviceSecure: true, deviceLocked: false, fingerprintFeature: true, faceFeature: false, irisFeature: false }));
     expect(sections[0].title).toBe('锁屏与生物识别环境');

@@ -17,6 +17,7 @@
 | 传感器能力与厂商 | [SensorManager](https://developer.android.com/reference/android/hardware/SensorManager) 与 [Sensor](https://developer.android.com/reference/android/hardware/Sensor) 公开传感器类型、厂商、唤醒/动态标记、报告模式、FIFO 和 direct channel 能力。 | `sensors/summary`、`sensors/list` | 已采集能力摘要并保留完整公开清单；摘要最多保留 128 个去重厂商名，不读取传感器事件样本。 |
 | 系统特性与图形能力 | [PackageManager.getSystemAvailableFeatures](https://developer.android.com/reference/android/content/pm/PackageManager#getSystemAvailableFeatures()) 与 [FeatureInfo](https://developer.android.com/reference/android/content/pm/FeatureInfo) 公开系统声明特性、版本、标志和 OpenGL ES 要求版本。 | `hardware/features-summary`、`hardware/features`、`hardware/graphics` | 已采集摘要并保留完整公开清单；特性名摘要最多保留 256 项，不把单个特性直接解释为风险结论。 |
 | 媒体编解码能力 | [MediaCodecList](https://developer.android.com/reference/android/media/MediaCodecList) 与 [MediaCodecInfo](https://developer.android.com/reference/android/media/MediaCodecInfo) 公开编解码器名称、编码/解码方向、媒体类型以及 Android 29+ 的硬件加速、软件实现和厂商标记。 | `hardware/codecs-summary`、`hardware/codecs` | 已采集摘要并保留完整能力清单；摘要名称和媒体类型各最多 256 项，Android 29 以下的新增计数保持 `null`。 |
+| 摄像头能力 | [CameraManager](https://developer.android.com/reference/android/hardware/camera2/CameraManager) 与 [CameraCharacteristics](https://developer.android.com/reference/android/hardware/camera2/CameraCharacteristics) 公开镜头朝向、硬件级别、传感器方向、闪光灯和逻辑多摄像头能力。 | `hardware/camera-summary`、`hardware/camera/*` | 已采集摘要并保留每个摄像头完整公开特性；摘要最多保留 64 个 ID，不读取图像帧、不申请相机运行时权限。 |
 
 ## 当前缺口与下一步候选
 
