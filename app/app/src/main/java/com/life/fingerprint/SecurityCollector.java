@@ -124,13 +124,14 @@ public final class SecurityCollector implements Collector {
         int flags=Build.VERSION.SDK_INT>=28?PackageManager.GET_SIGNING_CERTIFICATES:PackageManager.GET_SIGNATURES;
         PackageInfo info=pm.getPackageInfo(packageName,flags);
         android.content.pm.Signature[] signatures=Build.VERSION.SDK_INT>=28&&info.signingInfo!=null?info.signingInfo.getApkContentsSigners():info.signatures;
-        JSONArray hashes=new JSONArray();
+        JSONArray hashes=new JSONArray(),history=new JSONArray();Boolean hasPast=null;
         if(signatures!=null)for(android.content.pm.Signature signature:signatures)hashes.put(PackageInputCollector.sha(signature.toByteArray()));
+        if(Build.VERSION.SDK_INT>=28&&info.signingInfo!=null){android.content.pm.Signature[] signingHistory=info.signingInfo.getSigningCertificateHistory();if(signingHistory!=null)for(android.content.pm.Signature signature:signingHistory)history.put(PackageInputCollector.sha(signature.toByteArray()));hasPast=info.signingInfo.hasPastSigningCertificates();}
         String installer=Build.VERSION.SDK_INT>=30?pm.getInstallSourceInfo(packageName).getInstallingPackageName():pm.getInstallerPackageName(packageName);
         ApplicationInfo application=info.applicationInfo;
         return Json.obj("packageName",packageName,"versionName",info.versionName,
                 "versionCode",Build.VERSION.SDK_INT>=28?info.getLongVersionCode():(long)info.versionCode,
-                "installer",installer,"signingCertificateSha256",hashes,
+                "installer",installer,"signingCertificateSha256",hashes,"signingCertificateHistorySha256",history,"hasPastSigningCertificates",hasPast,
                 "enabled",application==null?null:application.enabled,
                 "applicationFlags",application==null?null:application.flags,
                 "debuggable",application!=null&&(application.flags&ApplicationInfo.FLAG_DEBUGGABLE)!=0,

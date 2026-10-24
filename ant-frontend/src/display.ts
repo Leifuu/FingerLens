@@ -212,7 +212,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     'security/lock-biometric': { title: '锁屏与生物识别环境', order: ['keyguardSecure', 'keyguardLocked', 'deviceSecure', 'deviceLocked', 'fingerprintFeature', 'faceFeature', 'irisFeature'], arrays: [] },
     'security/accessibility': { title: '启用的无障碍服务', order: ['available', 'count'], arrays: ['services'] },
     'security/summary': { title: '安全环境摘要', order: ['selfDebuggable', 'debuggerConnected', 'waitingForDebugger', 'deviceOwnerForSelf', 'profileOwnerForSelf', 'managedProfile', 'userUnlocked', 'specialAccessAvailable', 'appOpsCheckedCount', 'appOpsAllowedCount', 'canDrawOverlays', 'keyguardSecure', 'keyguardLocked', 'deviceSecure', 'deviceLocked', 'fingerprintFeature', 'faceFeature', 'irisFeature', 'accessibilityServiceCount', 'securityProviderCount'], arrays: [] },
-    'security/self-integrity': { title: '当前 App 签名与安装环境', order: ['packageName', 'versionName', 'versionCode', 'installer', 'enabled', 'applicationFlags', 'debuggable', 'hasCode'], arrays: ['signingCertificateSha256'] },
+    'security/self-integrity': { title: '当前 App 签名与安装环境', order: ['packageName', 'versionName', 'versionCode', 'installer', 'enabled', 'applicationFlags', 'debuggable', 'hasCode', 'hasPastSigningCertificates'], arrays: ['signingCertificateSha256', 'signingCertificateHistorySha256'] },
     'environment/risk-settings': { title: '系统风控相关设置', order: ['adbEnabled', 'developmentSettingsEnabled', 'airplaneModeOn', 'autoTime', 'autoTimeZone', 'privateDnsMode', 'privateDnsSpecifier', 'wifiOn', 'bluetoothOn', 'accessibilityEnabled', 'mockLocation', 'installNonMarketApps'], arrays: [] },
     'environment/device-state': { title: '设备初始化与运行状态', order: ['deviceProvisioned', 'userSetupComplete', 'bootCount', 'lowRamDevice', 'demoUser', 'userUnlocked', 'userRunning', 'userMonkey', 'testHarness', 'backgroundRestricted'], arrays: [] },
     'environment/location': { title: '定位与 GNSS 能力', order: ['available', 'locationEnabled', 'providerCount', 'hasGpsProvider', 'hasNetworkProvider', 'hasFusedProvider', 'gnssHardwareModelName', 'gnssYearOfHardware', 'gnssCapabilities', 'gnssAntennaCount', 'gnssAntennaInfoTruncated'], arrays: ['providers', 'gnssAntennaCarrierFrequenciesMHz'] },
@@ -236,6 +236,8 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
           : key === 'hardware/codecs-summary'
             ? arrayKey === 'codecNames' ? '编解码器名' : '媒体类型'
           : key === 'hardware/camera-summary' && arrayKey === 'cameraIds' ? '摄像头 ID'
+          : key === 'security/self-integrity'
+            ? arrayKey === 'signingCertificateSha256' ? '当前签名 SHA-256' : '签名历史 SHA-256'
           : key === 'hardware/audio-summary'
             ? arrayKey === 'productNames' ? '音频设备名' : arrayKey === 'sampleRates' ? '采样率' : '编码格式'
           : key === 'network/wifi-summary' && arrayKey === 'frequencies' ? '缓存扫描频率（MHz）'
