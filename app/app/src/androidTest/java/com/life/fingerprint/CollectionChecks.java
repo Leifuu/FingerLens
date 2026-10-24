@@ -184,7 +184,7 @@ public class CollectionChecks {
     @Test public void specialAccessEvidenceUsesCurrentAppOps()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new SecurityCollector("security").collect(sink);
         JSONObject access=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("security/special-access")){access=item;break;}}
-        assertNotNull("应记录本 App 特殊访问条目",access);assertEquals("ok",access.getString("status"));JSONObject value=access.getJSONObject("value");assertTrue(value.has("available"));assertTrue(value.has("canDrawOverlays"));if(value.optBoolean("available"))assertTrue(value.has("appOps"));assertFalse(value.has("otherPackages"));
+        assertNotNull("应记录本 App 特殊访问条目",access);assertEquals("ok",access.getString("status"));JSONObject value=access.getJSONObject("value");assertTrue(value.has("available"));assertTrue(value.has("canDrawOverlays"));assertTrue(value.has("canRequestPackageInstalls"));assertTrue(value.has("canRequestPackageInstallsStatus"));assertTrue(value.has("notificationPolicyAccess"));assertTrue(value.has("notificationPolicyAccessStatus"));assertTrue(value.has("allFilesAccess"));assertTrue(value.has("allFilesAccessStatus"));if(value.optBoolean("available"))assertTrue(value.has("appOps"));assertFalse(value.has("otherPackages"));
     }
     @Test public void lockBiometricEvidenceUsesPublicStateOnly()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new SecurityCollector("security").collect(sink);

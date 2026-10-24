@@ -33,7 +33,7 @@ public final class SecurityCollector implements Collector {
         s.ok("security","security/self","应用安全上下文","android-api","Process / ApplicationInfo / Debug",Json.obj("uid",android.os.Process.myUid(),"pid",android.os.Process.myPid(),"debuggable",(s.context.getApplicationInfo().flags&ApplicationInfo.FLAG_DEBUGGABLE)!=0,"debuggerConnected",Debug.isDebuggerConnected(),"waitingForDebugger",Debug.waitingForDebugger()));
         s.read("security","security/self-integrity","当前 App 签名与安装环境","PackageManager.getPackageInfo / getInstallSourceInfo",()->selfIntegrity(s.context));
         s.read("security","security/device-management","设备管理与用户环境","DevicePolicyManager / UserManager",()->managementEnvironment(s.context));
-        s.read("security","security/special-access","本 App 特殊访问状态","AppOpsManager / Settings.canDrawOverlays",()->specialAccess(s.context));
+        s.read("security","security/special-access","本 App 特殊访问状态","AppOpsManager / PackageManager / NotificationManager / Environment / Settings",()->specialAccess(s.context));
         s.read("security","security/lock-biometric","锁屏与生物识别环境","KeyguardManager / PackageManager.hasSystemFeature",()->lockBiometricEnvironment(s.context));
         s.read("security","security/accessibility","启用的无障碍服务元数据","AccessibilityManager.getEnabledAccessibilityServiceList",()->accessibilityEnvironment(s.context));
         for(String p:new String[]{"/proc/self/attr/current","/proc/self/status","/sys/fs/selinux/enforce","/sys/fs/selinux/policyvers","/sys/fs/selinux/checkreqprot","/proc/cmdline","/proc/bootconfig","/system/etc/selinux/plat_sepolicy.cil","/vendor/etc/selinux/vendor_sepolicy.cil"})s.file("security","security/file"+p,p);
@@ -67,10 +67,27 @@ public final class SecurityCollector implements Collector {
     // 业务块：只查询本 App UID 的 AppOps，不调用 noteOp、不申请授权，也不枚举其它包。
     private static JSONObject specialAccess(Context context){
         AppOpsManager ops=context.getSystemService(AppOpsManager.class);
-        JSONObject out=Json.obj("available",ops!=null,"canDrawOverlays",Settings.canDrawOverlays(context));
+        android.app.NotificationManager notifications=context.getSystemService(android.app.NotificationManager.class);
+        PackageManager packages=context.getPackageManager();
+        Boolean canRequestPackageInstalls=null,notificationPolicyAccess=null,allFilesAccess=null;
+        String canRequestPackageInstallsStatus=Build.VERSION.SDK_INT<26?"unsupported":"allowed";
+        String notificationPolicyAccessStatus=Build.VERSION.SDK_INT<23?"unsupported":"allowed";
+        String allFilesAccessStatus=Build.VERSION.SDK_INT<30?"unsupported":"allowed";
+        if(Build.VERSION.SDK_INT>=26)try{canRequestPackageInstalls=packages.canRequestPackageInstalls();canRequestPackageInstallsStatus=canRequestPackageInstalls?"allowed":"denied";}catch(SecurityException e){canRequestPackageInstallsStatus="denied";}
+        if(Build.VERSION.SDK_INT>=23)try{if(notifications==null){notificationPolicyAccessStatus="unavailable";}else{notificationPolicyAccess=notifications.isNotificationPolicyAccessGranted();notificationPolicyAccessStatus=notificationPolicyAccess?"allowed":"denied";}}catch(SecurityException e){notificationPolicyAccessStatus="denied";}
+        if(Build.VERSION.SDK_INT>=30)try{allFilesAccess=Environment.isExternalStorageManager();allFilesAccessStatus=allFilesAccess?"allowed":"denied";}catch(SecurityException e){allFilesAccessStatus="denied";}
+        JSONObject out=Json.obj("available",ops!=null,"canDrawOverlays",Settings.canDrawOverlays(context),
+                "canRequestPackageInstalls",canRequestPackageInstalls,
+                "canRequestPackageInstallsStatus",canRequestPackageInstallsStatus,
+                "notificationPolicyAccess",notificationPolicyAccess,
+                "notificationPolicyAccessStatus",notificationPolicyAccessStatus,
+                "allFilesAccess",allFilesAccess,
+                "allFilesAccessStatus",allFilesAccessStatus);
         if(ops==null)return out;
         JSONObject appOps=new JSONObject();
-        String[] names={AppOpsManager.OPSTR_SYSTEM_ALERT_WINDOW,AppOpsManager.OPSTR_GET_USAGE_STATS,AppOpsManager.OPSTR_PICTURE_IN_PICTURE,AppOpsManager.OPSTR_MOCK_LOCATION,AppOpsManager.OPSTR_WRITE_SETTINGS};
+        ArrayList<String> names=new ArrayList<>(Arrays.asList(AppOpsManager.OPSTR_SYSTEM_ALERT_WINDOW,AppOpsManager.OPSTR_GET_USAGE_STATS,AppOpsManager.OPSTR_PICTURE_IN_PICTURE,AppOpsManager.OPSTR_MOCK_LOCATION,AppOpsManager.OPSTR_WRITE_SETTINGS));
+        if(Build.VERSION.SDK_INT>=26)names.add("android:request_install_packages");
+        if(Build.VERSION.SDK_INT>=30)names.add("android:manage_external_storage");
         for(String name:names){int mode=ops.checkOpNoThrow(name,android.os.Process.myUid(),context.getPackageName());Json.put(appOps,name,Json.obj("mode",mode,"allowed",mode==AppOpsManager.MODE_ALLOWED));}
         Json.put(out,"appOps",appOps);
         return out;

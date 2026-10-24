@@ -128,9 +128,11 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.some(row => row.key.includes('restrictions.no_debugging_features'))).toBe(true);
   });
   it('特殊访问摘要保留 AppOps 与悬浮窗状态', () => {
-    const sections = buildSections(item('security/special-access', 'security', { available: true, canDrawOverlays: false, appOps: { 'android:system_alert_window': { mode: 1, allowed: false } } }));
+    const sections = buildSections(item('security/special-access', 'security', { available: true, canDrawOverlays: false, canRequestPackageInstalls: null, canRequestPackageInstallsStatus: 'denied', notificationPolicyAccess: false, notificationPolicyAccessStatus: 'allowed', allFilesAccess: false, allFilesAccessStatus: 'allowed', appOps: { 'android:system_alert_window': { mode: 1, allowed: false } } }));
     expect(sections[0].title).toBe('本 App 特殊访问状态');
     expect(sections[0].rows.some(row => row.key.includes('canDrawOverlays'))).toBe(true);
+    expect(sections[0].rows.some(row => row.key.includes('canRequestPackageInstalls'))).toBe(true);
+    expect(sections[0].rows.some(row => row.key.includes('canRequestPackageInstallsStatus'))).toBe(true);
     expect(sections[0].rows.some(row => row.key.includes('appOps.android:system_alert_window.mode'))).toBe(true);
   });
   it('WebView UA 摘要保留原始字符串和长度', () => {
