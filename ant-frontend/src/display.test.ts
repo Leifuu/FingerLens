@@ -63,6 +63,17 @@ describe('设备格式化展示边界', () => {
     expect(sections.find(section => section.key === 'dns')?.rows[0].value).toBe('1.1.1.1');
     expect(sections.find(section => section.key === 'routes')?.rows[0].value).toBe('[]');
   });
+  it('Wi-Fi 缓存扫描只展开摘要，不展开 SSID 与 BSSID', () => {
+    const value = item('network/wifi-cached-scan', 'network', [{ ssid: 'Cafe', bssid: 'AA:BB:CC:DD:EE:FF', capabilities: '[WPA2-PSK-CCMP][ESS]', frequency: 2412, level: -45, channelWidth: 0 }, { ssid: '', bssid: '', capabilities: '[ESS]', frequency: 5180, level: -70, channelWidth: 1 }]);
+    const original = JSON.stringify(value);
+    const sections = buildSections(value);
+    expect(sections[0].title).toContain('原始 SSID/BSSID 保留');
+    expect(sections[0].rows.find(row => row.key === 'count')?.value).toBe('2');
+    expect(sections.find(section => section.key === 'frequencies')?.rows.map(row => row.value)).toEqual(['2412', '5180']);
+    expect(JSON.stringify(sections)).not.toContain('Cafe');
+    expect(JSON.stringify(sections)).not.toContain('AA:BB:CC:DD:EE:FF');
+    expect(JSON.stringify(value)).toBe(original);
+  });
   it('风控摘要使用专用分组并保留数组与原始链路字符串', () => {
     const sections = buildSections(item('network/risk-signals', 'network', { present: true, validated: true, vpn: false, transports: [1], capabilitiesRaw: 'raw-capabilities' }));
     expect(sections.find(section => section.key === 'summary')?.title).toBe('活动链路摘要');

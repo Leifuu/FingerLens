@@ -105,6 +105,26 @@ function networkSections(value: Json): DisplaySection[] {
   }).flat().filter(item => item.rows.length);
 }
 
+function wifiCachedScanSections(value: Json): DisplaySection[] {
+  if (!Array.isArray(value)) return genericSections(value);
+  const frequencies: number[] = [], capabilities: string[] = [], channelWidths: Record<string, number> = {};
+  let ssidPresentCount = 0, bssidPresentCount = 0, levelMin: number | null = null, levelMax: number | null = null;
+  for (const entry of value) {
+    if (!object(entry)) continue;
+    if (typeof entry.ssid === 'string' && entry.ssid.length) ssidPresentCount++;
+    if (typeof entry.bssid === 'string' && entry.bssid.length) bssidPresentCount++;
+    if (typeof entry.frequency === 'number' && !frequencies.includes(entry.frequency) && frequencies.length < 64) frequencies.push(entry.frequency);
+    if (typeof entry.capabilities === 'string' && !capabilities.includes(entry.capabilities) && capabilities.length < 64) capabilities.push(entry.capabilities);
+    if (typeof entry.channelWidth === 'number') channelWidths[String(entry.channelWidth)] = (channelWidths[String(entry.channelWidth)] || 0) + 1;
+    if (typeof entry.level === 'number') { levelMin = levelMin === null ? entry.level : Math.min(levelMin, entry.level); levelMax = levelMax === null ? entry.level : Math.max(levelMax, entry.level); }
+  }
+  const sections = [section('summary', 'Wi-Fi 缓存扫描摘要（原始 SSID/BSSID 保留在 JSON）', objectRows({ count: value.length, ssidPresentCount, bssidPresentCount, frequencyCount: frequencies.length, capabilitiesCount: capabilities.length, levelMin, levelMax }))];
+  if (frequencies.length) sections.push(section('frequencies', '频率（MHz）', frequencies.map((frequency, index) => row(`[${index}]`, frequency)), true));
+  if (capabilities.length) sections.push(section('capabilities', '能力标记（去重）', capabilities.map((capability, index) => row(`[${index}]`, capability)), true));
+  if (Object.keys(channelWidths).length) sections.push(section('channelWidths', '信道宽度计数', objectRows(channelWidths)));
+  return sections;
+}
+
 function packageSections(value: Json): DisplaySection[] {
   if (!object(value)) return [section('value', '应用数据', [row('value', value)])];
   const sections: DisplaySection[] = [section('package', '包信息', objectRows(value))];
@@ -244,6 +264,7 @@ export function buildSections(item?: Item): DisplaySection[] {
   if (item.category === 'display' || item.key.startsWith('display/')) return displaySections(value);
   if (item.category === 'input' || item.key.startsWith('input/')) return inputSections(value);
   if (item.key === 'binder/service-list') return typeof value === 'string' ? [section('stdout', '服务清单 stdout', value.split('\n').filter(Boolean).map((line, index) => row(String(index), line, `第 ${index + 1} 行`)), true)] : genericSections(value);
+  if (item.key === 'network/wifi-cached-scan') return wifiCachedScanSections(value);
   if (item.category === 'network' || item.key.startsWith('network/')) return networkSections(value);
   if (item.category === 'packages' || item.key.startsWith('packages/')) return [...packageSections(value), ...(item.installer ? genericSections(item.installer.value).map(child => ({ ...child, key: `installer-${child.key}`, title: `安装来源 · ${child.title}` })) : [])];
   return genericSections(value);
