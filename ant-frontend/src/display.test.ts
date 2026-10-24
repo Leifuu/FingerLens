@@ -119,6 +119,16 @@ describe('设备格式化展示边界', () => {
     expect(JSON.stringify(sections)).not.toContain('A'.repeat(100));
     expect(JSON.stringify(value)).toBe(original);
   });
+  it('应用清单签名详情压缩 DER，只展示哈希和长度', () => {
+    const value = item('packages/com.example', 'packages', { packageName: 'com.example', signatures: [{ sha256: 'b'.repeat(64), derBase64: 'B'.repeat(12000) }] });
+    const original = JSON.stringify(value);
+    const sections = buildSections(value);
+    const signatures = sections.find(section => section.key === 'signatures');
+    expect(signatures?.title).toContain('原始 DER 保留在 JSON');
+    expect(signatures?.rows.find(row => row.key === '[0].derBase64.length')?.value).toBe('12000');
+    expect(JSON.stringify(signatures)).not.toContain('B'.repeat(100));
+    expect(JSON.stringify(value)).toBe(original);
+  });
   it('proc 多行文本按行拆分，正确行不会因另一行变化而整体标红', () => {
     const sections = buildSections(item('kernel/proc/diskstats', 'kernel', '8 0 sda 1 2\n8 1 sda1 3 4\n'));
     expect(sections[0].table).toBe(true);

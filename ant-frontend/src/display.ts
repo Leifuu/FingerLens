@@ -108,8 +108,21 @@ function networkSections(value: Json): DisplaySection[] {
 function packageSections(value: Json): DisplaySection[] {
   if (!object(value)) return [section('value', '应用数据', [row('value', value)])];
   const sections: DisplaySection[] = [section('package', '包信息', objectRows(value))];
-  for (const [key, child] of Object.entries(value)) if (Array.isArray(child)) sections.push(section(key, key, arrayRows(child, key), true));
+  for (const [key, child] of Object.entries(value)) if (Array.isArray(child)) {
+    if (key === 'signatures') sections.push(signatureSections(child));
+    else sections.push(section(key, key, arrayRows(child, key), true));
+  }
   return sections.filter(item => item.rows.length);
+}
+
+function signatureSections(value: Json[]): DisplaySection {
+  const rows: DisplayRow[] = [row('count', value.length, '签名数量')];
+  value.forEach((entry, index) => {
+    if (!object(entry)) { rows.push(row(`[${index}]`, entry, `签名 ${index + 1}`)); return; }
+    rows.push(row(`[${index}].sha256`, entry.sha256 ?? null, `签名 ${index + 1} · SHA-256`));
+    if (typeof entry.derBase64 === 'string') rows.push(row(`[${index}].derBase64.length`, entry.derBase64.length, `签名 ${index + 1} · 原始 DER 长度`));
+  });
+  return section('signatures', '签名摘要（原始 DER 保留在 JSON）', rows, true);
 }
 
 function genericSections(value: Json): DisplaySection[] {
