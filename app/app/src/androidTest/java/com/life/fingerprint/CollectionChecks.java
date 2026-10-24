@@ -226,6 +226,11 @@ public class CollectionChecks {
         JSONObject settings=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("environment/system-settings")){settings=item;break;}}
         assertNotNull("应记录显示与动画设置摘要",settings);assertEquals("ok",settings.getString("status"));JSONObject value=settings.getJSONObject("value");assertTrue(value.has("available"));assertTrue(value.has("status"));JSONObject values=value.getJSONObject("settings");for(String key:new String[]{"screen_brightness","screen_brightness_mode","screen_off_timeout","accelerometer_rotation","user_rotation","window_animation_scale","transition_animation_scale","animator_duration_scale"})assertTrue(values.has(key));
     }
+    @Test public void localeSummaryKeepsRawLocaleEvidenceSeparate()throws Exception{
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new BuildSystemCollector("environment").collect(sink);
+        JSONObject summary=null,raw=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("environment/locale-summary"))summary=item;if(item.getString("key").equals("environment/locales"))raw=item;}
+        assertNotNull("应生成语言与时区摘要",summary);assertNotNull("应保留语言与时区原始条目",raw);assertEquals("ok",summary.getString("status"));JSONObject value=summary.getJSONObject("value");assertTrue(value.has("localeTags"));assertTrue(value.has("localeCount"));assertTrue(value.has("timezoneId"));assertTrue(value.has("is24HourFormat"));assertTrue(value.has("applicationLocaleAccess"));assertTrue(value.has("applicationLocaleTags"));assertFalse(summary.toString().contains("configuration"));
+    }
     @Test public void deviceStateEvidenceUsesPublicStateOnly()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new BuildSystemCollector("environment").collect(sink);
         JSONObject state=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("environment/device-state")){state=item;break;}}

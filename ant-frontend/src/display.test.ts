@@ -274,6 +274,12 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].title).toBe('系统风控相关设置');
     expect(sections[0].rows.map(row => row.key)).toEqual(['adbEnabled', 'developmentSettingsEnabled', 'privateDnsMode', 'mockLocation']);
   });
+  it('语言与时区摘要展示系统与应用区域设置', () => {
+    const sections = buildSections(item('environment/locale-summary', 'environment', { available: true, localeTags: 'zh-CN,en-US', localeCount: 2, defaultLocale: 'zh-CN', timezoneId: 'Asia/Shanghai', rawOffsetMillis: 28800000, usesDaylightTime: false, inDaylightTime: false, is24HourFormat: true, layoutDirection: 0, fontScale: 1, densityDpi: 420, uiMode: 33, applicationLocaleAccess: 'allowed', applicationLocaleTags: '' }));
+    expect(sections[0].title).toBe('语言与时区摘要');
+    expect(sections[0].rows.map(row => row.key)).toContain('applicationLocaleAccess');
+    expect(sections[0].rows.map(row => row.key)).toContain('timezoneId');
+  });
   it('设备初始化与运行状态摘要按稳定字段顺序展示', () => {
     const sections = buildSections(item('environment/device-state', 'environment', { deviceProvisioned: true, userSetupComplete: true, bootCount: '7', lowRamDevice: false, userUnlocked: true, userRunning: true }));
     expect(sections[0].title).toBe('设备初始化与运行状态');
