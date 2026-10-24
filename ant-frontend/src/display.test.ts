@@ -133,6 +133,13 @@ describe('设备格式化展示边界', () => {
     expect(sections.find(section => section.key === 'cameraIds')?.title).toBe('摄像头 ID');
     expect(sections.find(section => section.key === 'cameraIds')?.rows.map(row => row.value)).toEqual(['0', '1']);
   });
+  it('音频摘要展示输入输出与能力数组', () => {
+    const sections = buildSections(item('hardware/audio-summary', 'hardware', { available: true, count: 2, sourceCount: 1, sinkCount: 2, productNamesTruncated: false, typeCounts: { '2': 1 }, productNames: ['Speaker'], sampleRates: [48000], encodings: [2] }));
+    expect(sections[0].title).toBe('音频能力摘要');
+    expect(sections[0].rows.map(row => row.key)).toContain('sourceCount');
+    expect(sections.find(section => section.key === 'productNames')?.title).toBe('音频设备名');
+    expect(sections.find(section => section.key === 'sampleRates')?.rows[0].value).toBe('48000');
+  });
   it('锁屏与生物识别摘要只展示公开状态', () => {
     const sections = buildSections(item('security/lock-biometric', 'security', { keyguardSecure: true, keyguardLocked: false, deviceSecure: true, deviceLocked: false, fingerprintFeature: true, faceFeature: false, irisFeature: false }));
     expect(sections[0].title).toBe('锁屏与生物识别环境');

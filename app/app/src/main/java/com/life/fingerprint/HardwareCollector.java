@@ -21,6 +21,7 @@ public final class HardwareCollector implements Collector {
         s.read("hardware","hardware/features","系统声明特性","PackageManager.getSystemAvailableFeatures",()->{JSONArray a=new JSONArray();for(FeatureInfo f:s.context.getPackageManager().getSystemAvailableFeatures())a.put(Json.obj("name",f.name,"version",f.version,"flags",f.flags,"reqGlEsVersion",f.reqGlEsVersion));return a;});
         s.read("hardware","hardware/features-summary","系统特性能力摘要","PackageManager.getSystemAvailableFeatures",()->featureSummary(s.context));
         s.read("hardware","hardware/codecs-summary","媒体编解码能力摘要","MediaCodecList.ALL_CODECS",HardwareCollector::codecSummary);
+        audio(s);
         usb(s);
         drm(s);
         CameraManager cameras=s.context.getSystemService(CameraManager.class);
@@ -50,6 +51,22 @@ public final class HardwareCollector implements Collector {
         return Json.obj("available",true,"count",ids.length,"cameraIds",cameraIds,"cameraIdsTruncated",ids.length>64,"flashAvailableCount",flashAvailableCount,"logicalMultiCameraCount",logicalMultiCameraCount,"physicalCameraIdCount",physicalCameraIdCount,"cameraAccessErrorCount",errorCount,"lensFacingCounts",lensFacingCounts,"hardwareLevelCounts",hardwareLevelCounts,"sensorOrientationCounts",orientationCounts);
     }
     private static void count(JSONObject counts,String key){Json.put(counts,key,counts.optInt(key,0)+1);}
+    // 业务块：只读取音频设备能力元数据，不获取音频样本；原始清单与摘要并存。
+    private void audio(ItemSink s){
+        AudioManager manager=s.context.getSystemService(AudioManager.class);
+        if(manager==null){s.ok("hardware","hardware/audio-summary","音频能力摘要","AudioManager","AudioManager unavailable",Json.obj("available",false,"count",0,"productNames",new JSONArray()));return;}
+        s.read("hardware","hardware/audio","音频设备公开清单","AudioManager.getDevices",()->audioDevices(manager));
+        s.read("hardware","hardware/audio-summary","音频能力摘要","AudioManager.getDevices",()->audioSummary(manager));
+    }
+    private static JSONArray audioDevices(AudioManager manager){
+        JSONArray devices=new JSONArray();for(AudioDeviceInfo device:manager.getDevices(AudioManager.GET_DEVICES_ALL)){CharSequence productName=device.getProductName();devices.put(Json.obj("id",device.getId(),"type",device.getType(),"productName",productName==null?null:productName.toString(),"isSource",device.isSource(),"isSink",device.isSink(),"addressPresent",device.getAddress()!=null&&!device.getAddress().isEmpty(),"channelCounts",device.getChannelCounts(),"sampleRates",device.getSampleRates(),"encodings",device.getEncodings()));}return devices;
+    }
+    private static JSONObject audioSummary(AudioManager manager){
+        AudioDeviceInfo[] devices=manager.getDevices(AudioManager.GET_DEVICES_ALL);JSONObject typeCounts=new JSONObject();TreeSet<String> productNames=new TreeSet<>(String.CASE_INSENSITIVE_ORDER);boolean productNamesTruncated=false;int sourceCount=0,sinkCount=0;TreeSet<Integer> sampleRates=new TreeSet<>(),encodings=new TreeSet<>();
+        for(AudioDeviceInfo device:devices){if(device.isSource())sourceCount++;if(device.isSink())sinkCount++;count(typeCounts,String.valueOf(device.getType()));CharSequence productName=device.getProductName();String product=productName==null?"":productName.toString();if(product.length()>0&&!productNames.contains(product)){if(productNames.size()<128)productNames.add(product);else productNamesTruncated=true;}int[] rates=device.getSampleRates();if(rates!=null)for(int rate:rates)sampleRates.add(rate);int[] formats=device.getEncodings();if(formats!=null)for(int encoding:formats)encodings.add(encoding);}
+        JSONArray names=new JSONArray();for(String name:productNames)names.put(name);JSONArray rates=new JSONArray();for(Integer rate:sampleRates)rates.put(rate);JSONArray formats=new JSONArray();for(Integer encoding:encodings)formats.put(encoding);
+        return Json.obj("available",true,"count",devices.length,"sourceCount",sourceCount,"sinkCount",sinkCount,"typeCounts",typeCounts,"productNames",names,"productNamesTruncated",productNamesTruncated,"sampleRates",rates,"encodings",formats);
+    }
     // 业务块：只读取 UsbManager 已公开的设备描述符，不申请 USB 权限、不读取序列号。
     private void usb(ItemSink s){
         s.read("hardware","hardware/usb","USB 设备公开清单","UsbManager.getDeviceList / UsbDevice",()->{

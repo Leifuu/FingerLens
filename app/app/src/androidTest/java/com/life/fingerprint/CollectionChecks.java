@@ -115,6 +115,11 @@ public class CollectionChecks {
         JSONObject summary=null;int cameraItems=0;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);String key=item.getString("key");if(key.equals("hardware/camera-summary"))summary=item;if(key.startsWith("hardware/camera/")&&!key.equals("hardware/camera-summary"))cameraItems++;}
         assertNotNull("应生成摄像头能力摘要",summary);assertEquals("ok",summary.getString("status"));JSONObject value=summary.getJSONObject("value");assertTrue(value.has("count"));assertEquals(value.getInt("count"),cameraItems);assertTrue(value.getJSONArray("cameraIds").length()<=64);assertTrue(value.has("cameraIdsTruncated"));assertTrue(value.has("lensFacingCounts"));assertTrue(value.has("hardwareLevelCounts"));
     }
+    @Test public void audioSummaryKeepsFullListSeparate()throws Exception{
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new HardwareCollector("hardware").collect(sink);
+        JSONObject summary=null,list=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("hardware/audio-summary"))summary=item;if(item.getString("key").equals("hardware/audio"))list=item;}
+        assertNotNull("应生成音频能力摘要",summary);assertNotNull("应保留音频设备完整清单",list);assertEquals("ok",summary.getString("status"));assertEquals("ok",list.getString("status"));JSONObject value=summary.getJSONObject("value");assertEquals(value.getInt("count"),list.getJSONArray("value").length());assertTrue(value.getJSONArray("productNames").length()<=128);assertTrue(value.has("productNamesTruncated"));assertTrue(value.has("sampleRates"));assertTrue(value.has("encodings"));
+    }
     @Test public void playIntegrityEnvironmentIsExplicitlyOffline()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new SecurityCollector("attestation").collect(sink);
         JSONObject environment=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("attestation/play-integrity-environment")){environment=item;break;}}
