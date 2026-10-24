@@ -173,6 +173,11 @@ describe('设备格式化展示边界', () => {
     expect(sections.find(section => section.key === 'simStates')?.rows.map(row => row.value)).toEqual(['5', '1']);
     expect(sections.find(section => section.key === 'mccs')?.rows[0].value).toBe('460');
   });
+  it('存储摘要展示存储卷拓扑与状态计数', () => {
+    const sections = buildSections(item('storage/summary', 'storage', { available: true, volumeCount: 2, mountedCount: 2, primaryCount: 1, removableCount: 1, emulatedCount: 1, uuidPresentCount: 1, stateCounts: { mounted: 2 } }));
+    expect(sections[0].title).toBe('存储卷环境摘要');
+    expect(sections[0].rows.map(row => row.key)).toEqual(['available', 'volumeCount', 'mountedCount', 'primaryCount', 'removableCount', 'emulatedCount', 'uuidPresentCount', 'stateCounts.mounted']);
+  });
   it('蓝牙摘要展示访问状态与已配对设备计数', () => {
     const sections = buildSections(item('network/bluetooth-summary', 'network', { available: true, access: 'allowed', adapterState: 12, adapterNamePresent: true, adapterAddressPresent: true, bondedCount: 1, bondedNameCount: 1, bondedAddressCount: 1, bondedTypeCounts: { '1': 1 }, bondedClassCounts: { '1028': 1 } }));
     expect(sections[0].title).toBe('蓝牙能力摘要');

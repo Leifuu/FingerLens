@@ -54,6 +54,11 @@ public class CollectionChecks {
         File link=new File(root.getParentFile(),root.getName()+"-link");android.system.Os.symlink(root.getCanonicalPath(),link.getCanonicalPath());String path=link.getParentFile().getCanonicalPath()+"/"+link.getName();
         assertEquals("symlink",new JSONObject(NativeProbe.inspectPath(path)).getString("type"));assertFalse(new JSONObject(NativeProbe.listDirectory(path,10)).getBoolean("ok"));assertFalse(new JSONObject(NativeProbe.inspectPath(path+"/entry-0")).getBoolean("ok"));
     }
+    @Test public void storageSummaryKeepsRawVolumesSeparate()throws Exception{
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new BuildSystemCollector("storage").collect(sink);
+        JSONObject summary=null,volumes=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("storage/summary"))summary=item;if(item.getString("key").equals("storage/volumes"))volumes=item;}
+        assertNotNull("应生成存储卷摘要",summary);assertNotNull("应保留存储卷原始清单",volumes);assertEquals("ok",summary.getString("status"));assertEquals("ok",volumes.getString("status"));JSONObject value=summary.getJSONObject("value");assertEquals(value.getInt("volumeCount"),volumes.getJSONArray("value").length());assertTrue(value.has("mountedCount"));assertTrue(value.has("stateCounts"));
+    }
     @Test public void atomicJsonGzipRoundTrip()throws Exception{
         File f=new File(context.getCacheDir(),"fingerprint-export-test.json");String raw=Json.obj("text","中文\n\u0000","long",Long.MAX_VALUE).toString();ReportStore.write(f,raw);File gz=ReportStore.gzip(f);ByteArrayOutputStream bytes=new ByteArrayOutputStream();try(GZIPInputStream in=new GZIPInputStream(new FileInputStream(gz))){byte[] b=new byte[1024];int n;while((n=in.read(b))!=-1)bytes.write(b,0,n);}assertArrayEquals(raw.getBytes(StandardCharsets.UTF_8),bytes.toByteArray());assertFalse(raw.startsWith("\ufeff"));
     }
