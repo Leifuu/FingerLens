@@ -4,6 +4,7 @@ import android.content.*;
 import android.content.pm.FeatureInfo;
 import android.hardware.*;
 import android.hardware.camera2.*;
+import android.hardware.usb.*;
 import android.media.*;
 import android.os.*;
 import android.util.*;
@@ -18,10 +19,29 @@ public final class HardwareCollector implements Collector {
         if(module.equals("sensors")){sensors(s);return;}
         s.ok("hardware","hardware/graphics","图形能力查询","jni","EGL / OpenGL ES / vkEnumerateInstanceExtensionProperties",new JSONObject(NativeProbe.graphics()));
         s.read("hardware","hardware/features","系统声明特性","PackageManager.getSystemAvailableFeatures",()->{JSONArray a=new JSONArray();for(FeatureInfo f:s.context.getPackageManager().getSystemAvailableFeatures())a.put(Json.obj("name",f.name,"version",f.version,"flags",f.flags,"reqGlEsVersion",f.reqGlEsVersion));return a;});
+        usb(s);
         drm(s);
         CameraManager cameras=s.context.getSystemService(CameraManager.class);
         for(String id:cameras.getCameraIdList())s.read("hardware","hardware/camera/"+id,"摄像头 "+id,"CameraManager.getCameraCharacteristics",()->{CameraCharacteristics c=cameras.getCameraCharacteristics(id);JSONObject o=Json.obj("id",id);for(CameraCharacteristics.Key<?> k:c.getKeys()){try{Json.put(o,k.getName(),cameraValue(c.get(k)));}catch(Exception e){Json.put(o,k.getName(),Json.obj("error",e.getClass().getName(),"message",e.getMessage()));}}return o;});
         s.read("hardware","hardware/codecs","媒体编解码器","MediaCodecList.ALL_CODECS",()->{JSONArray a=new JSONArray();for(MediaCodecInfo info:new MediaCodecList(MediaCodecList.ALL_CODECS).getCodecInfos()){JSONObject o=Json.obj("name",info.getName(),"encoder",info.isEncoder(),"supportedTypes",info.getSupportedTypes());if(Build.VERSION.SDK_INT>=29){Json.put(o,"hardwareAccelerated",info.isHardwareAccelerated());Json.put(o,"softwareOnly",info.isSoftwareOnly());Json.put(o,"vendor",info.isVendor());Json.put(o,"canonicalName",info.getCanonicalName());}JSONArray types=new JSONArray();for(String type:info.getSupportedTypes())try{MediaCodecInfo.CodecCapabilities cap=info.getCapabilitiesForType(type);JSONArray profiles=new JSONArray();for(MediaCodecInfo.CodecProfileLevel p:cap.profileLevels)profiles.put(Json.obj("profile",p.profile,"level",p.level));types.put(Json.obj("type",type,"colorFormats",cap.colorFormats,"maxSupportedInstances",cap.getMaxSupportedInstances(),"profileLevels",profiles));}catch(Exception e){types.put(Json.obj("type",type,"error",e.getMessage()));}Json.put(o,"capabilities",types);a.put(o);}return a;});
+    }
+    // 业务块：只读取 UsbManager 已公开的设备描述符，不申请 USB 权限、不读取序列号。
+    private void usb(ItemSink s){
+        s.read("hardware","hardware/usb","USB 设备公开清单","UsbManager.getDeviceList / UsbDevice",()->{
+            UsbManager manager=s.context.getSystemService(UsbManager.class);
+            if(manager==null)return Json.obj("count",0,"devices",new JSONArray());
+            Map<String,UsbDevice> devices=manager.getDeviceList();
+            if(devices.size()>256)throw new IllegalStateException("USB 设备超过 256");
+            ArrayList<String> names=new ArrayList<>(devices.keySet());Collections.sort(names);
+            JSONArray values=new JSONArray();
+            for(String name:names){
+                UsbDevice device=devices.get(name);if(device==null)continue;
+                JSONArray interfaces=new JSONArray();
+                for(int i=0;i<device.getInterfaceCount();i++){UsbInterface face=device.getInterface(i);interfaces.put(Json.obj("id",face.getId(),"alternateSetting",face.getAlternateSetting(),"class",face.getInterfaceClass(),"subclass",face.getInterfaceSubclass(),"protocol",face.getInterfaceProtocol(),"endpointCount",face.getEndpointCount()));}
+                values.put(Json.obj("deviceName",name,"vendorId",device.getVendorId(),"productId",device.getProductId(),"deviceClass",device.getDeviceClass(),"deviceSubclass",device.getDeviceSubclass(),"deviceProtocol",device.getDeviceProtocol(),"configurationCount",device.getConfigurationCount(),"interfaceCount",device.getInterfaceCount(),"interfaces",interfaces));
+            }
+            return Json.obj("count",values.length(),"devices",values);
+        });
     }
     // 业务块：只导出 Widevine 能力和唯一值摘要，绝不输出原始 DRM deviceUniqueId。
     private void drm(ItemSink s){

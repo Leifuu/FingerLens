@@ -146,6 +146,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     'security/special-access': { title: '本 App 特殊访问状态', order: ['available', 'canDrawOverlays', 'appOps'], arrays: [] },
     'security/lock-biometric': { title: '锁屏与生物识别环境', order: ['keyguardSecure', 'keyguardLocked', 'deviceSecure', 'deviceLocked', 'fingerprintFeature', 'faceFeature', 'irisFeature'], arrays: [] },
     'environment/webview-user-agent': { title: 'WebView 默认 User-Agent', order: ['userAgent', 'length'], arrays: [] },
+    'hardware/usb': { title: 'USB 设备公开清单', order: ['count'], arrays: ['devices'] },
   };
   const definition = definitions[key];
   if (!definition) return undefined;

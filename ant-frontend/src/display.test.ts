@@ -75,6 +75,13 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.find(row => row.key === 'userAgent')?.value).toBe('Mozilla/5.0 Android');
     expect(sections[0].rows.find(row => row.key === 'length')?.value).toBe('20');
   });
+  it('USB 设备详情按数量与接口摘要展示', () => {
+    const value = item('hardware/usb', 'hardware', { count: 1, devices: [{ deviceName: '/dev/bus/usb/001/002', vendorId: 18, productId: 52, interfaces: [{ id: 0, endpointCount: 2 }] }] });
+    const sections = buildSections(value);
+    expect(sections[0].title).toBe('USB 设备公开清单');
+    expect(sections[0].rows.map(row => row.key)).toContain('count');
+    expect(sections.find(section => section.key === 'devices')?.rows.some(row => row.key === '[0].vendorId')).toBe(true);
+  });
   it('锁屏与生物识别摘要只展示公开状态', () => {
     const sections = buildSections(item('security/lock-biometric', 'security', { keyguardSecure: true, keyguardLocked: false, deviceSecure: true, deviceLocked: false, fingerprintFeature: true, faceFeature: false, irisFeature: false }));
     expect(sections[0].title).toBe('锁屏与生物识别环境');
