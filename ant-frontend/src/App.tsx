@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Badge, Button, Card, Checkbox, Col, ConfigProvider, Empty, Layout, Menu, Row, Select, Space, Table, Tag, theme, Typography, Input, message } from 'antd';
+import { Badge, Button, Card, Col, ConfigProvider, Empty, Layout, Menu, Row, Select, Space, Table, Tag, theme, Typography, Input, message } from 'antd';
 import { AppstoreOutlined, ApiOutlined, DatabaseOutlined, DesktopOutlined, FileSearchOutlined, HddOutlined, SafetyCertificateOutlined, SearchOutlined, WifiOutlined } from '@ant-design/icons';
 import zhCN from 'antd/locale/zh_CN';
 import type { ColumnsType } from 'antd/es/table';
@@ -30,13 +30,13 @@ function preview(row: CompareRow, side: 'left' | 'right') {
 }
 
 const categoryIcons: Record<string, ReactNode> = { packages: <AppstoreOutlined />, build: <DesktopOutlined />, display: <DesktopOutlined />, network: <WifiOutlined />, security: <SafetyCertificateOutlined />, storage: <HddOutlined />, hardware: <DatabaseOutlined />, binder: <ApiOutlined /> };
+const rawRules: Rules = { semantic: false, ignoreDynamic: false };
 
 export default function App() {
   const [files, setFiles] = useState<{ left?: Imported; right?: Imported }>({});
   const [loading, setLoading] = useState({ left: false, right: false, compare: false });
   const [rows, setRows] = useState<CompareRow[]>([]), [warnings, setWarnings] = useState<string[]>([]);
-  const [category, setCategory] = useState('all'), [search, setSearch] = useState(''), [onlyDiff, setOnlyDiff] = useState(false), [status, setStatus] = useState('all');
-  const [rules, setRules] = useState<Rules>({ semantic: false, ignoreDynamic: false });
+  const [category, setCategory] = useState('all'), [search, setSearch] = useState(''), [status, setStatus] = useState('all');
   const [selected, setSelected] = useState<CompareRow>();
   const [attestationOpen, setAttestationOpen] = useState(false);
   const originals = useRef<{ left?: File; right?: File }>({});
@@ -82,8 +82,8 @@ export default function App() {
     if (!files.left || !files.right) return;
     const token = ++epoch.current.compare;
     setLoading(value => ({ ...value, compare: true }));
-    request('compare', { rules }).then(result => { if (token === epoch.current.compare) { setRows(result.rows); setWarnings(result.conditions); } }).catch(cause => { if (token === epoch.current.compare) message.error(cause instanceof Error ? cause.message : String(cause)); }).finally(() => { if (token === epoch.current.compare) setLoading(value => ({ ...value, compare: false })); });
-  }, [files, rules, request]);
+    request('compare', { rules: rawRules }).then(result => { if (token === epoch.current.compare) { setRows(result.rows); setWarnings(result.conditions); } }).catch(cause => { if (token === epoch.current.compare) message.error(cause instanceof Error ? cause.message : String(cause)); }).finally(() => { if (token === epoch.current.compare) setLoading(value => ({ ...value, compare: false })); });
+  }, [files, request]);
 
   const counts = useMemo(() => { const value = new Map<string, number>(); rows.forEach(row => value.set(row.category, (value.get(row.category) || 0) + 1)); return value; }, [rows]);
   function stopProcessing() {
@@ -92,7 +92,7 @@ export default function App() {
     message.info('处理已取消；已成功导入的原件仍然保留。');
   }
   function exportJsonReport() {
-    const payload = { data: { files: { left: files.left?.sha256, right: files.right?.sha256 }, rules, conditions: warnings, rows: filtered.map(({ id, key, name, state, changedPaths, ignored }) => ({ id, key, name, state, changedPaths, ignored })) }, message: '本地差异报告，非设备原始指纹', code: 0 };
+    const payload = { data: { files: { left: files.left?.sha256, right: files.right?.sha256 }, rules: rawRules, conditions: warnings, rows: filtered.map(({ id, key, name, state, changedPaths, ignored }) => ({ id, key, name, state, changedPaths, ignored })) }, message: '本地差异报告，非设备原始指纹', code: 0 };
     const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
     const link = document.createElement('a'); link.href = url; link.download = 'fingerprint-diff-report.json'; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
@@ -100,7 +100,7 @@ export default function App() {
     if (!files.left || !files.right) return;
     const left = files.left, right = files.right;
     const reportRows = scope === 'current' ? filtered : rows.filter(row => row.state !== 'same');
-    const html = buildDiffReportHtml({ left, right, rows: reportRows, rules, warnings, view: { category, search, onlyDiff, status, scope: scope === 'current' ? '当前视图' : '完整差异' } });
+    const html = buildDiffReportHtml({ left, right, rows: reportRows, rules: rawRules, warnings, view: { category, search, onlyDiff: false, status, scope: scope === 'current' ? '当前视图' : '完整差异' } });
     const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
     const link = document.createElement('a'); link.href = url; link.download = reportFileName(left, right); link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
     message.success(`已导出 ${scope === 'current' ? '当前视图' : '完整差异'} HTML 报告`);
@@ -109,11 +109,11 @@ export default function App() {
   const filtered = useMemo(() => {
     const query = search.toLocaleLowerCase();
     return rows.filter(row => {
-      const statusMatch = status === 'all' || (status === 'status' ? ['different', 'status'].includes(row.state) : row.state === status);
+      const statusMatch = status === 'all' || row.state === status;
       const content = `${row.key} ${row.name} ${row.left?.source.api || ''} ${row.right?.source.api || ''} ${row.left?.installer?.key || ''} ${row.left?.installer?.source.api || ''} ${row.right?.installer?.key || ''} ${row.right?.installer?.source.api || ''}`.toLocaleLowerCase();
-      return (category === 'all' || row.category === category) && (!onlyDiff || row.state !== 'same') && statusMatch && (!query || content.includes(query));
+      return (category === 'all' || row.category === category) && statusMatch && (!query || content.includes(query));
     });
-  }, [rows, category, search, onlyDiff, status]);
+  }, [rows, category, search, status]);
 
   const menuItems = [{ key: 'all', icon: <FileSearchOutlined />, label: <Space>全部信息<Badge count={rows.length} overflowCount={100000} showZero color="#1677ff" /></Space> }, ...Object.entries(categories).map(([key, label]) => ({ key, icon: categoryIcons[key] || <FileSearchOutlined />, label: <Space>{label}<Badge count={counts.get(key) || 0} overflowCount={100000} showZero color="#434343" /></Space> }))];
   const columns: ColumnsType<CompareRow> = [
@@ -135,7 +135,7 @@ export default function App() {
           <StatCards stats={stats} />
           </>}
           <Card className="results-card" title={<Space><span>{category === 'all' ? '信息对照' : categories[category]}</span><Tag>{filtered.length}</Tag></Space>} extra={<Typography.Text type="secondary">{ready ? `显示 ${filtered.length} / ${rows.length} 项` : '等待导入两份指纹'}</Typography.Text>}>
-            <Space className="filter-row" wrap size={[12, 12]}><Input prefix={<SearchOutlined />} placeholder="搜索名称、字段或来源" value={search} onChange={event => setSearch(event.target.value)} allowClear style={{ width: 320 }} /><Checkbox checked={onlyDiff} onChange={event => setOnlyDiff(event.target.checked)}>仅看差异</Checkbox><Select aria-label="筛选对比状态" value={status} onChange={value => setStatus(value)} style={{ width: 170 }} options={[{ value: 'all', label: '全部状态' }, { value: 'status', label: '值 / 状态不同' }, { value: 'different', label: '值不同' }, { value: 'same', label: '相同' }, { value: 'left-only', label: '仅左侧' }, { value: 'right-only', label: '仅右侧' }, { value: 'incomparable', label: '不可比较' }]} /><Select aria-label="比较视图" value={rules.semantic ? 'semantic' : 'raw'} onChange={value => setRules(current => ({ ...current, semantic: value === 'semantic' }))} style={{ width: 150 }} options={[{ value: 'raw', label: '原始对比' }, { value: 'semantic', label: '语义视图' }]} />{rules.semantic && <Checkbox checked={rules.ignoreDynamic} onChange={event => setRules(current => ({ ...current, ignoreDynamic: event.target.checked }))}>忽略时间与随机认证材料</Checkbox>}</Space>
+            <Space className="filter-row" wrap size={[12, 12]}><Input prefix={<SearchOutlined />} placeholder="搜索名称、字段或来源" value={search} onChange={event => setSearch(event.target.value)} allowClear style={{ width: 320 }} /><Select aria-label="筛选对比状态" value={status} onChange={value => setStatus(value)} style={{ width: 170 }} options={[{ value: 'all', label: '全部状态' }, { value: 'different', label: '值不同' }, { value: 'same', label: '相同' }, { value: 'left-only', label: '仅左侧' }, { value: 'right-only', label: '仅右侧' }, { value: 'incomparable', label: '不可比较' }]} /></Space>
             <Table<CompareRow> className="comparison-table" rowKey="id" loading={loading.compare || !ready && busy} dataSource={filtered} columns={columns} pagination={{ pageSize: 50, showSizeChanger: false, showQuickJumper: true, showTotal: total => `共 ${total} 项` }} scroll={{ x: 1060, y: 'calc(100vh - 440px)' }} onRow={row => ({ onClick: () => setSelected(row), tabIndex: 0, onKeyDown: event => { if (event.key === 'Enter' || event.key === ' ') setSelected(row); } })} locale={{ emptyText: ready ? <Empty description="当前条件下没有结果" /> : <Empty description="请先导入两份设备指纹" /> }} />
           </Card>
         </div></Content>
