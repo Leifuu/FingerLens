@@ -35,7 +35,8 @@ export function ComparisonDrawer({ row, open, onClose }: { row?: CompareRow; ope
         if (!item) return null;
         const device = `设备 ${index === 0 ? 'A' : 'B'}`;
         const hasCollectionLimit = Boolean(item.error || item.truncation);
-        if (!hasCollectionLimit && !item.installer) return null;
+        const hasInstallerIssue = Boolean(item.installer && item.installer.status !== 'ok');
+        if (!hasCollectionLimit && !hasInstallerIssue) return null;
         return <Space key={index} direction="vertical" size={8} style={{ display: 'flex' }}>
           {hasCollectionLimit && <Alert
             type="warning"
@@ -45,9 +46,9 @@ export function ComparisonDrawer({ row, open, onClose }: { row?: CompareRow; ope
               {item.truncation && <Typography.Text>截断：{JSON.stringify(item.truncation)}</Typography.Text>}
             </Space>}
           />}
-          {item.installer && <Alert
-            type="info"
-            message={`${device} · 安装来源`}
+          {hasInstallerIssue && item.installer && <Alert
+            type="warning"
+            message={`${device} · 安装来源受限`}
             description={<Typography.Text>{item.installer.source.api} · {statusLabels[item.installer.status]}</Typography.Text>}
           />}
         </Space>;
