@@ -19,6 +19,7 @@
 - [scottyab/rootbeer](https://github.com/scottyab/rootbeer)：README 列出 root 管理应用、危险应用、root cloaking、test-keys、危险属性、BusyBox、`su` 等检查，并明确说明这些规则有漏报和绕过限制。本工程只复用可观察证据（构建标记、属性、路径），不扫描或上传第三方应用清单作为结论。
 - [talsec/Free-RASP-Community](https://github.com/talsec/Free-RASP-Community)：公开项目说明其检测范围包含 root/Magisk、Frida、模拟器、VPN、篡改和设备识别。仓库描述是能力分类证据，不能推导其私有实现字段；本工程将 VPN/模拟器/完整性拆成可复核条目。
 - [fingerprintjs/fingerprintjs-pro-android](https://github.com/fingerprintjs/fingerprintjs-pro-android)：官方 Android SDK 仓库公开说明提供 Device Intelligence 与 Smart Signals。其具体信号由服务端返回，未在本工程复制未公开字段，后续仅作为供应商能力对照。
+- `virtualization/risk-summary` 汇总 RootBeer/Talsec 类公开检查的路径存在性、构建字符串标记和 `test-keys` 线索；逐路径 JNI 结果仍保留，摘要只标记 `evidenceOnly`，不形成自动风控结论。
 
 ## 技术论坛交叉核对
 

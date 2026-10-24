@@ -53,11 +53,17 @@ public final class SecurityCollector implements Collector {
     }
     private void virtualization(ItemSink s)throws Exception {
         String[] paths={"/dev/qemu_pipe","/dev/socket/qemud","/system/lib/libc_malloc_debug_qemu.so","/sys/qemu_trace","/system/bin/qemu-props","/system/bin/su","/system/xbin/su","/sbin/su","/vendor/bin/su","/data/adb","/proc/vz","/proc/bc","/dev/kvm"};
-        for(String path:paths){JSONObject stat=new JSONObject(NativeProbe.inspectPath(path));s.ok("virtualization","virtualization/path"+path,path,"jni","openat(O_NOFOLLOW) + fstatat(AT_SYMLINK_NOFOLLOW)，只观察不执行",stat);}
+        JSONArray presentPaths=new JSONArray(), pathErrors=new JSONArray();
+        for(String path:paths){JSONObject stat=new JSONObject(NativeProbe.inspectPath(path));s.ok("virtualization","virtualization/path"+path,path,"jni","openat(O_NOFOLLOW) + fstatat(AT_SYMLINK_NOFOLLOW)，只观察不执行",stat);if(stat.optBoolean("ok"))presentPaths.put(path);else if(stat.has("errno"))pathErrors.put(Json.obj("path",path,"errno",stat.optInt("errno")));}
         JSONObject build=Json.obj("fingerprint",Build.FINGERPRINT,"model",Build.MODEL,"manufacturer",Build.MANUFACTURER,"brand",Build.BRAND,"device",Build.DEVICE,"product",Build.PRODUCT,"hardware",Build.HARDWARE,"board",Build.BOARD,"supportedAbis",Build.SUPPORTED_ABIS);
         s.ok("virtualization","virtualization/build-evidence","虚拟化规则输入","android-api","Build public fields",build);
         String all=build.toString().toLowerCase(Locale.ROOT);JSONArray matches=new JSONArray();for(String marker:new String[]{"generic","goldfish","ranchu","vbox","qemu","emulator","test-keys"})if(all.contains(marker))matches.put(marker);
         s.ok("virtualization","virtualization/build-markers","公开字符串规则线索","rule","build-markers@1",Json.obj("matchedMarkers",matches,"conclusion","仅为可复核字符串线索，不能据此确定真机、云机或第三方风控结论"));
         JSONObject item=s.items.optJSONObject(s.items.length()-1);Json.put(item,"rule",Json.obj("version","1","evidenceKeys",new String[]{"virtualization/build-evidence"}));
+        // 业务块：把公开规则输入压缩成可读摘要，原始逐路径项目仍完整保留。
+        s.ok("virtualization","virtualization/risk-summary","虚拟化与提权线索摘要","rule","rootbeer/talsec-signal-summary@1",Json.obj(
+                "pathChecks",paths.length,"presentPaths",presentPaths,"pathErrors",pathErrors,
+                "matchedBuildMarkers",matches,"testKeys",all.contains("test-keys"),
+                "evidenceOnly",true,"conclusion","仅汇总公开证据，不自动判定 root、模拟器、云机或欺诈"));
     }
 }
