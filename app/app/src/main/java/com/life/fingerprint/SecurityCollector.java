@@ -85,7 +85,7 @@ public final class SecurityCollector implements Collector {
                 "allFilesAccessStatus",allFilesAccessStatus);
         if(ops==null)return out;
         JSONObject appOps=new JSONObject();
-        ArrayList<String> names=new ArrayList<>(Arrays.asList(AppOpsManager.OPSTR_SYSTEM_ALERT_WINDOW,AppOpsManager.OPSTR_GET_USAGE_STATS,AppOpsManager.OPSTR_PICTURE_IN_PICTURE,AppOpsManager.OPSTR_MOCK_LOCATION,AppOpsManager.OPSTR_WRITE_SETTINGS));
+        ArrayList<String> names=new ArrayList<>(Arrays.asList(AppOpsManager.OPSTR_SYSTEM_ALERT_WINDOW,AppOpsManager.OPSTR_GET_USAGE_STATS,AppOpsManager.OPSTR_PICTURE_IN_PICTURE,AppOpsManager.OPSTR_MOCK_LOCATION,AppOpsManager.OPSTR_WRITE_SETTINGS,AppOpsManager.OPSTR_CAMERA,AppOpsManager.OPSTR_RECORD_AUDIO,AppOpsManager.OPSTR_BODY_SENSORS,AppOpsManager.OPSTR_FINE_LOCATION,AppOpsManager.OPSTR_COARSE_LOCATION));
         if(Build.VERSION.SDK_INT>=26)names.add("android:request_install_packages");
         if(Build.VERSION.SDK_INT>=30)names.add("android:manage_external_storage");
         for(String name:names){int mode=ops.checkOpNoThrow(name,android.os.Process.myUid(),context.getPackageName());Json.put(appOps,name,Json.obj("mode",mode,"allowed",mode==AppOpsManager.MODE_ALLOWED));}
