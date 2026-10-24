@@ -27,6 +27,7 @@
 - 进程、命名空间、挂载、分区、容量及有限的 proc/sys 信息；
 - CPU、ABI、内存、GPU、EGL/OpenGL/Vulkan、摄像头和编解码能力；
 - 传感器、电池、SIM、网络接口、IP、路由、DNS、代理、VPN、Wi-Fi 和蓝牙可见信息；
+- 定位总开关、provider 状态和 GNSS 硬件/能力元数据（不读取坐标）；
 - 时区、语言、区域、开发与调试状态；
 - 补丁、SELinux 上下文、Capabilities、公开安全状态和系统证书；
 - 本 App 临时密钥、随机挑战、公开认证链和挑战签名；

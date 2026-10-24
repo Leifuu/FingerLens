@@ -13,6 +13,7 @@
 | DRM / 设备唯一值摘要 | [MediaDrm](https://developer.android.com/reference/android/media/MediaDrm) 公开 DRM 能力和 `deviceUniqueId` 接口。 | `hardware/drm/widevine` | 已采集厂商、版本、算法、安全级别，以及唯一值 SHA-256 和长度；不写原始唯一值。 |
 | 开发者与特殊权限 | [Settings.Global](https://developer.android.com/reference/android/provider/Settings.Global)、[Settings.Secure](https://developer.android.com/reference/android/provider/Settings.Secure)、[AppOpsManager](https://developer.android.com/reference/android/app/AppOpsManager) 公开 ADB、开发者选项、模拟位置、无障碍和当前 UID 的特殊访问状态。 | `environment/risk-settings`、`environment/global/*`、`environment/secure/*`、`security/special-access`、`security/accessibility` | 已采集；只读当前用户与当前 App 范围，不申请权限、不读取无障碍窗口内容。 |
 | 设备管理与用户状态 | [DevicePolicyManager](https://developer.android.com/reference/android/app/admin/DevicePolicyManager) 与 [UserManager](https://developer.android.com/reference/android/os/UserManager) 公开设备/资料所有者、托管资料和用户解锁状态。 | `security/device-management` | 已采集当前 App 和当前用户范围，不枚举其他用户或管理包。 |
+| 定位与 GNSS 环境 | [LocationManager](https://developer.android.com/reference/android/location/LocationManager) 公开定位总开关、provider 状态和 GNSS 能力/硬件元数据；这些接口不要求读取最后位置。 | `environment/location` | 已采集 provider 与 GNSS 元数据；不请求定位、不读取经纬度、轨迹或最后位置。 |
 
 ## 当前缺口与下一步候选
 

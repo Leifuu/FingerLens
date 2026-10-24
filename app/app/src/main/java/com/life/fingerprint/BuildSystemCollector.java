@@ -5,6 +5,7 @@ import android.provider.Settings;
 import android.content.*;
 import android.content.res.Configuration;
 import android.app.ActivityManager;
+import android.location.LocationManager;
 import android.webkit.WebView;
 import android.webkit.WebSettings;
 import org.json.*;
@@ -73,6 +74,7 @@ public final class BuildSystemCollector implements Collector {
         s.read("environment","environment/locales","语言与区域","Configuration / LocaleList / TimeZone",()->{Configuration c=s.context.getResources().getConfiguration();TimeZone z=TimeZone.getDefault();return Json.obj("locales",c.getLocales().toLanguageTags(),"timezoneId",z.getID(),"timezoneDisplayName",z.getDisplayName(),"rawOffset",z.getRawOffset(),"daylightSavings",z.getDSTSavings(),"configuration",c.toString(),"fontScale",c.fontScale,"densityDpi",c.densityDpi,"uiMode",c.uiMode,"keyboard",c.keyboard,"navigation",c.navigation,"touchscreen",c.touchscreen);});
         s.ok("environment","environment/clocks","单次时钟快照","android-api","SystemClock",Json.obj("elapsedRealtime",SystemClock.elapsedRealtime(),"uptimeMillis",SystemClock.uptimeMillis(),"wallClockMillis",System.currentTimeMillis()));
         s.read("environment","environment/risk-settings","系统风控相关设置摘要","Settings.Global / Settings.Secure",()->riskSettings(s.context));
+        s.read("environment","environment/location","定位与 GNSS 能力","LocationManager public state",()->locationEnvironment(s.context));
         String[] globals={"adb_enabled","development_settings_enabled","airplane_mode_on","auto_time","auto_time_zone","http_proxy","private_dns_mode","private_dns_specifier","wifi_on","bluetooth_on"};
         for(String k:globals)s.read("environment","environment/global/"+k,k,"Settings.Global.getString",()->Settings.Global.getString(s.context.getContentResolver(),k));
         for(String k:new String[]{"android_id","enabled_accessibility_services","accessibility_enabled","default_input_method","enabled_input_methods","mock_location","install_non_market_apps"})s.read("environment","environment/secure/"+k,k,"Settings.Secure.getString",()->Settings.Secure.getString(s.context.getContentResolver(),k));
@@ -126,5 +128,19 @@ public final class BuildSystemCollector implements Collector {
         if("1".equals(value)||"true".equalsIgnoreCase(value)||"on".equalsIgnoreCase(value))return true;
         if("0".equals(value)||"false".equalsIgnoreCase(value)||"off".equalsIgnoreCase(value))return false;
         return null;
+    }
+    // 业务块：只读取定位开关、provider 元数据与 GNSS 能力，不获取位置样本或坐标。
+    private static JSONObject locationEnvironment(Context context){
+        LocationManager location=context.getSystemService(LocationManager.class);
+        if(location==null)return Json.obj("available",false,"providerCount",0,"providers",new JSONArray());
+        ArrayList<String> names=new ArrayList<>();List<String> all=location.getAllProviders();if(all!=null)names.addAll(all);Collections.sort(names,String.CASE_INSENSITIVE_ORDER);
+        JSONArray providers=new JSONArray();
+        for(String name:names)providers.put(Json.obj("name",name,"enabled",location.isProviderEnabled(name)));
+        JSONObject out=Json.obj("available",true,"providerCount",providers.length(),"providers",providers,
+                "hasGpsProvider",null,"hasNetworkProvider",null,"hasFusedProvider",null);
+        if(Build.VERSION.SDK_INT>=31){Json.put(out,"hasGpsProvider",location.hasProvider(LocationManager.GPS_PROVIDER));Json.put(out,"hasNetworkProvider",location.hasProvider(LocationManager.NETWORK_PROVIDER));Json.put(out,"hasFusedProvider",location.hasProvider(LocationManager.FUSED_PROVIDER));}
+        if(Build.VERSION.SDK_INT>=28){Json.put(out,"locationEnabled",location.isLocationEnabled());Json.put(out,"gnssHardwareModelName",location.getGnssHardwareModelName());Json.put(out,"gnssYearOfHardware",location.getGnssYearOfHardware());}
+        if(Build.VERSION.SDK_INT>=31)Json.put(out,"gnssCapabilities",String.valueOf(location.getGnssCapabilities()));
+        return out;
     }
 }
