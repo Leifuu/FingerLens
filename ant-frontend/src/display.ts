@@ -281,6 +281,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     'environment/clock-summary': { title: '系统时钟摘要', order: ['elapsedRealtimeMillis', 'uptimeMillis', 'wallClockMillis', 'bootTimeMillis', 'sleepMillis'], arrays: [] },
     'environment/device-state': { title: '设备初始化与运行状态', order: ['deviceProvisioned', 'userSetupComplete', 'bootCount', 'lowRamDevice', 'demoUser', 'userUnlocked', 'userRunning', 'userMonkey', 'testHarness', 'backgroundRestricted'], arrays: [] },
     'environment/user-profiles': { title: '用户与工作资料摘要', order: ['available', 'status', 'profileCount', 'managedProfile'], arrays: [] },
+    'kernel/process-status-summary': { title: '当前进程状态摘要', order: ['available', 'status', 'traced', 'tracerPid', 'state', 'threadCount', 'noNewPrivs', 'seccompMode', 'capEffPresent', 'capBndPresent', 'fieldsObserved', 'truncated'], arrays: [] },
     'environment/location': { title: '定位与 GNSS 能力', order: ['available', 'locationEnabled', 'providerCount', 'hasGpsProvider', 'hasNetworkProvider', 'hasFusedProvider', 'gnssHardwareModelName', 'gnssYearOfHardware', 'gnssCapabilities', 'gnssAntennaCount', 'gnssAntennaInfoTruncated'], arrays: ['providers', 'gnssAntennaCarrierFrequenciesMHz'] },
     'sensors/summary': { title: '传感器能力摘要', order: ['count', 'wakeUpCount', 'dynamicCount', 'directChannelCount', 'vendorsTruncated', 'typeCounts'], arrays: ['vendors'] },
     'environment/webview-user-agent': { title: 'WebView 默认 User-Agent', order: ['userAgent', 'length'], arrays: [] },

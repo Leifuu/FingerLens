@@ -54,6 +54,11 @@ public class CollectionChecks {
         File link=new File(root.getParentFile(),root.getName()+"-link");android.system.Os.symlink(root.getCanonicalPath(),link.getCanonicalPath());String path=link.getParentFile().getCanonicalPath()+"/"+link.getName();
         assertEquals("symlink",new JSONObject(NativeProbe.inspectPath(path)).getString("type"));assertFalse(new JSONObject(NativeProbe.listDirectory(path,10)).getBoolean("ok"));assertFalse(new JSONObject(NativeProbe.inspectPath(path+"/entry-0")).getBoolean("ok"));
     }
+    @Test public void processStatusSummaryKeepsRawStatusSeparate()throws Exception{
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new BuildSystemCollector("kernel").collect(sink);
+        JSONObject summary=null,raw=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("kernel/process-status-summary"))summary=item;if(item.getString("key").equals("kernel/file/proc/self/status"))raw=item;}
+        assertNotNull("应生成当前进程状态摘要",summary);assertNotNull("应保留 /proc/self/status 原始条目",raw);assertEquals("ok",summary.getString("status"));JSONObject value=summary.getJSONObject("value");assertTrue(value.getBoolean("available"));assertTrue(value.has("traced"));assertTrue(value.has("tracerPid"));assertTrue(value.has("threadCount"));assertTrue(value.has("noNewPrivs"));assertTrue(value.has("seccompMode"));assertTrue(value.has("capEffPresent"));assertTrue(value.has("capBndPresent"));assertFalse(summary.toString().contains("Name:"));assertFalse(summary.toString().contains("VmRSS:"));
+    }
     @Test public void storageSummaryKeepsRawVolumesSeparate()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new BuildSystemCollector("storage").collect(sink);
         JSONObject summary=null,volumes=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("storage/summary"))summary=item;if(item.getString("key").equals("storage/volumes"))volumes=item;}

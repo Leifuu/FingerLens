@@ -346,4 +346,9 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].table).toBe(true);
     expect(sections[0].rows.map(row => row.key)).toEqual(['line-0', 'line-1']);
   });
+  it('当前进程状态摘要展示调试与隔离线索', () => {
+    const sections = buildSections(item('kernel/process-status-summary', 'kernel', { available: true, status: 'ok', traced: false, tracerPid: 0, state: 'S (sleeping)', threadCount: 4, noNewPrivs: 0, seccompMode: 2, capEffPresent: true, capBndPresent: true, fieldsObserved: 58, truncated: false }));
+    expect(sections[0].title).toBe('当前进程状态摘要');
+    expect(sections[0].rows.map(row => row.key)).toEqual(['available', 'status', 'traced', 'tracerPid', 'state', 'threadCount', 'noNewPrivs', 'seccompMode', 'capEffPresent', 'capBndPresent', 'fieldsObserved', 'truncated']);
+  });
 });

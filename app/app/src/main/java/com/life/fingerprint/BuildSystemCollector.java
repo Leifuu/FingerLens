@@ -65,8 +65,19 @@ public final class BuildSystemCollector implements Collector {
     private void kernel(ItemSink s)throws Exception {
         s.ok("kernel","kernel/uname","内核 uname","jni","uname",new JSONObject(NativeProbe.kernel()));
         for(String p:new String[]{"/proc/version","/proc/cpuinfo","/proc/meminfo","/proc/self/status","/proc/self/maps","/proc/self/mountinfo","/proc/self/mounts","/proc/self/cgroup","/proc/self/limits","/proc/self/sched","/proc/self/attr/current","/proc/1/cgroup","/proc/uptime","/proc/sys/kernel/random/boot_id","/proc/sys/kernel/osrelease","/sys/devices/system/cpu/present","/sys/devices/system/cpu/online"})s.file("kernel","kernel/file"+p,p);
+        s.read("kernel","kernel/process-status-summary","当前进程状态摘要","/proc/self/status",BuildSystemCollector::processStatusSummary);
         File[] cpus=new File("/sys/devices/system/cpu").listFiles();if(cpus!=null)for(File cpu:cpus)if(cpu.getName().matches("cpu[0-9]{1,4}"))for(String suffix:new String[]{"cpufreq/cpuinfo_max_freq","cpufreq/cpuinfo_min_freq","cpufreq/scaling_cur_freq","cpufreq/scaling_governor","topology/core_id","topology/physical_package_id"})s.file("kernel","kernel/cpu/"+cpu.getName()+"/"+suffix,new File(cpu,suffix).getPath());
     }
+    // 业务块：从公开 proc 状态中提取有限的调试/隔离线索，不复制进程状态原文。
+    private static JSONObject processStatusSummary()throws Exception{
+        JSONObject raw=new JSONObject(NativeProbe.readFile("/proc/self/status",65536));
+        if(!raw.optBoolean("ok")){int errno=raw.optInt("errno",0);return Json.obj("available",false,"status",errno==1||errno==13?"denied":"error","traced",null,"tracerPid",null,"state",null,"threadCount",null,"noNewPrivs",null,"seccompMode",null,"capEffPresent",null,"capBndPresent",null,"fieldsObserved",0,"truncated",false,"errno",errno);}
+        Object decoded=raw.has("base64")?Json.bytes(raw.getString("base64")):null;
+        if(!(decoded instanceof String))return Json.obj("available",false,"status","unavailable","traced",null,"tracerPid",null,"state",null,"threadCount",null,"noNewPrivs",null,"seccompMode",null,"capEffPresent",null,"capBndPresent",null,"fieldsObserved",0,"truncated",raw.optBoolean("truncated"));
+        Map<String,String> fields=new HashMap<>();for(String line:((String)decoded).split("\\n")){int colon=line.indexOf(':');if(colon>0)fields.put(line.substring(0,colon),line.substring(colon+1).trim());}
+        Integer tracerPid=integer(fields.get("TracerPid"));return Json.obj("available",true,"status","ok","traced",tracerPid!=null&&tracerPid!=0,"tracerPid",tracerPid,"state",fields.get("State"),"threadCount",integer(fields.get("Threads")),"noNewPrivs",integer(fields.get("NoNewPrivs")),"seccompMode",integer(fields.get("Seccomp")),"capEffPresent",fields.containsKey("CapEff"),"capBndPresent",fields.containsKey("CapBnd"),"fieldsObserved",fields.size(),"truncated",raw.optBoolean("truncated"));
+    }
+    private static Integer integer(String value){if(value==null)return null;try{return Integer.valueOf(value);}catch(NumberFormatException e){return null;}}
     private void storage(ItemSink s){
         s.read("storage","storage/summary","存储卷环境摘要","StorageManager.getStorageVolumes",()->storageSummary(s.context));
         for(String path:new String[]{"/","/system","/vendor","/product","/odm","/data",s.context.getFilesDir().getPath(),Environment.getExternalStorageDirectory().getPath()})s.read("storage","storage/statvfs"+path,path,"StatFs("+path+")",()->{StatFs f=new StatFs(path);return Json.obj("path",path,"blockSize",f.getBlockSizeLong(),"blocks",f.getBlockCountLong(),"availableBlocks",f.getAvailableBlocksLong(),"freeBlocks",f.getFreeBlocksLong(),"totalBytes",f.getTotalBytes(),"availableBytes",f.getAvailableBytes());});
