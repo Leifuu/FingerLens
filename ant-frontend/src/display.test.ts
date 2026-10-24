@@ -19,10 +19,11 @@ describe('设备格式化展示边界', () => {
     expect(JSON.stringify(value)).toBe(original);
   });
   it('应用清单摘要展示包环境统计并保留旧枚举条目', () => {
-    const sections = buildSections(item('packages/summary', 'packages', { returnedCount: 3, applicationInfoCount: 3, enabledCount: 2, debuggableCount: 1, systemAppCount: 2, updatedSystemAppCount: 1, nativeCodeCount: 2, splitPackageCount: 1, sharedUserIdCount: 0, versionNameCount: 3, requestedPermissionCount: 8, activityCount: 4, receiverCount: 2, serviceCount: 3, providerCount: 1, targetSdkCounts: { '35': 2, '37': 1 } }));
+    const sections = buildSections(item('packages/summary', 'packages', { returnedCount: 3, applicationInfoCount: 3, enabledCount: 2, debuggableCount: 1, systemAppCount: 2, updatedSystemAppCount: 1, nativeCodeCount: 2, splitPackageCount: 1, sharedUserIdCount: 0, versionNameCount: 3, requestedPermissionCount: 8, permissionPackageCount: 2, grantedRequestedPermissionCount: 4, uniqueRequestedPermissionCount: 3, requestedPermissionNames: ['android.permission.CAMERA', 'android.permission.INTERNET'], requestedPermissionNamesTruncated: false, activityCount: 4, receiverCount: 2, serviceCount: 3, providerCount: 1, targetSdkCounts: { '35': 2, '37': 1 } }));
     expect(sections[0].title).toBe('应用清单摘要');
     expect(sections[0].rows.map(row => row.key)).toContain('debuggableCount');
     expect(sections[0].rows.map(row => row.key)).toContain('targetSdkCounts.35');
+    expect(sections.find(section => section.key === 'requestedPermissionNames')?.title).toContain('最多 256 项');
   });
   it('输入设备摘要展示虚拟化与能力计数', () => {
     const sections = buildSections(item('input/summary', 'input', { count: 2, virtualCount: 1, externalCount: 0, microphoneCount: 1, vibratorCount: 1, motionRangeCount: 3, accessErrorCount: 0, keyboardTypeCounts: { '1': 2 }, sourceCounts: { '16777232': 1 } }));
