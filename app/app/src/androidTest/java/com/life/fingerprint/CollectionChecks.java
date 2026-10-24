@@ -125,6 +125,11 @@ public class CollectionChecks {
         JSONObject nfc=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("hardware/nfc")){nfc=item;break;}}
         assertNotNull("应记录 NFC 能力",nfc);assertEquals("ok",nfc.getString("status"));JSONObject value=nfc.getJSONObject("value");assertTrue(value.has("available"));assertFalse(nfc.toString().contains("tagId"));if(Build.VERSION.SDK_INT>=29){assertTrue(value.has("secureNfcSupported"));assertTrue(value.has("secureNfcEnabled"));}if(Build.VERSION.SDK_INT>=34)assertTrue(value.has("antennaInfoAvailable"));
     }
+    @Test public void graphicsSummaryBoundsExtensionData()throws Exception{
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new HardwareCollector("hardware").collect(sink);
+        JSONObject summary=null,raw=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("hardware/graphics-summary"))summary=item;if(item.getString("key").equals("hardware/graphics"))raw=item;}
+        assertNotNull("应生成图形能力摘要",summary);assertNotNull("应保留图形能力原始条目",raw);assertEquals("ok",summary.getString("status"));JSONObject value=summary.getJSONObject("value");assertTrue(value.has("eglExtensionCount"));assertTrue(value.has("glExtensionCount"));assertTrue(value.has("vulkanExtensionCount"));assertTrue(value.getJSONArray("vulkanExtensionNames").length()<=256);assertTrue(value.has("vulkanExtensionNamesTruncated"));assertFalse(value.has("eglExtensions"));assertFalse(value.has("glExtensions"));
+    }
     @Test public void featureSummaryKeepsFullListSeparate()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new HardwareCollector("hardware").collect(sink);
         JSONObject summary=null,list=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("hardware/features-summary"))summary=item;if(item.getString("key").equals("hardware/features"))list=item;}

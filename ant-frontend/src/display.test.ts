@@ -280,6 +280,12 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.map(row => row.key)).toContain('applicationLocaleAccess');
     expect(sections[0].rows.map(row => row.key)).toContain('timezoneId');
   });
+  it('图形摘要展示渲染器并限制 Vulkan 扩展列表', () => {
+    const sections = buildSections(item('hardware/graphics-summary', 'hardware', { available: true, eglInitialized: true, eglError: 12288, eglVendor: 'Android', eglVersion: '1.5', glVendor: 'ARM', glRenderer: 'Mali', glVersion: 'OpenGL ES 3.2', eglExtensionsLength: 796, eglExtensionCount: 20, glExtensionsLength: 2910, glExtensionCount: 100, vulkanLibraryLoaded: true, vulkanExtensionResult: 0, vulkanExtensionCount: 10, vulkanExtensionNames: ['VK_KHR_surface'], vulkanExtensionNamesTruncated: false }));
+    expect(sections[0].title).toBe('图形能力摘要');
+    expect(sections[0].rows.map(row => row.key)).toContain('glRenderer');
+    expect(sections.find(section => section.key === 'vulkanExtensionNames')?.title).toBe('Vulkan 扩展名');
+  });
   it('设备初始化与运行状态摘要按稳定字段顺序展示', () => {
     const sections = buildSections(item('environment/device-state', 'environment', { deviceProvisioned: true, userSetupComplete: true, bootCount: '7', lowRamDevice: false, userUnlocked: true, userRunning: true }));
     expect(sections[0].title).toBe('设备初始化与运行状态');

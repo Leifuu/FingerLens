@@ -249,6 +249,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     'virtualization/risk-summary': { title: '虚拟化与提权线索摘要', order: ['pathChecks', 'evidenceOnly', 'testKeys', 'conclusion'], arrays: ['presentPaths', 'pathErrors', 'matchedBuildMarkers'] },
     'hardware/drm/widevine': { title: 'Widevine DRM 能力', order: ['supported', 'schemeUuid', 'vendor', 'version', 'description', 'algorithms', 'maxSecurityLevel', 'deviceUniqueId'], arrays: [] },
     'hardware/features-summary': { title: '系统特性能力摘要', order: ['count', 'namedCount', 'versionedCount', 'maxVersion', 'featureNamesTruncated'], arrays: ['featureNames', 'glEsVersions'] },
+     'hardware/graphics-summary': { title: '图形能力摘要', order: ['available', 'eglInitialized', 'eglError', 'eglVendor', 'eglVersion', 'glVendor', 'glRenderer', 'glVersion', 'eglExtensionsLength', 'eglExtensionCount', 'glExtensionsLength', 'glExtensionCount', 'vulkanLibraryLoaded', 'vulkanExtensionResult', 'vulkanExtensionCount', 'vulkanExtensionNamesTruncated'], arrays: ['vulkanExtensionNames'] },
     'hardware/codecs-summary': { title: '媒体编解码能力摘要', order: ['count', 'encoderCount', 'decoderCount', 'hardwareAcceleratedCount', 'softwareOnlyCount', 'vendorCount', 'codecNamesTruncated', 'mimeTypesTruncated'], arrays: ['codecNames', 'mimeTypes'] },
     'hardware/camera-summary': { title: '摄像头能力摘要', order: ['available', 'count', 'cameraIdsTruncated', 'flashAvailableCount', 'logicalMultiCameraCount', 'physicalCameraIdCount', 'cameraAccessErrorCount'], arrays: ['cameraIds'] },
     'hardware/audio-summary': { title: '音频能力摘要', order: ['available', 'count', 'sourceCount', 'sinkCount', 'productNamesTruncated', 'typeCounts'], arrays: ['productNames', 'sampleRates', 'encodings'] },
@@ -289,7 +290,8 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
         : key === 'environment/location'
           ? arrayKey === 'providers' ? '定位 provider' : 'GNSS 天线载波频率（MHz）'
           : key === 'sensors/summary' && arrayKey === 'vendors' ? '传感器厂商'
-          : key === 'hardware/features-summary'
+           : key === 'hardware/graphics-summary' && arrayKey === 'vulkanExtensionNames' ? 'Vulkan 扩展名'
+           : key === 'hardware/features-summary'
             ? arrayKey === 'featureNames' ? '系统特性名' : 'OpenGL ES 要求版本'
           : key === 'hardware/codecs-summary'
             ? arrayKey === 'codecNames' ? '编解码器名' : '媒体类型'
