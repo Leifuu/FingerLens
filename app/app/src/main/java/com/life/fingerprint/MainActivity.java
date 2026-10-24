@@ -31,6 +31,7 @@ public final class MainActivity extends AppCompatActivity {
     private void buildUi(){
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setBackgroundColor(Color.rgb(12,19,29));LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(24),dp(20),dp(24),dp(32));scroll.addView(root);
         TextView eyebrow=label("DEVICE EVIDENCE / 01",12,Color.rgb(83,207,199));root.addView(eyebrow);root.addView(label("设备指纹采集台",28,Color.WHITE));root.addView(label("普通 App 视角 · 单次快照 · 原值保留\n仅在本地保存，不主动联网。",14,Color.rgb(177,190,206)));
+        root.addView(new OrientationButton(this),new LinearLayout.LayoutParams(-1,-2));
         permissions=label("",13,Color.rgb(177,190,206));root.addView(permissions);
         button(root,"1. 准备采集权限",v->requestPermissions());button(root,"2. 授予所有文件访问（可选）",v->{try{if(Build.VERSION.SDK_INT>=30)startActivity(new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,Uri.parse("package:"+getPackageName())));else Toast.makeText(this,"当前系统使用存储运行时权限",Toast.LENGTH_SHORT).show();}catch(Exception e){Toast.makeText(this,"当前系统不提供该授权页面",Toast.LENGTH_LONG).show();}});
         start=button(root,"开始采集",v->controller.start());cancel=button(root,"取消采集并保留已完成结果",v->controller.cancel());

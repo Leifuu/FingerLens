@@ -37,10 +37,9 @@ app/app/build/
 app/app/.cxx/
 app/local.properties
 
-# Local Codex work products; reusable scripts remain tracked
-.codex/tmp/
-.codex/backup-*/
-.codex/logs/
+# Local Codex configuration and work products; never publish
+/AGENTS.md
+/.codex/
 
 # Local build and capture products
 *.apk
