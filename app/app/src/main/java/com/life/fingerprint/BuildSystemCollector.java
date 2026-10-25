@@ -197,6 +197,7 @@ public final class BuildSystemCollector implements Collector {
             if(Build.VERSION.SDK_INT>=30)Json.put(value,"thermalHeadroom",power.getThermalHeadroom(0));
             return value;
         });
+        s.read("environment","environment/memory-summary","内存环境摘要","ActivityManager.MemoryInfo / Runtime",()->memorySummary(s.context));
         ActivityManager.MemoryInfo memory=new ActivityManager.MemoryInfo();((ActivityManager)s.context.getSystemService(Context.ACTIVITY_SERVICE)).getMemoryInfo(memory);
         s.ok("environment","environment/memory","内存快照","android-api","ActivityManager.getMemoryInfo",Json.obj("totalMem",memory.totalMem,"availMem",memory.availMem,"threshold",memory.threshold,"lowMemory",memory.lowMemory,"runtimeProcessors",Runtime.getRuntime().availableProcessors()));
     }
@@ -240,6 +241,16 @@ public final class BuildSystemCollector implements Collector {
         JSONObject values=new JSONObject();String status="allowed";android.content.ContentResolver resolver=context.getContentResolver();
         for(String key:SYSTEM_ENVIRONMENT_KEYS)try{Json.put(values,key,Settings.System.getString(resolver,key));}catch(SecurityException e){Json.put(values,key,null);status="denied";}
         return Json.obj("available",true,"status",status,"settings",values);
+    }
+    // 业务块：区分设备内存容量、应用堆上限和采集瞬时值；environment/memory 原始快照继续保留。
+    private static JSONObject memorySummary(Context context){
+        ActivityManager manager=context.getSystemService(ActivityManager.class);Runtime runtime=Runtime.getRuntime();
+        JSONObject out=Json.obj("available",true,"status","ok","activityManagerAvailable",manager!=null,"totalMemBytes",null,"availMemBytes",null,"thresholdBytes",null,"lowMemory",null,"lowRamDevice",null,"memoryClassMb",null,"largeMemoryClassMb",null,"runtimeMaxMemoryBytes",runtime.maxMemory(),"runtimeTotalMemoryBytes",runtime.totalMemory(),"runtimeFreeMemoryBytes",runtime.freeMemory(),"heapUsedBytes",Math.max(0L,runtime.totalMemory()-runtime.freeMemory()),"runtimeProcessorCount",runtime.availableProcessors());
+        if(manager==null){Json.put(out,"status","activity-manager-unavailable");return out;}
+        try{ActivityManager.MemoryInfo info=new ActivityManager.MemoryInfo();manager.getMemoryInfo(info);Json.put(out,"totalMemBytes",info.totalMem);Json.put(out,"availMemBytes",info.availMem);Json.put(out,"thresholdBytes",info.threshold);Json.put(out,"lowMemory",info.lowMemory);Json.put(out,"lowRamDevice",manager.isLowRamDevice());Json.put(out,"memoryClassMb",manager.getMemoryClass());Json.put(out,"largeMemoryClassMb",manager.getLargeMemoryClass());}
+        catch(SecurityException e){Json.put(out,"status","denied");}
+        catch(RuntimeException e){Json.put(out,"status","error");Json.put(out,"error",e.getClass().getName());}
+        return out;
     }
     // 业务块：只记录当前设备初始化和当前用户运行状态，不读取用户身份或位置。
     private static JSONObject deviceState(Context context){

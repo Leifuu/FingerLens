@@ -302,6 +302,11 @@ public class CollectionChecks {
         JSONObject state=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("environment/device-state")){state=item;break;}}
         assertNotNull("应记录设备初始化与运行状态",state);assertEquals("ok",state.getString("status"));JSONObject value=state.getJSONObject("value");assertTrue(value.has("deviceProvisioned"));assertTrue(value.has("userSetupComplete"));assertTrue(value.has("bootCount"));assertTrue(value.has("lowRamDevice"));assertTrue(value.has("userUnlocked"));assertTrue(value.has("userRunning"));assertFalse(state.toString().toLowerCase(java.util.Locale.ROOT).contains("latitude"));assertFalse(state.toString().toLowerCase(java.util.Locale.ROOT).contains("serial"));
     }
+    @Test public void memorySummaryKeepsRawSnapshotSeparate()throws Exception{
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new BuildSystemCollector("environment").collect(sink);
+        JSONObject summary=null,raw=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("environment/memory-summary"))summary=item;if(item.getString("key").equals("environment/memory"))raw=item;}
+        assertNotNull("应生成内存环境摘要",summary);assertNotNull("应保留内存原始快照",raw);assertEquals("ok",summary.getString("status"));JSONObject value=summary.getJSONObject("value");assertTrue(value.getBoolean("available"));assertTrue(value.has("totalMemBytes"));assertTrue(value.has("memoryClassMb"));assertTrue(value.has("largeMemoryClassMb"));assertTrue(value.has("runtimeMaxMemoryBytes"));assertTrue(value.has("heapUsedBytes"));assertTrue(value.has("runtimeProcessorCount"));
+    }
     @Test public void userProfileSummaryKeepsIdentityOutOfEvidence()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new BuildSystemCollector("environment").collect(sink);
         JSONObject summary=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("environment/user-profiles")){summary=item;break;}}

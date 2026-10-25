@@ -32,6 +32,14 @@ describe('原始与语义比较', () => {
 		expect(row.changedPaths).toEqual(['/value/stable']);
 		expect(row.ignored).toBe(6);
 	});
+  it('智能过滤忽略内存瞬时值，但保留设备内存容量', () => {
+    const a = fixture([fixtureItem('environment/memory-summary', { totalMemBytes: 8, availMemBytes: 4, runtimeTotalMemoryBytes: 3, runtimeFreeMemoryBytes: 2, heapUsedBytes: 1 }, { category: 'environment' })]);
+    const b = fixture([fixtureItem('environment/memory-summary', { totalMemBytes: 16, availMemBytes: 6, runtimeTotalMemoryBytes: 5, runtimeFreeMemoryBytes: 1, heapUsedBytes: 4 }, { category: 'environment' })]);
+    const row = find(compare(a, b, smart), 'environment/memory-summary');
+    expect(row.state).toBe('different');
+    expect(row.changedPaths).toEqual(['/value/totalMemBytes']);
+    expect(row.ignored).toBe(8);
+  });
   it('同一对象键顺序不产生差异，字段缺失区别于 null', () => { const a = fixture([fixtureItem('object', { x: 1, y: null })]); const b = fixture([fixtureItem('object', { y: null, x: 1 })]); expect(find(compare(a, b, raw), 'object').state).toBe('same'); b.data.items[0].value = { x: 1 }; expect(find(compare(a, b, raw), 'object').changedPaths).toContain('/value/y'); });
   it('提示 API、签名、授权、配置与非完整结果差异', () => { const a = fixture(), b = fixture(); b.data.app.androidSdk = 35; b.data.permissions.camera = true; b.data.config.changed = true; b.data.state = 'partial'; expect(conditions(a, b)).toHaveLength(4); });
   it('恶意内容保持文本，格式化不改原值', () => { const text = '{"x":"<script>globalThis.pwned=true</script>"}'; expect(formattedText(text)).toContain('\n'); expect(rawText(text)).toBe(text); expect((globalThis as Record<string, unknown>).pwned).toBeUndefined(); });

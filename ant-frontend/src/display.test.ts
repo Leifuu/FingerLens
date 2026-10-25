@@ -341,6 +341,12 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].title).toBe('用户与工作资料摘要');
     expect(sections[0].rows.map(row => row.key)).toEqual(['available', 'status', 'profileCount', 'managedProfile']);
   });
+  it('内存摘要展示容量与应用堆边界', () => {
+    const sections = buildSections(item('environment/memory-summary', 'environment', { available: true, status: 'ok', activityManagerAvailable: true, totalMemBytes: { $type: 'int64', value: '8589934592' }, availMemBytes: { $type: 'int64', value: '4294967296' }, thresholdBytes: { $type: 'int64', value: '805306368' }, lowMemory: false, lowRamDevice: false, memoryClassMb: 256, largeMemoryClassMb: 512, runtimeMaxMemoryBytes: { $type: 'int64', value: '536870912' }, runtimeTotalMemoryBytes: { $type: 'int64', value: '268435456' }, runtimeFreeMemoryBytes: { $type: 'int64', value: '134217728' }, heapUsedBytes: { $type: 'int64', value: '134217728' }, runtimeProcessorCount: 8 }));
+    expect(sections[0].title).toBe('内存环境摘要');
+    expect(sections[0].rows.map(row => row.key)).toContain('totalMemBytes');
+    expect(sections[0].rows.map(row => row.key)).toContain('memoryClassMb');
+  });
   it('信任库详情压缩 DER，只展示可读摘要并保留长度', () => {
     const value = item('security/trust-store', 'security', [{ alias: 'system:root', sha256: 'a'.repeat(64), derBase64: 'A'.repeat(10000) }]);
     const original = JSON.stringify(value);
