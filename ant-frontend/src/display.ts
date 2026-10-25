@@ -344,6 +344,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     'environment/system-settings': { title: '显示与动画设置摘要', order: ['available', 'status', 'settings'], arrays: [] },
      'environment/locale-summary': { title: '语言与时区摘要', order: ['available', 'localeTags', 'localeCount', 'defaultLocale', 'timezoneId', 'rawOffsetMillis', 'usesDaylightTime', 'inDaylightTime', 'is24HourFormat', 'layoutDirection', 'fontScale', 'densityDpi', 'uiMode', 'applicationLocaleAccess', 'applicationLocaleTags'], arrays: [] },
     'environment/clock-summary': { title: '系统时钟摘要', order: ['elapsedRealtimeMillis', 'uptimeMillis', 'wallClockMillis', 'bootTimeMillis', 'sleepMillis'], arrays: [] },
+    'environment/system-fonts': { title: '系统字体集合摘要', order: ['available', 'status', 'scope', 'fontCount', 'fileBackedCount', 'noFileCount', 'italicCount', 'variationConfiguredCount', 'returnedCount', 'entryLimit', 'entriesTruncated', 'metadataSetSha256'], arrays: ['entries'] },
     'environment/android-id-summary': { title: 'Android ID 摘要', order: ['available', 'status', 'scope', 'androidIdPresent', 'androidIdLength', 'androidIdSha256'], arrays: [] },
     'environment/device-state': { title: '设备初始化与运行状态', order: ['deviceProvisioned', 'userSetupComplete', 'bootCount', 'lowRamDevice', 'demoUser', 'userUnlocked', 'userRunning', 'userMonkey', 'testHarness', 'backgroundRestricted'], arrays: [] },
     'environment/memory-summary': { title: '内存环境摘要', order: ['available', 'status', 'activityManagerAvailable', 'totalMemBytes', 'availMemBytes', 'thresholdBytes', 'lowMemory', 'lowRamDevice', 'memoryClassMb', 'largeMemoryClassMb', 'runtimeMaxMemoryBytes', 'runtimeTotalMemoryBytes', 'runtimeFreeMemoryBytes', 'heapUsedBytes', 'runtimeProcessorCount'], arrays: [] },
@@ -394,6 +395,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
           : key === 'security/root-mount-summary' && arrayKey === 'entries' ? '系统路径挂载标志（固定 7 项，不写入）'
           : key === 'kernel/sysconf-summary' && arrayKey === 'entries' ? '系统调用原始结果（固定 2 项）'
           : key === 'build/sdk-extensions' && arrayKey === 'entries' ? '扩展标识与版本（最多 32 项）'
+          : key === 'environment/system-fonts' && arrayKey === 'entries' ? '系统字体元数据（最多 128 项）'
           : key === 'storage/capacity-summary' && arrayKey === 'entries' ? '固定路径容量'
           : key === 'hardware/audio-summary'
             ? arrayKey === 'productNames' ? '音频设备名' : arrayKey === 'sampleRates' ? '采样率' : '编码格式'
@@ -413,7 +415,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     }
   }
   if (key === 'network/risk-signals' && typeof value.capabilitiesRaw === 'string') sections.push(section('capabilitiesRaw', '系统原始能力字符串', [row('value', value.capabilitiesRaw)], false));
-  if (key === 'security/root-path-summary' || key === 'security/root-mount-summary' || key === 'kernel/sysconf-summary' || key === 'build/sdk-extensions') for (const group of sections) for (const entry of group.rows) {
+  if (key === 'security/root-path-summary' || key === 'security/root-mount-summary' || key === 'kernel/sysconf-summary' || key === 'build/sdk-extensions' || key === 'environment/system-fonts') for (const group of sections) for (const entry of group.rows) {
     if ((entry.key === 'status' || entry.key.endsWith('.status')) && Object.hasOwn(STATUS_LABELS, entry.value)) entry.value = STATUS_LABELS[entry.value];
   }
   if (key === 'build/sdk-extensions') for (const entry of sections[0].rows) if (entry.key === 'enumerationMode') {

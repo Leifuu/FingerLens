@@ -83,6 +83,10 @@
 
 - [SdkExtensions](https://developer.android.com/reference/android/os/ext/SdkExtensions) 与 [AOSP 模块源码](https://android.googlesource.com/platform/packages/modules/SdkExtensions/+/refs/heads/main/java/android/os/ext/SdkExtensions.java)（2026-10-26 已核对源码与 SDK api-versions.xml）：`getExtensionVersion` 自 API 30 可用，`getAllExtensionVersions` 自 API 31 可用。新增 `build/sdk-extensions`，API 30 仅查询 R，API 31+ 读取系统公开的扩展标识与版本集合；按标识排序，最多保存 32 项，并对完整集合计算 SHA-256。0 是有效版本，不当作查询失败；扩展标识包含 AD_SERVICES 等非平台 API 级别，未知正标识原样保留。扩展版本用于说明 API 能力，不替代系统版本、安全补丁日期、Mainline 安装清单或远程完整性结论；旧 JSON 与 Build 条目保留。
 
+## 系统字体公开元数据
+
+- [SystemFonts.getAvailableFonts](https://developer.android.com/reference/android/graphics/fonts/SystemFonts#getAvailableFonts())、[Font](https://developer.android.com/reference/android/graphics/fonts/Font) 和 [AOSP SystemFonts](https://android.googlesource.com/platform/frameworks/base/+/refs/heads/main/graphics/java/android/graphics/fonts/SystemFonts.java)（2026-10-26 已核对源码与 SDK）：API 29 起提供当前进程可见的系统字体集合。新增 `environment/system-fonts`，记录字体数量、文件来源数量、斜体/配置变体轴数量，以及文件 basename、TTC 索引、字重、倾斜、语言标签和排序后的变体设置；最多保存 128 项明细，并对完整元数据多重集合计算 SHA-256，保留无文件字体的 null。规范化记录为上述六字段的 JSON 数组，按字符串排序、每条追加 LF，再以 UTF-8 哈希；相同元数据不去重，避免无序 Set 导致差异。仅使用公开元数据 API，不调用 `getBuffer` 或读取字体正文，不导出完整路径、不改变字体配置；相同 basename 不证明来源相同，元数据哈希不等同字体文件哈希，不证明字形或实际渲染一致，也不是永久设备 ID。API 29 以下明确 unsupported，原始语言/字体缩放条目与旧 JSON 不变。
+
 ## GitHub 上的公开 SDK/实现
 
 - [scottyab/rootbeer](https://github.com/scottyab/rootbeer)：README 列出 root 管理应用、危险应用、root cloaking、test-keys、危险属性、BusyBox、`su` 等检查，并明确说明这些规则有漏报和绕过限制。本工程只复用可观察证据（构建标记、属性、路径），不扫描或上传第三方应用清单作为结论。

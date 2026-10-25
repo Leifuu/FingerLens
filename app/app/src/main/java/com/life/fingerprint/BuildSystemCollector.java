@@ -246,6 +246,7 @@ public final class BuildSystemCollector implements Collector {
     private void environment(ItemSink s){
         s.read("environment","environment/locales","语言与区域","Configuration / LocaleList / TimeZone",()->{Configuration c=s.context.getResources().getConfiguration();TimeZone z=TimeZone.getDefault();return Json.obj("locales",c.getLocales().toLanguageTags(),"timezoneId",z.getID(),"timezoneDisplayName",z.getDisplayName(),"rawOffset",z.getRawOffset(),"daylightSavings",z.getDSTSavings(),"configuration",c.toString(),"fontScale",c.fontScale,"densityDpi",c.densityDpi,"uiMode",c.uiMode,"keyboard",c.keyboard,"navigation",c.navigation,"touchscreen",c.touchscreen);});
         s.read("environment","environment/locale-summary","语言与时区摘要","Configuration / DateFormat / LocaleManager",()->localeSummary(s.context));
+        s.read("environment","environment/system-fonts","系统字体集合摘要","SystemFonts.getAvailableFonts / Font metadata",BuildSystemCollector::systemFonts);
         s.read("environment","environment/android-id-summary","Android ID 摘要","Settings.Secure.ANDROID_ID",()->androidIdSummary(s.context));
         s.ok("environment","environment/clocks","单次时钟快照","android-api","SystemClock",Json.obj("elapsedRealtime",SystemClock.elapsedRealtime(),"uptimeMillis",SystemClock.uptimeMillis(),"wallClockMillis",System.currentTimeMillis()));
         s.ok("environment","environment/clock-summary","系统时钟摘要","android-api","SystemClock",clockSummary());
@@ -298,6 +299,30 @@ public final class BuildSystemCollector implements Collector {
         String scope=Build.VERSION.SDK_INT>=26?"app_signing_key_user_device":"user_device";
         if(value==null||value.isEmpty())return Json.obj("available",true,"status","empty","scope",scope,"androidIdPresent",false,"androidIdLength",null,"androidIdSha256",null);
         return Json.obj("available",true,"status","ok","scope",scope,"androidIdPresent",true,"androidIdLength",value.length(),"androidIdSha256",PackageInputCollector.sha(value.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+    }
+    // 业务块：仅观察公开字体元数据，不读取字体正文或导出完整路径；排序消除 Set 枚举顺序影响。
+    private static JSONObject systemFonts()throws Exception{
+        if(Build.VERSION.SDK_INT<29)throw new UnsupportedOperationException("requires API 29");
+        return systemFontValues(android.graphics.fonts.SystemFonts.getAvailableFonts());
+    }
+    static JSONObject systemFontValues(Collection<android.graphics.fonts.Font> fonts)throws Exception{
+        ArrayList<String> records=new ArrayList<>();int fileBacked=0,italic=0,variable=0;
+        for(android.graphics.fonts.Font font:fonts){
+            File file=font.getFile();android.graphics.fonts.FontStyle style=font.getStyle();
+            android.graphics.fonts.FontVariationAxis[] axes=font.getAxes();String variations=null;
+            if(axes!=null){axes=axes.clone();Arrays.sort(axes,Comparator.comparing(android.graphics.fonts.FontVariationAxis::getTag).thenComparingDouble(android.graphics.fonts.FontVariationAxis::getStyleValue));variations=android.graphics.fonts.FontVariationAxis.toFontVariationSettings(axes);}
+            if(file!=null)fileBacked++;if(style.getSlant()==android.graphics.fonts.FontStyle.FONT_SLANT_ITALIC)italic++;if(axes!=null&&axes.length>0)variable++;
+            records.add(new JSONArray().put(file==null?JSONObject.NULL:file.getName()).put(font.getTtcIndex()).put(style.getWeight()).put(style.getSlant()).put(font.getLocaleList().toLanguageTags()).put(variations==null?JSONObject.NULL:variations).toString());
+        }
+        Collections.sort(records);StringBuilder canonical=new StringBuilder();JSONArray entries=new JSONArray();
+        for(String record:records){
+            canonical.append(record).append('\n');if(entries.length()>=128)continue;
+            JSONArray tuple=new JSONArray(record);entries.put(Json.obj("fileName",tuple.get(0),"ttcIndex",tuple.get(1),"weight",tuple.get(2),"slant",tuple.get(3),"localeTags",tuple.get(4),"variationSettings",tuple.get(5)));
+        }
+        return Json.obj("available",true,"status",records.size()>128?"partial":"ok","scope","public-system-font-metadata",
+                "fontCount",records.size(),"fileBackedCount",fileBacked,"noFileCount",records.size()-fileBacked,"italicCount",italic,"variationConfiguredCount",variable,
+                "returnedCount",entries.length(),"entryLimit",128,"entriesTruncated",records.size()>128,
+                "metadataSetSha256",PackageInputCollector.sha(canonical.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)),"entries",entries);
     }
     private static JSONObject clockSummary(){
         long elapsedRealtime=SystemClock.elapsedRealtime();long uptimeMillis=SystemClock.uptimeMillis();long wallClockMillis=System.currentTimeMillis();

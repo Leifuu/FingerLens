@@ -525,6 +525,17 @@ describe('设备格式化展示边界', () => {
     expect(scoped[0].rows.find(row => row.key === 'enumerationMode')?.value).toBe('仅 Android R 扩展（API 30）');
     expect(JSON.stringify(value)).toBe(original);
   });
+  it('系统字体展示有界元数据，保留无文件字体、未知字段和旧数据', () => {
+    const value = item('environment/system-fonts', 'environment', { available: true, status: 'partial', fontCount: 129, returnedCount: 128, entryLimit: 128, entriesTruncated: true, entries: [{ fileName: null, ttcIndex: 0, weight: 400, slant: 0, localeTags: '', variationSettings: null, futureField: 'kept' }] });
+    const original = JSON.stringify(value), sections = buildSections(value);
+    expect(sections[0].title).toBe('系统字体集合摘要');
+    expect(sections[0].rows.find(row => row.key === 'status')?.value).toBe('部分可观察');
+    expect(sections[1].title).toBe('系统字体元数据（最多 128 项）');
+    expect(sections[1].rows.find(row => row.key === '[0].fileName')?.value).toBe('null');
+    expect(sections[1].rows.find(row => row.key === '[0].ttcIndex')?.value).toBe('0');
+    expect(sections[1].rows.find(row => row.key === '[0].futureField')?.value).toBe('kept');
+    expect(JSON.stringify(value)).toBe(original);
+  });
   it('系统运行参数展示 16 KiB 页大小，并保留不可用项与原始值', () => {
     const value = item('kernel/sysconf-summary', 'kernel', { available: true, status: 'partial', pageSizeBytes: { $type: 'int64', value: '16384' }, clockTicksPerSecond: null, entries: [{ name: '_SC_PAGESIZE', status: 'ok', rawValue: { $type: 'int64', value: '16384' }, errorClass: null }, { name: '_SC_CLK_TCK', status: 'unavailable', rawValue: { $type: 'int64', value: '-1' }, errorClass: null }] });
     const original = JSON.stringify(value), sections = buildSections(value);

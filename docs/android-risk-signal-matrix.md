@@ -67,6 +67,7 @@
 | 摄像头分数元数据 | [Rational](https://developer.android.com/reference/android/util/Rational) 与 AOSP 公开有限分数和 NaN/Infinity 的文本、分子与分母。 | `hardware/camera/*`；公共 `Json.value` | 以带类型的对象精确保留曝光步长、校准矩阵等分数，避免裸 `1/6` 使整个硬件检查点失效；不改变其它数值或旧 JSON 的导入，不采集图像帧。 |
 | 内存页与 CPU 时间节拍 | [Os.sysconf](https://developer.android.com/reference/android/system/Os#sysconf(int))、AOSP Bionic 的 _SC_PAGESIZE / _SC_CLK_TCK。 | `kernel/sysconf-summary` | 固定两项，保留 int64 原值和逐项状态；非正值/异常时摘要值为 null。页大小按字节展示，不推断 APK 的 16 KB 兼容性；时钟节拍不解释为 CPU 频率，旧条目不变。 |
 | SDK 扩展版本 | [SdkExtensions](https://developer.android.com/reference/android/os/ext/SdkExtensions) 公开扩展标识及版本，API 30 支持单项查询、API 31 支持集合枚举。 | `build/sdk-extensions` | API 30 仅查询 R，API 31+ 枚举公开集合；最多 32 项、完整集合 SHA-256，保留 0 及未知标识，明确查询范围。不据此替代安全补丁或完整性结论，旧 JSON 不变。 |
+| 系统字体集合 | [SystemFonts](https://developer.android.com/reference/android/graphics/fonts/SystemFonts) 与 [Font](https://developer.android.com/reference/android/graphics/fonts/Font) 自 API 29 公开系统字体和样式元数据。 | `environment/system-fonts` | 最多保存 128 项明细，完整排序元数据多重集合 SHA-256；保留 basename、TTC 索引、字重、倾斜、语言及变体设置和无文件 null，不读取正文、不导出完整路径。哈希不是文件内容哈希或永久设备 ID，旧 JSON 不变。 |
 
 ## 当前缺口与下一步候选
 
