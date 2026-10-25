@@ -140,6 +140,11 @@ public class CollectionChecks {
         JSONObject summary=null,raw=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("build/hardware-summary"))summary=item;if(item.getString("key").equals("build/Build/FINGERPRINT"))raw=item;}
         assertNotNull("应生成硬件型号摘要",summary);assertNotNull("应保留 Build.FINGERPRINT 原始字段",raw);assertEquals("ok",summary.getString("status"));JSONObject value=summary.getJSONObject("value");assertTrue(value.getBoolean("available"));assertTrue(value.has("manufacturer"));assertTrue(value.has("model"));assertTrue(value.has("fingerprintPresent"));if(value.getBoolean("fingerprintPresent")){assertTrue(value.getInt("fingerprintLength")>0);assertTrue(value.getString("fingerprintSha256").matches("[0-9a-f]{64}"));}if(Build.VERSION.SDK_INT>=31){assertTrue(value.has("socManufacturer"));assertTrue(value.has("socModel"));}assertFalse(summary.toString().contains("ro.build.fingerprint"));
     }
+    @Test public void osSummaryKeepsRawVersionFieldsSeparate()throws Exception{
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new BuildSystemCollector("build").collect(sink);
+        JSONObject summary=null,raw=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("build/os-summary"))summary=item;if(item.getString("key").equals("build/VERSION/SDK_INT"))raw=item;}
+        assertNotNull("应生成 Android 系统版本摘要",summary);assertNotNull("应保留 Build.VERSION 原始字段",raw);assertEquals("ok",summary.getString("status"));JSONObject value=summary.getJSONObject("value");assertTrue(value.getBoolean("available"));assertEquals(Build.VERSION.SDK_INT,value.getInt("sdkInt"));assertTrue(value.has("release"));assertTrue(value.has("codename"));assertTrue(value.has("securityPatch"));assertFalse(summary.toString().contains("SDK_INT"));
+    }
     @Test public void widevineSignalNeverExportsRawUniqueId()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new HardwareCollector("hardware").collect(sink);
         JSONObject drm=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("hardware/drm/widevine")){drm=item;break;}}

@@ -48,6 +48,7 @@ public final class BuildSystemCollector implements Collector {
         }else s.add("build","build/native-properties","原生属性枚举","jni","__system_property_read_callback","unsupported",null,Json.obj("minSdk",26),null);
         s.ok("build","build/abi-summary","ABI 与运行时架构摘要","android-api","Build.SUPPORTED_ABIS / Process.is64Bit",abiSummary());
         s.ok("build","build/hardware-summary","硬件型号与 SoC 摘要","android-api","Build public hardware fields",hardwareSummary());
+        s.ok("build","build/os-summary","Android 系统版本摘要","android-api","Build.VERSION",osSummary());
         Commands.collect(s,"build","build/getprop","/system/bin/getprop");
     }
     // 业务块：把公开 ABI 列表压缩为架构族和位数计数；Build 原始字段继续保留。
@@ -63,6 +64,14 @@ public final class BuildSystemCollector implements Collector {
     private static JSONObject hardwareSummary()throws Exception{
         String fingerprint=Build.FINGERPRINT;
         return Json.obj("available",true,"manufacturer",Build.MANUFACTURER,"brand",Build.BRAND,"model",Build.MODEL,"device",Build.DEVICE,"product",Build.PRODUCT,"hardware",Build.HARDWARE,"board",Build.BOARD,"fingerprintPresent",fingerprint!=null&&!fingerprint.isEmpty(),"fingerprintLength",fingerprint==null?null:fingerprint.length(),"fingerprintSha256",fingerprint==null?null:PackageInputCollector.sha(fingerprint.getBytes(java.nio.charset.StandardCharsets.UTF_8)),"socManufacturer",Build.VERSION.SDK_INT>=31?Build.SOC_MANUFACTURER:null,"socModel",Build.VERSION.SDK_INT>=31?Build.SOC_MODEL:null);
+    }
+    // 业务块：整理公开系统版本与补丁环境；Build.VERSION 原始字段继续保留。
+    private static JSONObject osSummary(){
+        return Json.obj("available",true,"sdkInt",Build.VERSION.SDK_INT,"release",Build.VERSION.RELEASE,"codename",Build.VERSION.CODENAME,"incremental",Build.VERSION.INCREMENTAL,"securityPatch",Build.VERSION.SDK_INT>=23?Build.VERSION.SECURITY_PATCH:null,"baseOs",Build.VERSION.SDK_INT>=23?Build.VERSION.BASE_OS:null,"previewSdkInt",Build.VERSION.SDK_INT>=23?Build.VERSION.PREVIEW_SDK_INT:null,"firstApiLevel",Build.VERSION.SDK_INT>=24?firstApiLevel():null,"mediaPerformanceClass",Build.VERSION.SDK_INT>=31?Build.VERSION.MEDIA_PERFORMANCE_CLASS:null);
+    }
+    private static Integer firstApiLevel(){
+        for(String name:new String[]{"DEVICE_INITIAL_SDK_INT","FIRST_API_LEVEL"})try{return Build.VERSION.class.getField(name).getInt(null);}catch(Exception ignored){}
+        return null;
     }
     // 业务块：从完整原生属性中提取稳定的风控字段；原始属性条目继续完整保留。
     private static JSONObject riskPropertiesSummary(JSONArray props)throws JSONException{
