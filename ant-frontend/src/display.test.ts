@@ -260,6 +260,12 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].title).toBe('存储卷环境摘要');
     expect(sections[0].rows.map(row => row.key)).toEqual(['available', 'volumeCount', 'mountedCount', 'primaryCount', 'removableCount', 'emulatedCount', 'uuidPresentCount', 'stateCounts.mounted']);
   });
+  it('存储容量摘要使用固定路径标签并人性化大整数', () => {
+    const sections = buildSections(item('storage/capacity-summary', 'storage', { available: true, status: 'ok', entryCount: 1, errorCount: 0, entries: [{ label: 'data', available: true, blockSizeBytes: 4096, totalBytes: 1073741824, availableBytes: 536870912 }] }));
+    expect(sections[0].title).toBe('存储容量摘要');
+    expect(sections.find(section => section.key === 'entries')?.title).toBe('固定路径容量');
+    expect(sections.find(section => section.key === 'entries')?.rows.find(row => row.key === '[0].totalBytes')?.value).toBe('1 GiB（1073741824 B）');
+  });
   it('蓝牙摘要展示访问状态与已配对设备计数', () => {
     const sections = buildSections(item('network/bluetooth-summary', 'network', { available: true, access: 'allowed', adapterState: 12, adapterNamePresent: true, adapterAddressPresent: true, bondedCount: 1, bondedNameCount: 1, bondedAddressCount: 1, bondedTypeCounts: { '1': 1 }, bondedClassCounts: { '1028': 1 } }));
     expect(sections[0].title).toBe('蓝牙能力摘要');

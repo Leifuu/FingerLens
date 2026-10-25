@@ -298,6 +298,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     'battery/cycle-count': { title: '电池循环次数', order: ['available', 'status', 'cycleCount'], arrays: [] },
     'sim/summary': { title: 'SIM 与电话环境摘要', order: ['available', 'phoneType', 'phoneCount', 'simState', 'simOperator', 'simOperatorName', 'simCountry', 'networkOperator', 'networkName', 'networkCountry', 'dataNetworkType', 'roaming', 'dataEnabled', 'subscriptionAccess', 'subscriptionCount', 'embeddedCount'], arrays: ['simStates', 'simSlotIndexes', 'carrierNames', 'mccs', 'mncs'] },
     'storage/summary': { title: '存储卷环境摘要', order: ['available', 'volumeCount', 'mountedCount', 'primaryCount', 'removableCount', 'emulatedCount', 'uuidPresentCount', 'stateCounts'], arrays: [] },
+    'storage/capacity-summary': { title: '存储容量摘要', order: ['available', 'status', 'entryCount', 'errorCount'], arrays: ['entries'] },
     'network/bluetooth-summary': { title: '蓝牙能力摘要', order: ['available', 'access', 'adapterState', 'adapterNamePresent', 'adapterAddressPresent', 'bondedCount', 'bondedNameCount', 'bondedAddressCount', 'bondedTypeCounts', 'bondedClassCounts'], arrays: [] },
     'network/bluetooth-capabilities': { title: '蓝牙 LE 能力', order: ['available', 'access', 'adapterState', 'le2MPhySupported', 'leCodedPhySupported', 'leExtendedAdvertisingSupported', 'leMaximumAdvertisingDataLength'], arrays: [] },
     'network/wifi-summary': { title: 'Wi-Fi 能力摘要', order: ['available', 'wifiState', 'connectionAccess', 'scanAccess', 'connectionInfoAvailable', 'ssidPresent', 'bssidPresent', 'macAddressPresent', 'frequency', 'rssi', 'linkSpeed', 'cachedScanCount', 'ssidPresentCount', 'bssidPresentCount', 'band2_4GHzCount', 'band5GHzCount', 'band6GHzCount', 'frequenciesTruncated'], arrays: ['frequencies'] },
@@ -359,6 +360,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
           : key === 'environment/webview-provider' && arrayKey === 'signatures' ? '提供方签名 SHA-256'
           : key === 'security/providers-summary' && arrayKey === 'providers' ? '安全提供者'
           : key === 'security/providers-summary' && arrayKey === 'serviceNames' ? '服务名（最多 512 项）'
+          : key === 'storage/capacity-summary' && arrayKey === 'entries' ? '固定路径容量'
           : key === 'hardware/audio-summary'
             ? arrayKey === 'productNames' ? '音频设备名' : arrayKey === 'sampleRates' ? '采样率' : '编码格式'
           : key === 'kernel/cgroup-summary' && arrayKey === 'controllerNames' ? 'Cgroup 控制器'
