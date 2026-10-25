@@ -16,6 +16,14 @@ function grouped(left: Json[] | undefined, right?: Json[]) {
 }
 
 describe('编解码器概览', () => {
+  it('音频区间、null采样率和完整集合哈希变化参与概览差异', () => {
+    const audio = { available: true, status: 'ok', sampleRateMode: 'ranges', sampleRatesHz: null, sampleRateRangesHz: [{ lower: 8000, upper: 48000 }], sampleRateRangesSha256: 'a', maxInputChannelCount: 2 };
+    const codec = (audioCapabilities: Json) => ({ name: 'codec', encoder: false, capabilities: [{ type: 'audio/test', audioCapabilities }] });
+    expect(grouped([codec(audio)], [codec(audio)])![0].state).toBe('same');
+    for (const changed of [{ ...audio, sampleRateRangesSha256: 'b' }, { ...audio, sampleRatesHz: [] }, { ...audio, maxInputChannelCount: 1 }, { ...audio, future: false }]) {
+      expect(grouped([codec(audio)], [codec(changed)])![0].state).toBe('changed');
+    }
+  });
   it('视频范围、对齐要求和未来字段变化参与整行差异，旧JSON缺新增对象仍可查看', () => {
     const old = { name: 'codec', encoder: false, capabilities: [{ type: 'video/test', profileLevels: [] }] };
     const video = { available: true, status: 'ok', widthPixels: { lower: 2, upper: 4096 }, widthAlignmentPixels: 2, future: null };

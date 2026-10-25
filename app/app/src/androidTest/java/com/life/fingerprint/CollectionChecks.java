@@ -371,6 +371,40 @@ public class CollectionChecks {
         JSONObject summary=null,list=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("hardware/codecs-summary"))summary=item;if(item.getString("key").equals("hardware/codecs"))list=item;}
         assertNotNull("应生成编解码能力摘要",summary);assertNotNull("应保留编解码完整清单",list);assertEquals("ok",summary.getString("status"));assertEquals("ok",list.getString("status"));JSONObject value=summary.getJSONObject("value");assertEquals(value.getInt("count"),list.getJSONArray("value").length());assertTrue(value.getJSONArray("codecNames").length()<=256);assertTrue(value.getJSONArray("mimeTypes").length()<=256);assertTrue(value.has("codecNamesTruncated"));assertTrue(value.has("mimeTypesTruncated"));
     }
+    @Test public void codecAudioRangesMatchPublicCapabilities()throws Exception{
+        try{HardwareCollector.codecAudioCapabilities(null);fail("缺失能力不能冒充非音频");}catch(NullPointerException expected){}
+        ItemSink sink=new ItemSink(context,"audio-capabilities-test");new HardwareCollector("hardware").collect(sink);
+        JSONObject item=null;for(int i=0;i<sink.items.length();i++)if(sink.items.getJSONObject(i).getString("key").equals("hardware/codecs"))item=sink.items.getJSONObject(i);
+        assertNotNull(item);assertEquals("ok",item.getString("status"));JSONArray codecs=new JSONObject(item.toString()).getJSONArray("value");
+        android.media.MediaCodecInfo[] platform=new android.media.MediaCodecList(android.media.MediaCodecList.ALL_CODECS).getCodecInfos();assertEquals(platform.length,codecs.length());int audioCount=0,otherCount=0,continuous=0;
+        for(int i=0;i<platform.length;i++){
+            JSONObject codec=codecs.getJSONObject(i);assertEquals(platform[i].getName(),codec.getString("name"));JSONArray types=codec.getJSONArray("capabilities");
+            for(int j=0;j<types.length();j++){
+                JSONObject type=types.getJSONObject(j);if(type.has("error"))continue;assertTrue(type.has("videoCapabilities"));assertTrue(type.has("featureFlags"));
+                android.media.MediaCodecInfo.AudioCapabilities audio=platform[i].getCapabilitiesForType(type.getString("type")).getAudioCapabilities();JSONObject value=type.getJSONObject("audioCapabilities");
+                if(audio==null){otherCount++;assertFalse(value.getBoolean("available"));assertEquals("not-audio",value.getString("status"));for(String key:new String[]{"bitrateBitsPerSecond","maxInputChannelCount","sampleRateMode","sampleRatesHz","sampleRateRangesHz"})assertTrue(value.isNull(key));continue;}
+                audioCount++;assertTrue(value.getBoolean("available"));assertEquals("ok",value.getString("status"));assertEquals(audio.getBitrateRange().getLower(),value.getJSONObject("bitrateBitsPerSecond").get("lower"));assertEquals(audio.getBitrateRange().getUpper(),value.getJSONObject("bitrateBitsPerSecond").get("upper"));assertEquals(audio.getMaxInputChannelCount(),value.getInt("maxInputChannelCount"));
+                android.util.Range<Integer>[] ranges=audio.getSupportedSampleRateRanges();JSONArray all=new JSONArray(),entries=value.getJSONArray("sampleRateRangesHz");for(android.util.Range<Integer> range:ranges)all.put(Json.obj("lower",range.getLower(),"upper",range.getUpper()));assertEquals(all.toString(),entries.toString());assertEquals(ranges.length,value.getInt("sampleRateRangeCount"));assertEquals(PackageInputCollector.sha(all.toString().getBytes(StandardCharsets.UTF_8)),value.getString("sampleRateRangesSha256"));
+                int[] rates=audio.getSupportedSampleRates();assertEquals(rates==null?"ranges":"discrete",value.getString("sampleRateMode"));
+                if(rates==null){continuous++;assertTrue(value.isNull("sampleRatesHz"));assertTrue(value.isNull("sampleRateCount"));assertTrue(value.isNull("sampleRatesTruncated"));assertTrue(value.isNull("sampleRatesSha256"));}
+                else{JSONArray expected=new JSONArray(rates);assertEquals(expected.toString(),value.getJSONArray("sampleRatesHz").toString());assertEquals(rates.length,value.getInt("sampleRateCount"));assertFalse(value.getBoolean("sampleRatesTruncated"));assertEquals(PackageInputCollector.sha(expected.toString().getBytes(StandardCharsets.UTF_8)),value.getString("sampleRatesSha256"));}
+            }
+        }
+        assertTrue(audioCount>0);Bundle evidence=new Bundle();evidence.putString("audioMimeCount",String.valueOf(audioCount));evidence.putString("nonAudioMimeCount",String.valueOf(otherCount));evidence.putString("continuousAudioMimeCount",String.valueOf(continuous));InstrumentationRegistry.getInstrumentation().sendStatus(0,evidence);
+    }
+    @Test public void codecAudioListsKeepOrderNullAndFullHash()throws Exception{
+        android.util.Range<Integer> bitrate=new android.util.Range<>(0,320000);android.util.Range<Integer>[] ranges=new android.util.Range[70];int[] rates=new int[300];
+        for(int i=0;i<ranges.length;i++)ranges[i]=new android.util.Range<>(i,i);for(int i=0;i<rates.length;i++)rates[i]=i;
+        ranges[1]=ranges[0];rates[1]=rates[0];String original=Arrays.toString(ranges)+Arrays.toString(rates);
+        JSONObject value=HardwareCollector.codecAudioValues(bitrate,2,ranges,rates);assertEquals(original,Arrays.toString(ranges)+Arrays.toString(rates));assertEquals("partial",value.getString("status"));assertEquals(70,value.getInt("sampleRateRangeCount"));assertEquals(64,value.getJSONArray("sampleRateRangesHz").length());assertEquals(300,value.getInt("sampleRateCount"));assertEquals(256,value.getJSONArray("sampleRatesHz").length());assertTrue(value.getBoolean("sampleRateRangesTruncated"));assertTrue(value.getBoolean("sampleRatesTruncated"));assertEquals(value.getJSONArray("sampleRatesHz").get(0),value.getJSONArray("sampleRatesHz").get(1));
+        rates[299]=999;ranges[69]=new android.util.Range<>(999,999);JSONObject changed=HardwareCollector.codecAudioValues(bitrate,2,ranges,rates);assertEquals(value.getJSONArray("sampleRatesHz").toString(),changed.getJSONArray("sampleRatesHz").toString());assertEquals(value.getJSONArray("sampleRateRangesHz").toString(),changed.getJSONArray("sampleRateRangesHz").toString());assertNotEquals(value.getString("sampleRatesSha256"),changed.getString("sampleRatesSha256"));assertNotEquals(value.getString("sampleRateRangesSha256"),changed.getString("sampleRateRangesSha256"));
+        JSONObject continuous=HardwareCollector.codecAudioValues(bitrate,2,new android.util.Range[]{new android.util.Range<>(8000,48000)},null);assertEquals("ranges",continuous.getString("sampleRateMode"));assertTrue(continuous.isNull("sampleRatesHz"));assertTrue(continuous.isNull("sampleRatesSha256"));
+        JSONObject empty=HardwareCollector.codecAudioValues(bitrate,0,new android.util.Range[0],new int[0]);assertEquals("discrete",empty.getString("sampleRateMode"));assertEquals(0,empty.getInt("sampleRateCount"));assertEquals("ok",empty.getString("status"));assertEquals("[]",empty.getJSONArray("sampleRatesHz").toString());
+        try{HardwareCollector.codecAudioValues(bitrate,2,null,null);fail("缺失区间不能伪装连续采样率");}catch(IllegalArgumentException expected){}
+        try{HardwareCollector.codecAudioValues(bitrate,2,new android.util.Range[]{null},null);fail("null区间不能静默跳过");}catch(NullPointerException expected){}
+        try{HardwareCollector.codecAudioValues(bitrate,2,new android.util.Range[20001],null);fail("区间输入不能越界");}catch(IllegalArgumentException expected){}
+        try{HardwareCollector.codecAudioValues(bitrate,2,new android.util.Range[0],new int[20001]);fail("采样率输入不能越界");}catch(IllegalArgumentException expected){}
+    }
     @Test public void codecVideoRangesMatchPublicCapabilities()throws Exception{
         try{HardwareCollector.codecVideoCapabilities(null);fail("缺失能力不能冒充非视频MIME");}catch(NullPointerException expected){}
         ItemSink sink=new ItemSink(context,"video-capabilities-test");new HardwareCollector("hardware").collect(sink);

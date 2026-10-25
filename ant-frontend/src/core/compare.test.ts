@@ -7,6 +7,20 @@ const raw = { semantic: false, ignoreDynamic: false }, semantic = { semantic: tr
 const find = (rows: ReturnType<typeof compare>, key: string) => rows.find(x => x.key === key)!;
 
 describe('原始与语义比较', () => {
+  it('音频MIME能力兼容旧JSON，连续/离散采样率和截断外哈希变化保持区别', () => {
+    const key = 'hardware/codecs', old = { name: 'codec', encoder: false, capabilities: [{ type: 'audio/test', profileLevels: [] }] };
+    const legacy = fixture([fixtureItem(key, [old], { category: 'hardware' })]);
+    const current = (audioCapabilities: Json) => fixture([fixtureItem(key, [{ ...old, capabilities: [{ ...old.capabilities[0], audioCapabilities }] }], { category: 'hardware' })]);
+    const audio = { available: true, status: 'ok', sampleRateMode: 'ranges', sampleRatesHz: null, sampleRateRangesHz: [{ lower: 8000, upper: 48000 }], sampleRateRangesSha256: 'a', maxInputChannelCount: 2 };
+    const base = current(audio), empty = current({ ...audio, sampleRateMode: 'discrete', sampleRatesHz: [] }), hash = current({ ...audio, sampleRateRangesSha256: 'b' });
+    const before = JSON.stringify([legacy, base, empty, hash]);
+    for (const rules of [raw, semantic, smart]) {
+      expect(find(compare(legacy, base, rules), key).changedPaths).toEqual(['/value/0/capabilities/0/audioCapabilities']);
+      expect(find(compare(base, empty, rules), key).state).toBe('different');
+      expect(find(compare(base, hash, rules), key).state).toBe('different');
+    }
+    expect(JSON.stringify([legacy, base, empty, hash])).toBe(before);
+  });
   it('视频MIME能力新增不改旧字段，范围/空值/非视频状态参与比较', () => {
     const key = 'hardware/codecs', old = { name: 'codec', encoder: false, capabilities: [{ type: 'video/test', profileLevels: [] }] };
     const legacy = fixture([fixtureItem(key, [old], { category: 'hardware' })]);

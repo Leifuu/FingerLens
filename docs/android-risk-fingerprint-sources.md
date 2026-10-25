@@ -102,6 +102,13 @@
 
 - 真机边界（Pixel6/Android15，2026-10-26）：ModuleInfo中的41个配置包名仅6个关联包查询成功，35个返回未找到或不可见；例如配置为`com.google.android.art`，ADB的已安装APEX清单显示`com.android.art`。这证明配置名称与安装包名可以不同，不能仅替换名称前缀建立模块关联，也不能把查询失败当作APEX未安装。该ADB观察未写入App采集结果；实际APEX清单应另用公开包枚举查询验证。
 
+## 音频编解码器的公开范围
+
+- [CodecCapabilities.getAudioCapabilities](https://developer.android.com/reference/android/media/MediaCodecInfo.CodecCapabilities#getAudioCapabilities())与[AudioCapabilities](https://developer.android.com/reference/android/media/MediaCodecInfo.AudioCapabilities)公开码率范围、最大输入声道数、采样率区间和离散采样率。本机公开SDK35源码及SDK37.0 api-versions.xml已核对本轮使用的四个getter自API21可用；沿用SDK35源码缓存，SHA-256为`83bc1b1f70a5a1f118038566698288e2d82db71f111083689567658cfa35f23c`，本轮未新增网络源码验证。
+- `hardware/codecs[*].capabilities[*].audioCapabilities`保存`bitrateBitsPerSecond.lower/upper`、`maxInputChannelCount`、`sampleRateRangesHz`和`sampleRatesHz`。离散数组为null表示不只支持离散采样率，记录`sampleRateMode=ranges`，不转成空列表或错误；非音频为`not-audio`，读取失败为denied/error，各项数据保留null，不影响原MIME、视频能力及功能标志。
+- 每种清单输入最多20000项，明细最多64个区间/256个离散采样率，保留原序与重复；各自完整JSON数组的UTF-8 SHA-256、总数、上限及截断标志保留截断外差异，明细截断时status为partial。区间缺失/null元素为错误，成功空数组与null分开；只读能力，不创建编解码器或录音，不把最大声道数推断为所有1到最大值均支持（API31起声道支持可能有不连续区间），也不把码率/采样率/声道任意组合当作可用格式。旧JSON与原编解码器概览、完整字段分页保持兼容。
+- Pixel6/Android15验证：29个音频MIME读取成功，其中21个离散、8个非离散；41个非音频为not-audio，独立Release结果一致。`c2.android.aac.decoder`的码率8000–510000 bit/s、最大输入声道8，离散采样率从7350/8000/11025 Hz起；`c2.android.flac.decoder`返回7350–192000 Hz区间且离散数组为null。仅移除新增音频对象后，原清单（含视频能力）与上一报告完全相同，摘要也一致。
+
 ## 视频编解码器的公开范围
 
 - [CodecCapabilities.getVideoCapabilities](https://developer.android.com/reference/android/media/MediaCodecInfo.CodecCapabilities#getVideoCapabilities())和[VideoCapabilities](https://developer.android.com/reference/android/media/MediaCodecInfo.VideoCapabilities)公开视频码率、帧率、宽高范围和宽高对齐要求。本轮以本机Android SDK35公开源码及SDK37.0的api-versions.xml核对：相关六项getter和视频能力类自API21可用，本工程minSdk24无需新版本门槛；远程源码下载超时，未声称核对本轮网络上的源码版本。
