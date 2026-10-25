@@ -100,6 +100,11 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.map(row => row.key)).toContain('appOpsAllowedCount');
     expect(sections[0].rows.find(row => row.key === 'securityProviderCount')?.value).toBe('4');
   });
+  it('进程身份摘要展示 UID 分类与沙箱边界', () => {
+    const sections = buildSections(item('security/process-identity-summary', 'security', { available: true, status: 'ok', uid: 10500, isApplicationUid: true, isIsolatedUid: false, isSdkSandboxUid: false, isIsolatedProcess: false, isSdkSandboxProcess: false, packageName: 'com.example', processName: 'com.example' }));
+    expect(sections[0].title).toBe('当前进程身份与沙箱摘要');
+    expect(sections[0].rows.map(row => row.key)).toContain('isIsolatedUid');
+  });
   it('应用运行时摘要展示公开分析配置', () => {
     const sections = buildSections(item('security/self-runtime', 'security', { available: true, status: 'ok', profileableByShell: false, profileable: false, virtualPreload: false, gwpAsanMode: 0, memtagMode: 0, nativeHeapZeroInitialized: 1, requestRawExternalStorageAccess: 0, attributionsUserVisible: true }));
     expect(sections[0].title).toBe('应用运行时可分析配置');

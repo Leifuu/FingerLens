@@ -302,6 +302,11 @@ public class CollectionChecks {
         JSONObject runtime=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("security/self-runtime")){runtime=item;break;}}
         assertNotNull("应记录应用运行时可分析配置",runtime);assertEquals("ok",runtime.getString("status"));JSONObject value=runtime.getJSONObject("value");assertTrue(value.getBoolean("available"));assertTrue(value.has("profileableByShell"));assertTrue(value.has("profileable"));assertTrue(value.has("virtualPreload"));assertTrue(value.has("gwpAsanMode"));assertTrue(value.has("memtagMode"));assertTrue(value.has("nativeHeapZeroInitialized"));assertTrue(value.has("requestRawExternalStorageAccess"));assertTrue(value.has("attributionsUserVisible"));assertFalse(runtime.toString().contains("debuggerConnected"));
     }
+    @Test public void processIdentityEvidenceKeepsSandboxClassificationScoped()throws Exception{
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new SecurityCollector("security").collect(sink);
+        JSONObject identity=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("security/process-identity-summary")){identity=item;break;}}
+        assertNotNull("应记录当前进程身份摘要",identity);assertEquals("ok",identity.getString("status"));JSONObject value=identity.getJSONObject("value");assertTrue(value.getBoolean("available"));assertEquals(context.getPackageName(),value.getString("packageName"));assertTrue(value.has("uid"));assertTrue(value.has("isApplicationUid"));assertTrue(value.has("isIsolatedUid"));assertTrue(value.has("isSdkSandboxUid"));assertTrue(value.has("isIsolatedProcess"));assertTrue(value.has("isSdkSandboxProcess"));assertFalse(identity.toString().contains("otherPackages"));
+    }
     @Test public void selfPermissionsEvidenceIsBoundedAndScoped()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new SecurityCollector("security").collect(sink);
         JSONObject permissions=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("security/self-permissions")){permissions=item;break;}}
