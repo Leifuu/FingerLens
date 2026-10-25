@@ -27,6 +27,7 @@ describe('WebView 与 Root 证据导航', () => {
   it('Root 导航保留未命中、拒绝和单侧证据，也保留原模块入口', () => {
     const left = fixture([
       fixtureItem('security/root-path-summary', { pathChecks: 32, presentCount: 0, deniedCount: 3 }, { category: 'security' }),
+      fixtureItem('security/root-mount-summary', { pathChecks: 7, readOnlyCount: 4, missingCount: 3 }, { category: 'security' }),
       fixtureItem('virtualization/path/system/bin/su', { ok: false, errno: 2 }, { category: 'virtualization' }),
       fixtureItem('security/file/sys/fs/selinux/enforce', null, { category: 'security', status: 'denied' }),
       fixtureItem('build/native-property/ro.debuggable', '0', { category: 'build' }),

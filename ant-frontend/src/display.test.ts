@@ -514,6 +514,16 @@ describe('设备格式化展示边界', () => {
     expect(sections[1].rows.some(row => row.key.endsWith('.errno') && row.value === '13')).toBe(true);
     expect(JSON.stringify(value)).toBe(original);
   });
+  it('Root 挂载标志摘要保留未知值和 errno，原始数据不变', () => {
+    const value = item('security/root-mount-summary', 'security', { available: true, status: 'partial', pathChecks: 2, pathLimit: 7, readOnlyCount: 1, missingCount: 1, writeProbeAttempted: false, entries: [{ path: '/system', status: 'ok', errno: 0, readOnly: true, noSuid: false, noDev: false, noExec: false }, { path: '/sbin', status: 'missing', errno: 2, readOnly: null, noSuid: null, noDev: null, noExec: null }] });
+    const original = JSON.stringify(value), sections = buildSections(value);
+    expect(sections[0].title).toBe('Root 相关系统路径挂载标志');
+    expect(sections[0].rows.find(row => row.key === 'status')?.value).toBe('部分可观察');
+    expect(sections[1].title).toBe('系统路径挂载标志（固定 7 项，不写入）');
+    expect(sections[1].rows.find(row => row.key === '[1].readOnly')?.value).toBe('null');
+    expect(sections[1].rows.find(row => row.key === '[1].status')?.value).toBe('路径不存在');
+    expect(JSON.stringify(value)).toBe(original);
+  });
   it('应用清单签名详情压缩 DER，只展示哈希和长度', () => {
     const value = item('packages/com.example', 'packages', { packageName: 'com.example', signatures: [{ sha256: 'b'.repeat(64), derBase64: 'B'.repeat(12000) }] });
     const original = JSON.stringify(value);

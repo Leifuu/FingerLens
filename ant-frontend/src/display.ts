@@ -296,6 +296,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     'network/proxy-summary': { title: '代理环境摘要', order: ['available', 'status', 'configured', 'hostPresent', 'hostLength', 'hostSha256', 'port', 'exclusionCount', 'pacFilePresent', 'pacScheme'], arrays: [] },
     'virtualization/risk-summary': { title: '虚拟化与提权线索摘要', order: ['pathChecks', 'evidenceOnly', 'testKeys', 'conclusion'], arrays: ['presentPaths', 'pathErrors', 'matchedBuildMarkers'] },
     'security/root-path-summary': { title: 'Root 相关路径检查摘要', order: ['available', 'status', 'pathChecks', 'pathLimit', 'presentCount', 'missingCount', 'deniedCount', 'unresolvedCount', 'errorCount', 'unknownCount', 'binaryExecutionAttempted', 'followParentSymlinks', 'evidenceOnly'], arrays: ['entries'] },
+    'security/root-mount-summary': { title: 'Root 相关系统路径挂载标志', order: ['available', 'status', 'scope', 'pathChecks', 'pathLimit', 'knownCount', 'unknownCount', 'readOnlyCount', 'readWriteFlagCount', 'deniedCount', 'missingCount', 'unresolvedCount', 'errorCount', 'followSymlinks', 'writeProbeAttempted', 'evidenceOnly'], arrays: ['entries'] },
     'hardware/drm/widevine': { title: 'Widevine DRM 能力', order: ['supported', 'schemeUuid', 'vendor', 'version', 'description', 'algorithms', 'maxSecurityLevel', 'deviceUniqueId'], arrays: [] },
     'hardware/features-summary': { title: '系统特性能力摘要', order: ['count', 'namedCount', 'versionedCount', 'maxVersion', 'featureNamesTruncated'], arrays: ['featureNames', 'glEsVersions'] },
      'hardware/graphics-summary': { title: '图形能力摘要', order: ['available', 'eglInitialized', 'eglError', 'eglVendor', 'eglVersion', 'glVendor', 'glRenderer', 'glVersion', 'eglExtensionsLength', 'eglExtensionCount', 'glExtensionsLength', 'glExtensionCount', 'vulkanLibraryLoaded', 'vulkanExtensionResult', 'vulkanExtensionCount', 'vulkanExtensionNamesTruncated'], arrays: ['vulkanExtensionNames'] },
@@ -388,6 +389,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
           : key === 'security/providers-summary' && arrayKey === 'serviceNames' ? '服务名（最多 512 项）'
           : key === 'security/self-permissions' && arrayKey === 'permissions' ? '声明权限（最多 256 项）'
           : key === 'security/root-path-summary' && arrayKey === 'entries' ? '路径观察结果（固定 32 项，不执行）'
+          : key === 'security/root-mount-summary' && arrayKey === 'entries' ? '系统路径挂载标志（固定 7 项，不写入）'
           : key === 'storage/capacity-summary' && arrayKey === 'entries' ? '固定路径容量'
           : key === 'hardware/audio-summary'
             ? arrayKey === 'productNames' ? '音频设备名' : arrayKey === 'sampleRates' ? '采样率' : '编码格式'
@@ -407,7 +409,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     }
   }
   if (key === 'network/risk-signals' && typeof value.capabilitiesRaw === 'string') sections.push(section('capabilitiesRaw', '系统原始能力字符串', [row('value', value.capabilitiesRaw)], false));
-  if (key === 'security/root-path-summary') for (const group of sections) for (const entry of group.rows) {
+  if (key === 'security/root-path-summary' || key === 'security/root-mount-summary') for (const group of sections) for (const entry of group.rows) {
     if ((entry.key === 'status' || entry.key.endsWith('.status')) && Object.hasOwn(STATUS_LABELS, entry.value)) entry.value = STATUS_LABELS[entry.value];
   }
   return sections.filter(item => item.rows.length);

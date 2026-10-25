@@ -34,6 +34,7 @@ public final class SecurityCollector implements Collector {
         s.read("security","security/selinux-summary","SELinux 环境摘要","/sys/fs/selinux/enforce / /proc/self/attr/current",SecurityCollector::selinuxSummary);
         try{s.ok("security","security/root-path-summary","Root 相关路径检查摘要","jni","openat(O_PATH|O_NOFOLLOW) + fstatat(AT_SYMLINK_NOFOLLOW)",rootPathSummary());}
         catch(Exception|LinkageError e){s.failed("security","security/root-path-summary","Root 相关路径检查摘要","jni","openat + fstatat","error",e);}
+        s.read("security","security/root-mount-summary","Root 相关系统路径挂载标志","Os.statvfs / StructStatVfs.f_flag",SecurityCollector::rootMountSummary);
         s.ok("security","security/self","应用安全上下文","android-api","Process / ApplicationInfo / Debug",Json.obj("uid",android.os.Process.myUid(),"pid",android.os.Process.myPid(),"debuggable",(s.context.getApplicationInfo().flags&ApplicationInfo.FLAG_DEBUGGABLE)!=0,"debuggerConnected",Debug.isDebuggerConnected(),"waitingForDebugger",Debug.waitingForDebugger()));
         s.read("security","security/process-identity-summary","当前进程身份与沙箱摘要","Process / UserHandle",()->processIdentitySummary(s.context));
         s.read("security","security/self-runtime","应用运行时可分析配置","ApplicationInfo public runtime flags",()->selfRuntimeSummary(s.context));
@@ -75,6 +76,29 @@ public final class SecurityCollector implements Collector {
         if(errno==13||errno==1)return "denied";
         if(errno==20||errno==40)return "unresolved";
         return "error";
+    }
+    // 业务块：读取固定系统路径在当前 App 命名空间中的挂载标志，由内核解析路径，不进行写入探测。
+    private static JSONObject rootMountSummary()throws Exception{
+        String[] paths={"/system","/system/bin","/system/sbin","/system/xbin","/vendor/bin","/sbin","/etc"};
+        JSONArray entries=new JSONArray();int readOnly=0,readWrite=0,denied=0,missing=0,unresolved=0,errors=0;
+        for(String path:paths){
+            try{long flags=android.system.Os.statvfs(path).f_flag;JSONObject entry=rootMountFlags(path,flags);entries.put(entry);if(entry.getBoolean("readOnly"))readOnly++;else readWrite++;}
+            catch(android.system.ErrnoException e){
+                String status=rootPathStatus(Json.obj("ok",false,"errno",e.errno));
+                if(status.equals("denied"))denied++;else if(status.equals("missing"))missing++;else if(status.equals("unresolved"))unresolved++;else errors++;
+                entries.put(Json.obj("path",path,"status",status,"errno",e.errno,"flags",null,"readOnly",null,"noSuid",null,"noDev",null,"noExec",null));
+            }
+        }
+        int known=readOnly+readWrite;
+        return Json.obj("available",known>0,"status",known==paths.length?"ok":known>0?"partial":"unavailable",
+                "scope","current-app-mount-namespace","pathChecks",paths.length,"pathLimit",7,"knownCount",known,"unknownCount",paths.length-known,
+                "readOnlyCount",readOnly,"readWriteFlagCount",readWrite,"deniedCount",denied,"missingCount",missing,"unresolvedCount",unresolved,"errorCount",errors,
+                "followSymlinks",true,"writeProbeAttempted",false,"evidenceOnly",true,"entries",entries);
+    }
+    static JSONObject rootMountFlags(String path,long flags){
+        return Json.obj("path",path,"status","ok","errno",0,"flags",flags,
+                "readOnly",(flags&android.system.OsConstants.ST_RDONLY)!=0,"noSuid",(flags&android.system.OsConstants.ST_NOSUID)!=0,
+                "noDev",(flags&android.system.OsConstants.ST_NODEV)!=0,"noExec",(flags&android.system.OsConstants.ST_NOEXEC)!=0);
     }
     // 业务块：记录当前进程 UID 的公开分类和用户范围，不把 UID 类型直接解释为 Root 或欺诈。
     private static JSONObject processIdentitySummary(Context context){
