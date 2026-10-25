@@ -347,6 +347,24 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].title).toBe('用户与工作资料摘要');
     expect(sections[0].rows.map(row => row.key)).toEqual(['available', 'status', 'profileCount', 'managedProfile']);
   });
+  it('环境新增摘要按稳定顺序展示并保留原始对象', () => {
+    const standby = item('environment/app-standby', 'environment', { available: true, status: 'ok', bucket: 10, bucketName: 'active' });
+    expect(buildSections(standby)[0].rows.map(row => row.key)).toEqual(['available', 'status', 'bucket', 'bucketName']);
+    const settings = item('environment/system-settings', 'environment', { available: true, status: 'allowed', settings: { screen_brightness: '120', window_animation_scale: '1' } });
+    const original = JSON.stringify(settings);
+    expect(buildSections(settings)[0].rows.map(row => row.key)).toEqual(['available', 'status', 'settings.screen_brightness', 'settings.window_animation_scale']);
+    expect(JSON.stringify(settings)).toBe(original);
+    const provider = item('environment/webview-provider', 'environment', { packageName: 'com.android.webview', versionName: '120.0', versionCode: 1200000, signatures: [{ sha256: 'a'.repeat(64) }] });
+    expect(buildSections(provider).find(section => section.key === 'signatures')?.title).toBe('提供方签名 SHA-256');
+  });
+  it('进程退出摘要展示有限历史并格式化资源快照', () => {
+    const sections = buildSections(item('environment/process-exits', 'environment', {
+      available: true, status: 'ok', count: 1, limit: 32, reasons: { crash: 1 }, statuses: { '6': 1 },
+      entries: [{ processName: 'com.example', pid: 12, reason: 4, reasonName: 'crash', status: 6, importance: 100, timestamp: 1, pssBytes: 1048576, rssBytes: 2097152, processStateSummaryLength: 0, processStateSummarySha256: null }],
+    }));
+    expect(sections[0].rows.map(row => row.key)).toEqual(['available', 'status', 'count', 'limit', 'reasons.crash', 'statuses.6']);
+    expect(sections.find(section => section.key === 'entries')?.rows.find(row => row.key === '[0].pssBytes')?.value).toBe('1 MiB（1048576 B）');
+  });
   it('内存摘要展示容量与应用堆边界', () => {
     const value = { available: true, status: 'ok', activityManagerAvailable: true, totalMemBytes: { $type: 'int64' as const, value: '8589934592' }, availMemBytes: { $type: 'int64' as const, value: '4294967296' }, thresholdBytes: { $type: 'int64' as const, value: '805306368' }, lowMemory: false, lowRamDevice: false, memoryClassMb: 256, largeMemoryClassMb: 512, runtimeMaxMemoryBytes: { $type: 'int64' as const, value: '536870912' }, runtimeTotalMemoryBytes: { $type: 'int64' as const, value: '268435456' }, runtimeFreeMemoryBytes: { $type: 'int64' as const, value: '134217728' }, heapUsedBytes: { $type: 'int64' as const, value: '134217728' }, runtimeProcessorCount: 8 };
     const original = JSON.stringify(value);

@@ -295,9 +295,11 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     'hardware/vibrator': { title: '振动器能力', order: ['available', 'count', 'hasVibrator', 'hasAmplitudeControl'], arrays: ['vibrators'] },
     'hardware/nfc': { title: 'NFC 能力', order: ['available', 'enabled', 'secureNfcSupported', 'secureNfcEnabled', 'antennaInfoAvailable', 'antennaCount', 'deviceWidth', 'deviceHeight', 'deviceFoldable'], arrays: [] },
     'battery/summary': { title: '电池环境摘要', order: ['available', 'level', 'scale', 'percentage', 'status', 'charging', 'plugged', 'pluggedAc', 'pluggedUsb', 'pluggedWireless', 'health', 'temperatureC', 'voltageMv', 'technology', 'present', 'capacityPercent', 'chargeCounterUah', 'currentNowUa', 'currentAverageUa', 'energyCounterNwh'], arrays: [] },
+    'battery/cycle-count': { title: '电池循环次数', order: ['available', 'status', 'cycleCount'], arrays: [] },
     'sim/summary': { title: 'SIM 与电话环境摘要', order: ['available', 'phoneType', 'phoneCount', 'simState', 'simOperator', 'simOperatorName', 'simCountry', 'networkOperator', 'networkName', 'networkCountry', 'dataNetworkType', 'roaming', 'dataEnabled', 'subscriptionAccess', 'subscriptionCount', 'embeddedCount'], arrays: ['simStates', 'simSlotIndexes', 'carrierNames', 'mccs', 'mncs'] },
     'storage/summary': { title: '存储卷环境摘要', order: ['available', 'volumeCount', 'mountedCount', 'primaryCount', 'removableCount', 'emulatedCount', 'uuidPresentCount', 'stateCounts'], arrays: [] },
     'network/bluetooth-summary': { title: '蓝牙能力摘要', order: ['available', 'access', 'adapterState', 'adapterNamePresent', 'adapterAddressPresent', 'bondedCount', 'bondedNameCount', 'bondedAddressCount', 'bondedTypeCounts', 'bondedClassCounts'], arrays: [] },
+    'network/bluetooth-capabilities': { title: '蓝牙 LE 能力', order: ['available', 'access', 'adapterState', 'le2MPhySupported', 'leCodedPhySupported', 'leExtendedAdvertisingSupported', 'leMaximumAdvertisingDataLength'], arrays: [] },
     'network/wifi-summary': { title: 'Wi-Fi 能力摘要', order: ['available', 'wifiState', 'connectionAccess', 'scanAccess', 'connectionInfoAvailable', 'ssidPresent', 'bssidPresent', 'macAddressPresent', 'frequency', 'rssi', 'linkSpeed', 'cachedScanCount', 'ssidPresentCount', 'bssidPresentCount', 'band2_4GHzCount', 'band5GHzCount', 'band6GHzCount', 'frequenciesTruncated'], arrays: ['frequencies'] },
     'network/interface-summary': { title: '网络接口摘要', order: ['available', 'status', 'interfaceCount', 'upCount', 'downCount', 'loopbackCount', 'virtualCount', 'pointToPointCount', 'hardwareAddressPresentCount', 'addressCount', 'ipv4Count', 'ipv6Count', 'mtuMin', 'mtuMax', 'prefixCounts'], arrays: [] },
      'network/wifi-capabilities': { title: 'Wi-Fi 链路能力', order: ['available', 'access', 'wifiStandard', 'maxSupportedRxLinkSpeedMbps', 'maxSupportedTxLinkSpeedMbps', 'apMldMacPresent', 'apMloLinkId', 'affiliatedMloLinkCount'], arrays: [] },
@@ -313,12 +315,16 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     'security/selinux-summary': { title: 'SELinux 环境摘要', order: ['available', 'status', 'enforceFilePresent', 'enforcing', 'enforceValue', 'contextPresent', 'contextLength', 'contextSha256'], arrays: [] },
     'security/self-integrity': { title: '当前 App 签名与安装环境', order: ['packageName', 'versionName', 'versionCode', 'installer', 'enabled', 'applicationFlags', 'debuggable', 'hasCode', 'instantApp', 'packageSuspended', 'packageSuspensionQueryStatus', 'hasPastSigningCertificates'], arrays: ['signingCertificateSha256', 'signingCertificateHistorySha256'] },
     'environment/risk-settings': { title: '系统风控相关设置', order: ['adbEnabled', 'developmentSettingsEnabled', 'airplaneModeOn', 'autoTime', 'autoTimeZone', 'privateDnsMode', 'privateDnsSpecifier', 'wifiOn', 'bluetoothOn', 'accessibilityEnabled', 'mockLocation', 'installNonMarketApps'], arrays: [] },
+    'environment/system-settings': { title: '显示与动画设置摘要', order: ['available', 'status', 'settings'], arrays: [] },
      'environment/locale-summary': { title: '语言与时区摘要', order: ['available', 'localeTags', 'localeCount', 'defaultLocale', 'timezoneId', 'rawOffsetMillis', 'usesDaylightTime', 'inDaylightTime', 'is24HourFormat', 'layoutDirection', 'fontScale', 'densityDpi', 'uiMode', 'applicationLocaleAccess', 'applicationLocaleTags'], arrays: [] },
     'environment/clock-summary': { title: '系统时钟摘要', order: ['elapsedRealtimeMillis', 'uptimeMillis', 'wallClockMillis', 'bootTimeMillis', 'sleepMillis'], arrays: [] },
     'environment/android-id-summary': { title: 'Android ID 摘要', order: ['available', 'status', 'scope', 'androidIdPresent', 'androidIdLength', 'androidIdSha256'], arrays: [] },
     'environment/device-state': { title: '设备初始化与运行状态', order: ['deviceProvisioned', 'userSetupComplete', 'bootCount', 'lowRamDevice', 'demoUser', 'userUnlocked', 'userRunning', 'userMonkey', 'testHarness', 'backgroundRestricted'], arrays: [] },
     'environment/memory-summary': { title: '内存环境摘要', order: ['available', 'status', 'activityManagerAvailable', 'totalMemBytes', 'availMemBytes', 'thresholdBytes', 'lowMemory', 'lowRamDevice', 'memoryClassMb', 'largeMemoryClassMb', 'runtimeMaxMemoryBytes', 'runtimeTotalMemoryBytes', 'runtimeFreeMemoryBytes', 'heapUsedBytes', 'runtimeProcessorCount'], arrays: [] },
     'environment/user-profiles': { title: '用户与工作资料摘要', order: ['available', 'status', 'profileCount', 'managedProfile'], arrays: [] },
+    'environment/app-standby': { title: '当前 App 待机分桶', order: ['available', 'status', 'bucket', 'bucketName'], arrays: [] },
+    'environment/process-exits': { title: '当前 App 进程退出历史', order: ['available', 'status', 'count', 'limit', 'reasons', 'statuses'], arrays: ['entries'] },
+    'environment/low-power-standby': { title: '低功耗待机与重启能力', order: ['available', 'status', 'lowPowerStandbyEnabled', 'lowPowerStandbyExempt', 'rebootingUserspaceSupported'], arrays: [] },
     'kernel/process-status-summary': { title: '当前进程状态摘要', order: ['available', 'status', 'traced', 'tracerPid', 'state', 'threadCount', 'noNewPrivs', 'seccompMode', 'capEffPresent', 'capBndPresent', 'fieldsObserved', 'truncated'], arrays: [] },
     'kernel/mount-summary': { title: '挂载拓扑摘要', order: ['available', 'status', 'entryCount', 'readOnlyCount', 'sharedMountCount', 'masterMountCount', 'optionalFieldCount', 'overlayCount', 'tmpfsCount', 'procCount', 'sysfsCount', 'ext4Count', 'rootFsType', 'fsTypeCount', 'fsTypesTruncated', 'truncated', 'fsTypeCounts'], arrays: [] },
     'kernel/cgroup-summary': { title: 'Cgroup 环境摘要', order: ['available', 'status', 'cgroupVersion', 'entryCount', 'v1EntryCount', 'v2EntryCount', 'controllerCount', 'controllerNamesTruncated', 'maxPathDepth', 'dockerMarker', 'kubernetesMarker', 'lxcMarker', 'sandboxMarker', 'truncated'], arrays: ['controllerNames'] },
@@ -326,6 +332,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     'environment/location': { title: '定位与 GNSS 能力', order: ['available', 'locationEnabled', 'providerCount', 'hasGpsProvider', 'hasNetworkProvider', 'hasFusedProvider', 'gnssHardwareModelName', 'gnssYearOfHardware', 'gnssCapabilities', 'gnssAntennaCount', 'gnssAntennaInfoTruncated'], arrays: ['providers', 'gnssAntennaCarrierFrequenciesMHz'] },
     'sensors/summary': { title: '传感器能力摘要', order: ['count', 'wakeUpCount', 'dynamicCount', 'directChannelCount', 'vendorsTruncated', 'typeCounts'], arrays: ['vendors'] },
     'environment/webview-user-agent': { title: 'WebView 默认 User-Agent', order: ['userAgent', 'length'], arrays: [] },
+    'environment/webview-provider': { title: 'WebView 提供方环境', order: ['packageName', 'versionName', 'versionCode'], arrays: ['signatures'] },
     'environment/power-thermal': { title: '电源与热状态', order: ['powerSaveMode', 'interactive', 'ignoresBatteryOptimizations', 'batteryOptimizationQueryStatus', 'deviceIdleMode', 'lightDeviceIdleMode', 'locationPowerSaveMode', 'thermalStatus', 'thermalHeadroom'], arrays: [] },
     'hardware/usb': { title: 'USB 设备公开清单', order: ['count'], arrays: ['devices'] },
   };
@@ -347,6 +354,8 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
           : key === 'hardware/camera-summary' && arrayKey === 'cameraIds' ? '摄像头 ID'
           : key === 'security/self-integrity'
             ? arrayKey === 'signingCertificateSha256' ? '当前签名 SHA-256' : '签名历史 SHA-256'
+          : key === 'environment/process-exits' && arrayKey === 'entries' ? '最近退出条目'
+          : key === 'environment/webview-provider' && arrayKey === 'signatures' ? '提供方签名 SHA-256'
           : key === 'hardware/audio-summary'
             ? arrayKey === 'productNames' ? '音频设备名' : arrayKey === 'sampleRates' ? '采样率' : '编码格式'
           : key === 'kernel/cgroup-summary' && arrayKey === 'controllerNames' ? 'Cgroup 控制器'
