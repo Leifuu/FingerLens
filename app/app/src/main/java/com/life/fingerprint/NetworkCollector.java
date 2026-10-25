@@ -22,6 +22,7 @@ public final class NetworkCollector implements Collector {
         s.read("sim","sim/summary","SIM 与电话环境摘要","TelephonyManager / SubscriptionManager",()->simSummary(s.context));
         s.read("sim","sim/radio-summary","电话射频能力摘要","TelephonyManager public capability APIs",()->radioSummary(s.context));
         s.read("sim","sim/service-summary","电话注册服务摘要","TelephonyManager.getServiceState / ServiceState",()->serviceSummary(s.context));
+        s.read("sim","sim/signal-summary","电话信号摘要","TelephonyManager.getSignalStrength / SignalStrength",()->signalSummary(s.context));
         if(t==null)return;
         s.read("sim","sim/phoneType","电话类型","TelephonyManager.getPhoneType",t::getPhoneType);
         s.read("sim","sim/count","电话数量","TelephonyManager.getPhoneCount",t::getPhoneCount);
@@ -70,6 +71,17 @@ public final class NetworkCollector implements Collector {
         JSONArray bandwidths=new JSONArray();if(Build.VERSION.SDK_INT>=28){int[] values=state.getCellBandwidths();if(values!=null){TreeSet<Integer> sorted=new TreeSet<>();for(int value:values)if(value>=0)sorted.add(value);for(Integer value:sorted)if(bandwidths.length()<32)bandwidths.put(value);}}
         String alphaLong=state.getOperatorAlphaLong(),alphaShort=state.getOperatorAlphaShort(),numeric=state.getOperatorNumeric();
         return Json.obj("available",true,"status","ok","serviceState",state.getState(),"roaming",state.getRoaming(),"searching",Build.VERSION.SDK_INT>=30?state.isSearching():null,"nonTerrestrial",Build.VERSION.SDK_INT>=35?state.isUsingNonTerrestrialNetwork():null,"manualSelection",state.getIsManualSelection(),"operatorAlphaLongPresent",alphaLong!=null&&!alphaLong.isEmpty(),"operatorAlphaShortPresent",alphaShort!=null&&!alphaShort.isEmpty(),"operatorNumericPresent",numeric!=null&&!numeric.isEmpty(),"channelNumber",Build.VERSION.SDK_INT>=28?state.getChannelNumber():null,"duplexMode",Build.VERSION.SDK_INT>=28?state.getDuplexMode():null,"cellBandwidths",bandwidths,"registrationCount",registrations==null?null:registrations.size(),"registeredCount",registrations==null?null:registered,"roamingCount",registrations==null?null:roaming,"searchingCount",registrations==null?null:searching,"emergencyServiceCount",registrations==null?null:emergency,"nonTerrestrialCount",nonTerrestrial,"domainCounts",domains,"transportCounts",transports,"accessNetworkTechnologyCounts",accessNetworks);
+    }
+    // 业务块：记录动态信号环境的有界摘要，不读取 CellIdentity 或定位相关字段。
+    private static JSONObject signalSummary(Context context)throws Exception{
+        TelephonyManager manager=context.getSystemService(TelephonyManager.class);
+        if(manager==null)return Json.obj("available",false,"status","unavailable","signalLevel",null,"timestampMillis",null,"cellCount",null,"validCellCount",null,"typeCounts",new JSONObject(),"levelCounts",new JSONObject(),"dbmMin",null,"dbmMax",null,"asuMin",null,"asuMax",null);
+        if(Build.VERSION.SDK_INT<28)return Json.obj("available",true,"status","unsupported","signalLevel",null,"timestampMillis",null,"cellCount",null,"validCellCount",null,"typeCounts",new JSONObject(),"levelCounts",new JSONObject(),"dbmMin",null,"dbmMax",null,"asuMin",null,"asuMax",null);
+        SignalStrength strength=manager.getSignalStrength();
+        if(strength==null)return Json.obj("available",true,"status","unavailable","signalLevel",null,"timestampMillis",null,"cellCount",null,"validCellCount",null,"typeCounts",new JSONObject(),"levelCounts",new JSONObject(),"dbmMin",null,"dbmMax",null,"asuMin",null,"asuMax",null);
+        JSONObject types=new JSONObject(),levels=new JSONObject();Integer dbmMin=null,dbmMax=null,asuMin=null,asuMax=null;int valid=0;List<CellSignalStrength> cells=Build.VERSION.SDK_INT>=29?strength.getCellSignalStrengths():null;
+        if(cells!=null)for(CellSignalStrength cell:cells){if(cell==null)continue;count(types,cell.getClass().getSimpleName());int level=cell.getLevel();count(levels,String.valueOf(level));int dbm=cell.getDbm(),asu=cell.getAsuLevel();boolean dbmKnown=dbm!=Integer.MAX_VALUE&&dbm!=Integer.MIN_VALUE,asuKnown=asu>=0&&asu<99; if(dbmKnown){dbmMin=dbmMin==null?dbm:Math.min(dbmMin,dbm);dbmMax=dbmMax==null?dbm:Math.max(dbmMax,dbm);}if(asuKnown){asuMin=asuMin==null?asu:Math.min(asuMin,asu);asuMax=asuMax==null?asu:Math.max(asuMax,asu);}if(dbmKnown||asuKnown)valid++;}
+        return Json.obj("available",true,"status","ok","signalLevel",strength.getLevel(),"timestampMillis",Build.VERSION.SDK_INT>=30?strength.getTimestampMillis():null,"cellCount",cells==null?null:cells.size(),"validCellCount",cells==null?null:valid,"typeCounts",types,"levelCounts",levels,"dbmMin",dbmMin,"dbmMax",dbmMax,"asuMin",asuMin,"asuMax",asuMax);
     }
     private interface SimRead{Object get()throws Exception;}
     private static Object simRead(SimRead read){try{return read.get();}catch(Exception|LinkageError ignored){return null;}}

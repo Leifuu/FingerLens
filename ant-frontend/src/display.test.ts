@@ -267,6 +267,12 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.map(row => row.key)).toContain('registrationCount');
     expect(sections.find(section => section.key === 'cellBandwidths')?.rows).toHaveLength(2);
   });
+  it('电话信号摘要展示有界动态证据', () => {
+    const sections = buildSections(item('sim/signal-summary', 'sim', { available: true, status: 'ok', signalLevel: 3, timestampMillis: { $type: 'int64', value: '1000' }, cellCount: 2, validCellCount: 2, dbmMin: -105, dbmMax: -75, asuMin: 10, asuMax: 30, typeCounts: { CellSignalStrengthLte: 1 }, levelCounts: { '3': 1 } }));
+    expect(sections[0].title).toBe('电话信号摘要');
+    expect(sections[0].rows.map(row => row.key)).toContain('signalLevel');
+    expect(sections[0].rows.map(row => row.key)).not.toContain('cellIdentity');
+  });
   it('存储摘要展示存储卷拓扑与状态计数', () => {
     const sections = buildSections(item('storage/summary', 'storage', { available: true, volumeCount: 2, mountedCount: 2, primaryCount: 1, removableCount: 1, emulatedCount: 1, uuidPresentCount: 1, stateCounts: { mounted: 2 } }));
     expect(sections[0].title).toBe('存储卷环境摘要');
