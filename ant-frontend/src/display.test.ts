@@ -7,6 +7,22 @@ function item(key: string, category: string, value: Json): Item {
 }
 
 describe('设备格式化展示边界', () => {
+  it('APEX明细保留实际包名、重复、空值、int64和未来字段', () => {
+    const source = item('build/apex-packages', 'build', { packageCount: 2, packages: [
+      { packageName: 'actual.apex', versionName: '', versionCode: { $type: 'int64', value: '9007199254740993' }, future: null },
+      { packageName: 'actual.apex', versionName: null, versionCode: { $type: 'int64', value: '9223372036854775807' }, future: false },
+    ], futureMetadata: { flag: false } });
+    const before = JSON.stringify(source), groups = buildSections(source), rows = groups.find(group => group.key === 'packages')!.rows;
+    expect(rows.filter(row => row.key.endsWith('.packageName')).map(row => row.value)).toEqual(['actual.apex', 'actual.apex']);
+    expect(rows.find(row => row.key === '[0].versionName')?.value).toBe('');
+    expect(rows.find(row => row.key === '[1].versionName')?.value).toBe('null');
+    expect(rows.find(row => row.key === '[0].versionCode')?.value).toBe('9007199254740993');
+    expect(rows.find(row => row.key === '[1].versionCode')?.value).toBe('9223372036854775807');
+    expect(rows.find(row => row.key === '[0].future')?.value).toBe('null');
+    expect(rows.find(row => row.key === '[1].future')?.value).toBe('false');
+    expect(groups[0].rows.find(row => row.key === 'futureMetadata.flag')?.value).toBe('false');
+    expect(JSON.stringify(source)).toBe(before);
+  });
   it('模块关联包版本保留int64精度、未知字段和不可见状态，不改旧模块元数据', () => {
     const source = item('build/modules', 'build', { count: 2, modules: [
       { name: 'same', packageName: 'module.test', hidden: true, packageVersion: { status: 'ok', versionName: '', versionCode: { $type: 'int64', value: '9223372036854775807' }, isApex: true, future: { flag: false } } },

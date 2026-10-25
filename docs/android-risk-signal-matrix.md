@@ -80,6 +80,11 @@
 
 - `build/modules.modules[*].packageVersion` 通过API29+的 [MATCH_APEX](https://developer.android.com/reference/android/content/pm/PackageManager#MATCH_APEX) 查询模块关联包，保存版本名、int64版本号、APEX标志与独立查询状态；最多512个模块，同包名查询复用。未找到或不可见不冒充版本0/非APEX，原模块元数据、旧集合哈希与旧JSON保留。版本变化在完整模块清单比较，不将关联包版本当作所有内部组件版本或风险结论。
 
+## 实际 APEX 包清单补充
+
+- `build/apex-packages`独立使用API29+公开`getInstalledPackages(MATCH_APEX)`并按`isApex`筛选，记录当前App可见、已安装且已激活APEX的实际包名、版本名和int64版本号。与ModuleInfo配置包名不做推测关联；不覆盖原模块清单、不代表staged文件或完整设备库存。
+- 输入上限20000项，明细上限256项，完整排序数组SHA-256覆盖截断外变化并保留重复；空集合、unsupported、denied和error分开，未知不转false。旧JSON缺新增项正常比较，前端沿用每页50字段的通用展示。来源与规范化方式见[指纹来源说明](android-risk-fingerprint-sources.md#当前-app-可见的已安装-apex-包)。
+
 ## CLDR 数据版本补充
 
 - [LocaleData.getCLDRVersion](https://developer.android.com/reference/android/icu/util/LocaleData#getCLDRVersion()) 自API28公开，新增 `environment/cldr-version`。独立只读查询、保留完整版本原文；API24–27明确`unsupported + null`，资源异常不影响原ICU/Unicode/时区条目。不能由其它版本推测CLDR值，也不据此判定设备真实性；旧JSON新项缺失保持单侧差异。

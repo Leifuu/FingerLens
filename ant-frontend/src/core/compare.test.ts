@@ -6,6 +6,21 @@ const raw = { semantic: false, ignoreDynamic: false }, semantic = { semantic: tr
 const find = (rows: ReturnType<typeof compare>, key: string) => rows.find(x => x.key === key)!;
 
 describe('原始与语义比较', () => {
+  it('独立APEX清单兼容旧模块JSON，精确版本和完整集合哈希参与比较', () => {
+    const key = 'build/apex-packages';
+    const legacy = fixture([fixtureItem('build/modules', { modules: [{ packageName: 'configured.module' }] }, { category: 'build' })]);
+    const current = fixture([...legacy.data.items, fixtureItem(key, { packages: [{ packageName: 'actual.apex', versionName: null, versionCode: { $type: 'int64', value: '9007199254740992' } }], packageSetSha256: 'a' }, { category: 'build' })]);
+    const version = fixture([...legacy.data.items, fixtureItem(key, { packages: [{ packageName: 'actual.apex', versionName: null, versionCode: { $type: 'int64', value: '9007199254740993' } }], packageSetSha256: 'a' }, { category: 'build' })]);
+    const hash = structuredClone(current);(hash.data.items[1].value as Record<string, unknown>).packageSetSha256 = 'b';
+    const before = JSON.stringify([legacy, current, version, hash]);
+    for (const rules of [raw, semantic, smart]) {
+      expect(find(compare(legacy, current, rules), key).state).toBe('right-only');
+      expect(find(compare(legacy, current, rules), 'build/modules').state).toBe('same');
+      expect(find(compare(current, version, rules), key).state).toBe('different');
+      expect(find(compare(current, hash, rules), key).changedPaths).toEqual(['/value/packageSetSha256']);
+    }
+    expect(JSON.stringify([legacy, current, version, hash])).toBe(before);
+  });
   it('旧Mainline JSON保留模块元数据，关联包版本缺项与64位版本变化参与比较', () => {
     const key = 'build/modules', module = { name: 'test', packageName: 'module.test', hidden: true };
     const legacy = fixture([fixtureItem(key, { modules: [module] }, { category: 'build' })]);

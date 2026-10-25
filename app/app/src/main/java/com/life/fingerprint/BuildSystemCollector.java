@@ -54,6 +54,7 @@ public final class BuildSystemCollector implements Collector {
         s.read("build","build/sdk-extensions","SDK 扩展版本摘要","SdkExtensions.getAllExtensionVersions / getExtensionVersion",BuildSystemCollector::sdkExtensions);
         s.read("build","build/module-summary","Mainline 系统模块摘要","PackageManager.getInstalledModules",()->moduleSummary(s.context));
         s.read("build","build/modules","Mainline 系统模块清单","PackageManager.getInstalledModules / getPackageInfo(MATCH_APEX)",()->moduleList(s.context));
+        s.read("build","build/apex-packages","当前 App 可见的已安装 APEX 包","PackageManager.getInstalledPackages(MATCH_APEX) / PackageInfo.isApex",()->apexPackages(s.context));
         Commands.collect(s,"build","build/getprop","/system/bin/getprop");
     }
     // 业务块：把公开 ABI 列表压缩为架构族和位数计数；Build 原始字段继续保留。
@@ -126,6 +127,25 @@ public final class BuildSystemCollector implements Collector {
         catch(SecurityException e){Json.put(out,"status","denied");Json.put(out,"errorClass",e.getClass().getName());}
         catch(RuntimeException|LinkageError e){Json.put(out,"status","error");Json.put(out,"errorClass",e.getClass().getName());}
         return out;
+    }
+    // 业务块：独立枚举公开安装包中的 APEX，不把 ModuleInfo 配置包名猜成实际 APEX 包名。
+    private static JSONObject apexPackages(Context context)throws Exception{
+        if(Build.VERSION.SDK_INT<29)throw new UnsupportedOperationException("requires API 29");
+        PackageManager manager=context.getPackageManager();if(manager==null)throw new IllegalStateException("PackageManager unavailable");
+        return apexPackageValues(manager.getInstalledPackages(PackageManager.MATCH_APEX));
+    }
+    static JSONObject apexPackageValues(List<PackageInfo> packages)throws Exception{
+        if(packages==null||packages.size()>20000)throw new IllegalArgumentException("包清单缺失或超过 20000 项");
+        ArrayList<JSONObject> values=new ArrayList<>();
+        for(PackageInfo info:packages){
+            if(info==null)throw new IllegalArgumentException("包清单含 null 项");
+            if(!info.isApex)continue;
+            values.add(Json.obj("packageName",info.packageName,"versionName",info.versionName,"versionCode",info.getLongVersionCode()));
+        }
+        values.sort(Comparator.comparing(JSONObject::toString));JSONArray all=new JSONArray(values),entries=new JSONArray(values.subList(0,Math.min(256,values.size())));
+        return Json.obj("available",true,"status",values.size()>256?"partial":"ok","scope","current-app-visible-installed-apex",
+                "packageCount",values.size(),"returnedCount",entries.length(),"packageLimit",256,"truncated",values.size()>256,
+                "packageSetSha256",PackageInputCollector.sha(all.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)),"packages",entries);
     }
     private static List<ModuleInfo> installedModules(Context context){if(Build.VERSION.SDK_INT<29)throw new UnsupportedOperationException("requires API 29");PackageManager manager=context.getPackageManager();if(manager==null)throw new IllegalStateException("PackageManager unavailable");return manager.getInstalledModules(PackageManager.MATCH_ALL);}
     private static JSONArray boundedStrings(Collection<String> values,int limit){JSONArray out=new JSONArray();int count=0;for(String value:values){if(count++>=limit)break;out.put(value);}return out;}

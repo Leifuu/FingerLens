@@ -102,6 +102,13 @@
 
 - 真机边界（Pixel6/Android15，2026-10-26）：ModuleInfo中的41个配置包名仅6个关联包查询成功，35个返回未找到或不可见；例如配置为`com.google.android.art`，ADB的已安装APEX清单显示`com.android.art`。这证明配置名称与安装包名可以不同，不能仅替换名称前缀建立模块关联，也不能把查询失败当作APEX未安装。该ADB观察未写入App采集结果；实际APEX清单应另用公开包枚举查询验证。
 
+## 当前 App 可见的已安装 APEX 包
+
+- API29+通过[PackageManager.getInstalledPackages](https://developer.android.com/reference/android/content/pm/PackageManager#getInstalledPackages(int))传入`MATCH_APEX`，仅保留`PackageInfo.isApex=true`的项，新增独立条目`build/apex-packages`。依据上述固定AOSP公开契约，仅表示当前已安装、已激活且对本App可见的包，不包含待重启激活的staged文件，也不声称是设备完整库存。
+- 保留实际`packageName`、可空/可空字符串`versionName`及精确int64 `versionCode`；不将ModuleInfo配置包名强行映射到实际APEX，不替代原`build/modules`和`build/module-summary`。API29以下为unsupported，权限异常为denied，其它失败为error；缺失列表/null元素为错误，成功的空清单与查询失败分开。
+- 输入最多20000项，筛选后按每项JSON序列化文本排序，保留重复；完整数组的UTF-8 JSON文本计算`packageSetSha256`，明细最多256项，返回总数、明细数、上限和截断标志，超限status为partial。哈希覆盖截断外的版本变化，版本不转JavaScript浮点数。旧JSON缺此条目仍可导入、对比，已有通用字段分页用于展示；任何单包或集合差异均不独立证明Root、系统真实性或补丁安全性。
+- 真机验证（Pixel6/Android15，2026-10-26）：普通App公开枚举与独立Release采集均返回40个APEX包；`com.android.art`和`com.android.conscrypt`的版本号均为`352090000`，`com.android.i18n`为`1`，三者versionName均为null。原41项Mainline清单及其摘要与上一报告完全相同；这些观察仅对应当前设备状态。
+
 ## CLDR 区域数据版本
 
 - [LocaleData.getCLDRVersion](https://developer.android.com/reference/android/icu/util/LocaleData#getCLDRVersion())（2026-10-26 核对 SDK37.0，自 API28 公开）：读取当前平台 ICU 使用的 CLDR 数据版本，与 ICU 运行库、Unicode 数据及 ICU 时区数据版本分别记录。[ICU 官方固定实现](https://github.com/unicode-org/icu/blob/ad110a2381f1b75bfb875fb0b672b7c38dce4e4b/icu4j/main/core/src/main/java/com/ibm/icu/util/LocaleData.java) 从 supplementalData 的 cldrVersion 资源取得版本，不能按 ICU 版本号或上游发布版本推测设备值。

@@ -21,6 +21,44 @@ public class CollectionChecks {
     private Context context;
     private final ArrayList<CollectionController> controllers=new ArrayList<>();
     @Before public void setup(){context=InstrumentationRegistry.getInstrumentation().getTargetContext();}
+    @Test public void apexPackagesMatchPublicEnumeration()throws Exception{
+        ItemSink sink=new ItemSink(context,"apex-test");new BuildSystemCollector("build").collect(sink);
+        JSONObject collected=null;boolean modules=false,summary=false;
+        for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);String key=item.getString("key");if(key.equals("build/apex-packages"))collected=item;if(key.equals("build/modules"))modules=true;if(key.equals("build/module-summary"))summary=true;}
+        assertNotNull(collected);assertTrue(modules);assertTrue(summary);
+        if(Build.VERSION.SDK_INT<29){assertEquals("unsupported",collected.getString("status"));return;}
+        assertEquals("ok",collected.getString("status"));JSONObject actual=collected.getJSONObject("value");
+        List<android.content.pm.PackageInfo> installed=context.getPackageManager().getInstalledPackages(android.content.pm.PackageManager.MATCH_APEX);
+        ArrayList<JSONObject> expected=new ArrayList<>();ArrayList<String> names=new ArrayList<>();
+        for(android.content.pm.PackageInfo info:installed)if(info.isApex){expected.add(Json.obj("packageName",info.packageName,"versionName",info.versionName,"versionCode",info.getLongVersionCode()));names.add(info.packageName);}
+        expected.sort(Comparator.comparing(JSONObject::toString));JSONArray all=new JSONArray(expected),entries=actual.getJSONArray("packages");
+        assertEquals("current-app-visible-installed-apex",actual.getString("scope"));assertTrue(actual.getBoolean("available"));
+        assertEquals(expected.size(),actual.getInt("packageCount"));assertEquals(Math.min(256,expected.size()),actual.getInt("returnedCount"));assertEquals(256,actual.getInt("packageLimit"));
+        assertEquals(expected.size()>256,actual.getBoolean("truncated"));assertEquals(expected.size()>256?"partial":"ok",actual.getString("status"));
+        assertEquals(PackageInputCollector.sha(all.toString().getBytes(StandardCharsets.UTF_8)),actual.getString("packageSetSha256"));
+        for(int i=0;i<entries.length();i++){assertEquals(expected.get(i).toString(),entries.getJSONObject(i).toString());assertEquals("int64",entries.getJSONObject(i).getJSONObject("versionCode").getString("$type"));}
+        Bundle evidence=new Bundle();evidence.putString("apexPackageCount",String.valueOf(expected.size()));evidence.putString("apexPackageNames",names.toString());InstrumentationRegistry.getInstrumentation().sendStatus(0,evidence);
+    }
+    @Test public void apexPackagesKeepPrecisionDuplicatesAndFullHash()throws Exception{
+        Assume.assumeTrue(Build.VERSION.SDK_INT>=29);
+        ArrayList<android.content.pm.PackageInfo> input=new ArrayList<>();
+        for(int i=259;i>=0;i--){android.content.pm.PackageInfo info=new android.content.pm.PackageInfo();info.isApex=true;info.packageName=String.format(Locale.ROOT,"apex.%03d",i);info.versionName=i==0?null:"";info.setLongVersionCode(Long.MAX_VALUE-i);input.add(info);}
+        android.content.pm.PackageInfo apk=new android.content.pm.PackageInfo();apk.packageName="ordinary.apk";input.add(apk);
+        android.content.pm.PackageInfo duplicate=input.get(0);input.add(duplicate);
+        ArrayList<android.content.pm.PackageInfo> original=new ArrayList<>(input);
+        JSONObject result=BuildSystemCollector.apexPackageValues(input);JSONArray values=result.getJSONArray("packages");
+        assertEquals(original,input);assertEquals(261,result.getInt("packageCount"));assertEquals(256,values.length());assertTrue(result.getBoolean("truncated"));assertEquals("partial",result.getString("status"));
+        assertEquals("apex.000",values.getJSONObject(0).getString("packageName"));assertTrue(values.getJSONObject(0).isNull("versionName"));assertEquals("",values.getJSONObject(1).getString("versionName"));
+        assertEquals(String.valueOf(Long.MAX_VALUE),values.getJSONObject(0).getJSONObject("versionCode").getString("value"));
+        Collections.reverse(input);assertEquals(result.toString(),BuildSystemCollector.apexPackageValues(input).toString());
+        duplicate.setLongVersionCode(9007199254740993L);JSONObject changed=BuildSystemCollector.apexPackageValues(input);assertEquals(values.toString(),changed.getJSONArray("packages").toString());assertNotEquals(result.getString("packageSetSha256"),changed.getString("packageSetSha256"));
+        JSONObject repeated=BuildSystemCollector.apexPackageValues(Arrays.asList(duplicate,apk,duplicate));assertEquals(2,repeated.getInt("packageCount"));assertEquals(repeated.getJSONArray("packages").getJSONObject(0).toString(),repeated.getJSONArray("packages").getJSONObject(1).toString());
+        duplicate.packageName=null;duplicate.versionName="";assertTrue(BuildSystemCollector.apexPackageValues(Collections.singletonList(duplicate)).getJSONArray("packages").getJSONObject(0).isNull("packageName"));
+        JSONObject empty=BuildSystemCollector.apexPackageValues(Collections.singletonList(apk));assertEquals("ok",empty.getString("status"));assertEquals(0,empty.getInt("packageCount"));assertFalse(empty.getBoolean("truncated"));assertEquals(PackageInputCollector.sha("[]".getBytes(StandardCharsets.UTF_8)),empty.getString("packageSetSha256"));
+        try{BuildSystemCollector.apexPackageValues(null);fail("缺失清单不能冒充空集合");}catch(IllegalArgumentException expected){}
+        try{BuildSystemCollector.apexPackageValues(Collections.singletonList(null));fail("null元素不能静默丢失");}catch(IllegalArgumentException expected){}
+        try{BuildSystemCollector.apexPackageValues(Collections.nCopies(20001,apk));fail("超过输入上限应明确失败");}catch(IllegalArgumentException expected){}
+    }
     @Test public void moduleVersionsMatchVisiblePackagesAndKeepFailuresSeparate()throws Exception{
         android.content.pm.PackageManager manager=context.getPackageManager();
         if(Build.VERSION.SDK_INT<29){assertEquals("unsupported",BuildSystemCollector.modulePackageVersion(manager,context.getPackageName()).getString("status"));return;}
