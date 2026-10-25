@@ -200,6 +200,11 @@ public class CollectionChecks {
         JSONObject capabilities=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("network/bluetooth-capabilities")){capabilities=item;break;}}
         assertNotNull("应记录蓝牙 LE 能力",capabilities);assertEquals("ok",capabilities.getString("status"));JSONObject value=capabilities.getJSONObject("value");assertTrue(value.has("available"));assertTrue(value.has("access"));assertTrue(value.has("le2MPhySupported"));assertTrue(value.has("leCodedPhySupported"));assertTrue(value.has("leExtendedAdvertisingSupported"));assertTrue(value.has("leMaximumAdvertisingDataLength"));
     }
+    @Test public void activeNetworkKeepsVersionedCapabilityBoundaries()throws Exception{
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new NetworkCollector("network").collect(sink);
+        JSONObject risk=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("network/risk-signals")){risk=item;break;}}
+        assertNotNull("应记录活动链路风控信号",risk);assertEquals("ok",risk.getString("status"));JSONObject value=risk.getJSONObject("value");if(value.optBoolean("capabilitiesAvailable")){assertTrue(value.has("capabilityStates"));JSONObject states=value.getJSONObject("capabilityStates");assertTrue(states.has("internet"));assertTrue(states.has("notSuspended"));assertTrue(states.has("notCongested"));assertTrue(states.has("temporarilyNotMetered"));assertTrue(states.has("notBandwidthConstrained"));assertTrue(states.has("enterprise"));assertTrue(states.has("localNetwork"));}
+    }
     @Test public void wifiSummaryKeepsScanPermissionBoundaryExplicit()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new NetworkCollector("network").collect(sink);
         JSONObject summary=null,raw=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("network/wifi-summary"))summary=item;if(item.getString("key").equals("network/wifi-cached-scan"))raw=item;}

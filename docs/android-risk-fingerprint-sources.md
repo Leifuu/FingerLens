@@ -5,7 +5,7 @@
 ## 官方 Android 网络资料
 
 - [ConnectivityManager](https://developer.android.com/reference/android/net/ConnectivityManager)：定义活动网络查询入口。
-- [NetworkCapabilities](https://developer.android.com/reference/android/net/NetworkCapabilities)：公开 transport 与 capability，例如 VPN、VALIDATED、CAPTIVE_PORTAL、NOT_METERED、NOT_ROAMING、TRUSTED 等。
+- [NetworkCapabilities](https://developer.android.com/reference/android/net/NetworkCapabilities)：公开 transport 与 capability，例如 VPN、VALIDATED、CAPTIVE_PORTAL、NOT_METERED、NOT_ROAMING、TRUSTED 等；本工程的 `network/risk-signals.capabilityStates` 还记录 INTERNET、NOT_SUSPENDED、NOT_CONGESTED、临时非计费、非带宽受限、企业网络和本地网络能力，旧的顶层能力字段继续保留，低版本以 `null` 表示不适用。
 - [ProxyInfo](https://developer.android.com/reference/android/net/ProxyInfo)：公开默认代理主机、端口、排除列表和 PAC URI；本工程新增 `network/proxy-summary`，只记录是否配置、主机存在性/长度/ SHA-256、端口、排除项数量和 PAC scheme，完整 `network/proxy` 原始条目继续保留。
 - [LinkProperties](https://developer.android.com/reference/android/net/LinkProperties)：公开活动链路 Private DNS 是否启用、活动链路 DNS 服务器列表和服务器名称；本工程新增 `network/private-dns-summary`，只记录链路状态、DNS 地址族计数和名称 SHA-256，不复制 DNS 地址或名称原文。
 - 本工程新增 `network/risk-signals`，只保存活动链路的这些公开能力、是否计费、接口名和代理摘要；值仍由 `ItemSink` 独立记录状态，VPN 或代理不会被自动判定为恶意。

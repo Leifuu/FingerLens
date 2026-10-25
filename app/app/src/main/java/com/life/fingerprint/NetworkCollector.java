@@ -66,7 +66,7 @@ public final class NetworkCollector implements Collector {
             JSONArray transports=new JSONArray();
             for(int type=0;type<=6;type++)if(cap.hasTransport(type))transports.put(type);
             return Json.obj("present",true,"capabilitiesAvailable",true,"networkHandle",active.getNetworkHandle(),
-                    "transports",transports,"vpn",cap.hasTransport(NetworkCapabilities.TRANSPORT_VPN),
+                    "transports",transports,"capabilityStates",capabilityStates(cap),"vpn",cap.hasTransport(NetworkCapabilities.TRANSPORT_VPN),
                     "validated",cap.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
                     "captivePortal",cap.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL),
                     "notVpn",cap.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN),
@@ -95,6 +95,17 @@ public final class NetworkCollector implements Collector {
         s.read("network","network/bluetooth-summary","蓝牙能力摘要","BluetoothManager / BluetoothAdapter",()->bluetoothSummary(s.context));
         s.read("network","network/bluetooth-capabilities","蓝牙 LE 能力","BluetoothAdapter LE capability APIs",()->bluetoothCapabilities(s.context));
         for(String p:new String[]{"/proc/net/route","/proc/net/ipv6_route","/proc/net/if_inet6","/proc/net/arp","/proc/net/dev"})s.file("network","network/file"+p,p);
+    }
+    // 业务块：保留公开 NetworkCapabilities 的版本边界；不支持的能力返回 null 而不是 false。
+    private static JSONObject capabilityStates(NetworkCapabilities capabilities){
+        JSONObject out=Json.obj("internet",capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET),
+                "notSuspended",Build.VERSION.SDK_INT>=28?capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_SUSPENDED):null,
+                "notCongested",Build.VERSION.SDK_INT>=28?capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_CONGESTED):null,
+                "temporarilyNotMetered",Build.VERSION.SDK_INT>=26?capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_TEMPORARILY_NOT_METERED):null,
+                "notBandwidthConstrained",Build.VERSION.SDK_INT>=31?capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_BANDWIDTH_CONSTRAINED):null,
+                "enterprise",Build.VERSION.SDK_INT>=31?capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_ENTERPRISE):null,
+                "localNetwork",Build.VERSION.SDK_INT>=35?capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_LOCAL_NETWORK):null);
+        return out;
     }
     // 业务块：只汇总接口数量、地址族和受控名称前缀，不复制接口名、地址或 MAC；network/interfaces 继续保留。
     private static JSONObject interfaceSummary()throws Exception{

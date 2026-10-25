@@ -75,10 +75,12 @@ describe('设备格式化展示边界', () => {
     expect(JSON.stringify(sections)).not.toContain('AA:BB:CC:DD:EE:FF');
     expect(JSON.stringify(value)).toBe(original);
   });
-  it('风控摘要使用专用分组并保留数组与原始链路字符串', () => {
-    const sections = buildSections(item('network/risk-signals', 'network', { present: true, validated: true, vpn: false, transports: [1], capabilitiesRaw: 'raw-capabilities' }));
+  it('风控摘要使用专用分组并保留版本化能力状态', () => {
+    const sections = buildSections(item('network/risk-signals', 'network', { present: true, validated: true, vpn: false, transports: [1], capabilityStates: { internet: true, notSuspended: true, localNetwork: null }, capabilitiesRaw: 'raw-capabilities' }));
     expect(sections.find(section => section.key === 'summary')?.title).toBe('活动链路摘要');
     expect(sections.find(section => section.key === 'transports')?.rows[0].value).toBe('1');
+    expect(sections.find(section => section.key === 'summary')?.rows.find(row => row.key === 'capabilityStates.internet')?.value).toBe('true');
+    expect(sections.find(section => section.key === 'summary')?.rows.find(row => row.key === 'capabilityStates.localNetwork')?.value).toBe('null');
     expect(sections.find(section => section.key === 'capabilitiesRaw')?.rows[0].value).toBe('raw-capabilities');
   });
   it('网络集合摘要展示所有链路能力计数', () => {
