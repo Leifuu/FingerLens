@@ -20,6 +20,7 @@ public final class NetworkCollector implements Collector {
     private void sim(ItemSink s){
         TelephonyManager t=s.context.getSystemService(TelephonyManager.class);
         s.read("sim","sim/summary","SIM 与电话环境摘要","TelephonyManager / SubscriptionManager",()->simSummary(s.context));
+        s.read("sim","sim/radio-summary","电话射频能力摘要","TelephonyManager public capability APIs",()->radioSummary(s.context));
         if(t==null)return;
         s.read("sim","sim/phoneType","电话类型","TelephonyManager.getPhoneType",t::getPhoneType);
         s.read("sim","sim/count","电话数量","TelephonyManager.getPhoneCount",t::getPhoneCount);
@@ -49,6 +50,12 @@ public final class NetworkCollector implements Collector {
         SubscriptionManager manager=context.getSystemService(SubscriptionManager.class);if(manager==null){Json.put(value,"subscriptionAccess","unavailable");Json.put(value,"subscriptionCount",null);Json.put(value,"simSlotIndexes",new JSONArray());Json.put(value,"carrierNames",new JSONArray());Json.put(value,"mccs",new JSONArray());Json.put(value,"mncs",new JSONArray());Json.put(value,"embeddedCount",null);return value;}
         try{List<SubscriptionInfo> list=manager.getActiveSubscriptionInfoList();JSONArray simSlotIndexes=new JSONArray(),carrierNames=new JSONArray(),mccs=new JSONArray(),mncs=new JSONArray();int embeddedCount=0;if(list!=null)for(SubscriptionInfo info:list){if(simSlotIndexes.length()>=16)break;simSlotIndexes.put(info.getSimSlotIndex());CharSequence carrier=info.getCarrierName();if(carrier!=null)carrierNames.put(carrier.toString());if(Build.VERSION.SDK_INT>=29){String mcc=info.getMccString(),mnc=info.getMncString();if(mcc!=null)mccs.put(mcc);if(mnc!=null)mncs.put(mnc);if(info.isEmbedded())embeddedCount++;}}Json.put(value,"subscriptionAccess",list==null?"empty":"allowed");Json.put(value,"subscriptionCount",list==null?null:list.size());Json.put(value,"simSlotIndexes",simSlotIndexes);Json.put(value,"carrierNames",carrierNames);Json.put(value,"mccs",mccs);Json.put(value,"mncs",mncs);Json.put(value,"embeddedCount",Build.VERSION.SDK_INT>=29?embeddedCount:null);
         }catch(SecurityException e){Json.put(value,"subscriptionAccess","denied");Json.put(value,"subscriptionCount",null);Json.put(value,"simSlotIndexes",new JSONArray());Json.put(value,"carrierNames",new JSONArray());Json.put(value,"mccs",new JSONArray());Json.put(value,"mncs",new JSONArray());Json.put(value,"embeddedCount",null);}return value;
+    }
+    // 业务块：记录不含设备标识的公开射频能力；API 不适用时保留 null，不把缺失解释为无能力。
+    private static JSONObject radioSummary(Context context){
+        TelephonyManager manager=context.getSystemService(TelephonyManager.class);
+        if(manager==null)return Json.obj("available",false,"status","unavailable","activeModemCount",null,"supportedModemCount",null,"supportedRadioAccessFamily",null,"dataCapable",null,"voiceCapable",null,"smsCapable",null,"deviceVoiceCapable",null,"deviceSmsCapable",null);
+        return Json.obj("available",true,"status","ok","activeModemCount",Build.VERSION.SDK_INT>=30?simRead(manager::getActiveModemCount):null,"supportedModemCount",Build.VERSION.SDK_INT>=30?simRead(manager::getSupportedModemCount):null,"supportedRadioAccessFamily",Build.VERSION.SDK_INT>=33?simRead(manager::getSupportedRadioAccessFamily):null,"dataCapable",Build.VERSION.SDK_INT>=31?simRead(manager::isDataCapable):null,"voiceCapable",Build.VERSION.SDK_INT>=22?simRead(manager::isVoiceCapable):null,"smsCapable",Build.VERSION.SDK_INT>=21?simRead(manager::isSmsCapable):null,"deviceVoiceCapable",Build.VERSION.SDK_INT>=35?simRead(manager::isDeviceVoiceCapable):null,"deviceSmsCapable",Build.VERSION.SDK_INT>=35?simRead(manager::isDeviceSmsCapable):null);
     }
     private interface SimRead{Object get()throws Exception;}
     private static Object simRead(SimRead read){try{return read.get();}catch(Exception|LinkageError ignored){return null;}}

@@ -255,6 +255,12 @@ describe('设备格式化展示边界', () => {
     expect(sections.find(section => section.key === 'simStates')?.rows.map(row => row.value)).toEqual(['5', '1']);
     expect(sections.find(section => section.key === 'mccs')?.rows[0].value).toBe('460');
   });
+  it('电话射频摘要展示设备能力而不展开敏感标识', () => {
+    const sections = buildSections(item('sim/radio-summary', 'sim', { available: true, status: 'ok', activeModemCount: 2, supportedModemCount: 2, supportedRadioAccessFamily: { $type: 'int64', value: '123' }, dataCapable: true, voiceCapable: true, smsCapable: true, deviceVoiceCapable: true, deviceSmsCapable: true }));
+    expect(sections[0].title).toBe('电话射频能力摘要');
+    expect(sections[0].rows.map(row => row.key)).toContain('activeModemCount');
+    expect(sections[0].rows.map(row => row.key)).not.toContain('imei');
+  });
   it('存储摘要展示存储卷拓扑与状态计数', () => {
     const sections = buildSections(item('storage/summary', 'storage', { available: true, volumeCount: 2, mountedCount: 2, primaryCount: 1, removableCount: 1, emulatedCount: 1, uuidPresentCount: 1, stateCounts: { mounted: 2 } }));
     expect(sections[0].title).toBe('存储卷环境摘要');
