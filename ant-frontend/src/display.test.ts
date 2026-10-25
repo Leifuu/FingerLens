@@ -609,7 +609,7 @@ describe('设备格式化展示边界', () => {
     expect(JSON.stringify(value)).toBe(original);
   });
   it('国际化版本按原始文本展示，保留尾部零、未知格式、空字符串与null', () => {
-    for (const key of ['environment/icu-version', 'environment/unicode-version', 'environment/tzdata-version']) {
+    for (const key of ['environment/icu-version', 'environment/unicode-version', 'environment/tzdata-version', 'environment/cldr-version']) {
       for (const value of ['75.1.0.0', 'future-version+data', '', null]) {
         const source = item(key, 'environment', value), before = JSON.stringify(source);
         expect(buildSections(source)[0].rows[0].value).toBe(value === null ? 'null' : value);

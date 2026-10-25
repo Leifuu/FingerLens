@@ -6,6 +6,21 @@ const raw = { semantic: false, ignoreDynamic: false }, semantic = { semantic: tr
 const find = (rows: ReturnType<typeof compare>, key: string) => rows.find(x => x.key === key)!;
 
 describe('原始与语义比较', () => {
+  it('CLDR 新条目兼容旧国际化JSON，API28以下不支持区别于成功值', () => {
+    const key = 'environment/cldr-version';
+    const legacy = fixture([fixtureItem('environment/icu-version', '75.1.0.0', { category: 'environment' })]);
+    const current = fixture([...legacy.data.items, fixtureItem(key, '45.0.0.0', { category: 'environment' })]);
+    const unsupported = fixture([...legacy.data.items, fixtureItem(key, null, { category: 'environment', status: 'unsupported', dataType: 'null' })]);
+    const changed = structuredClone(current);changed.data.items[1].value = '45.0';
+    const before = JSON.stringify([legacy, current, unsupported, changed]);
+    for (const rules of [raw, semantic, smart]) {
+      expect(find(compare(legacy, current, rules), key).state).toBe('right-only');
+      expect(find(compare(current, unsupported, rules), key).state).toBe('status');
+      expect(find(compare(current, unsupported, rules), 'environment/icu-version').state).toBe('same');
+      expect(find(compare(current, changed, rules), key).changedPaths).toEqual(['/value']);
+    }
+    expect(JSON.stringify([legacy, current, unsupported, changed])).toBe(before);
+  });
   it('TLS 参数兼容旧JSON，默认/支持列表及截断外哈希独立参与比较', () => {
     const key = 'security/tls-parameters';
     const legacy = fixture([fixtureItem('security/providers', [{ name: 'test' }], { category: 'security' })]);

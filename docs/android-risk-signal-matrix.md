@@ -76,6 +76,10 @@
 | 系统字体集合 | [SystemFonts](https://developer.android.com/reference/android/graphics/fonts/SystemFonts) 与 [Font](https://developer.android.com/reference/android/graphics/fonts/Font) 自 API 29 公开系统字体和样式元数据。 | `environment/system-fonts` | 最多保存 128 项明细，完整排序元数据多重集合 SHA-256；保留 basename、TTC 索引、字重、倾斜、语言及变体设置和无文件 null，不读取正文、不导出完整路径。哈希不是文件内容哈希或永久设备 ID，旧 JSON 不变。 |
 | 资源语言集合 | [FingerprintJS Android 固定实现](https://github.com/fingerprintjs/fingerprintjs-android/blob/a9c2bf327877115481049935dd99e8e78dae0cf0/fingerprint/src/main/java/com/fingerprintjs/android/fingerprint/info_providers/DevicePersonalizationInfoProvider.kt) 读取 AssetManager.locales；公开 [AssetManager.getLocales](https://developer.android.com/reference/android/content/res/AssetManager#getLocales()) 返回该资源集合的语言标签。 | `environment/resource-locales` | 分别记录 App 已加载资源（含系统资源）和系统资源；每组最多 256 项、完整排序 JSON 数组哈希，保留原始标签/重复/空值，不等同用户语言、APK 自身翻译集合或硬件 ID；旧 JSON 不变。 |
 
+## CLDR 数据版本补充
+
+- [LocaleData.getCLDRVersion](https://developer.android.com/reference/android/icu/util/LocaleData#getCLDRVersion()) 自API28公开，新增 `environment/cldr-version`。独立只读查询、保留完整版本原文；API24–27明确`unsupported + null`，资源异常不影响原ICU/Unicode/时区条目。不能由其它版本推测CLDR值，也不据此判定设备真实性；旧JSON新项缺失保持单侧差异。
+
 ## 当前缺口与下一步候选
 
 - TLS 参数已增加紧凑摘要：已知17字段合并为9行，完整字段折叠保留；完整列表哈希和未知元数据变化仍参与概览差异，旧结构回退原字段表。四组协议/密码套件原序清单、schema1.0和比较器不变。

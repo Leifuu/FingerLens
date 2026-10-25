@@ -250,6 +250,7 @@ public final class BuildSystemCollector implements Collector {
         s.read("environment","environment/icu-version","ICU 运行库版本","android.icu.util.VersionInfo.ICU_VERSION",()->android.icu.util.VersionInfo.ICU_VERSION.toString());
         s.read("environment","environment/unicode-version","Unicode 数据版本","android.icu.lang.UCharacter.getUnicodeVersion",()->android.icu.lang.UCharacter.getUnicodeVersion().toString());
         s.read("environment","environment/tzdata-version","ICU 时区数据版本","android.icu.util.TimeZone.getTZDataVersion",android.icu.util.TimeZone::getTZDataVersion);
+        s.read("environment","environment/cldr-version","CLDR 区域数据版本","android.icu.util.LocaleData.getCLDRVersion",()->{if(Build.VERSION.SDK_INT<28)throw new UnsupportedOperationException("requires API 28");return android.icu.util.LocaleData.getCLDRVersion().toString();});
         s.read("environment","environment/resource-locales","资源语言集合摘要","AssetManager.getLocales / Resources.getSystem",()->resourceLocaleValues(s.context.getAssets().getLocales(),android.content.res.Resources.getSystem().getAssets().getLocales()));
         s.read("environment","environment/system-fonts","系统字体集合摘要","SystemFonts.getAvailableFonts / Font metadata",BuildSystemCollector::systemFonts);
         s.read("environment","environment/android-id-summary","Android ID 摘要","Settings.Secure.ANDROID_ID",()->androidIdSummary(s.context));
