@@ -108,6 +108,7 @@
 - 保留实际`packageName`、可空/可空字符串`versionName`及精确int64 `versionCode`；不将ModuleInfo配置包名强行映射到实际APEX，不替代原`build/modules`和`build/module-summary`。API29以下为unsupported，权限异常为denied，其它失败为error；缺失列表/null元素为错误，成功的空清单与查询失败分开。
 - 输入最多20000项，筛选后按每项JSON序列化文本排序，保留重复；完整数组的UTF-8 JSON文本计算`packageSetSha256`，明细最多256项，返回总数、明细数、上限和截断标志，超限status为partial。哈希覆盖截断外的版本变化，版本不转JavaScript浮点数。旧JSON缺此条目仍可导入、对比，已有通用字段分页用于展示；任何单包或集合差异均不独立证明Root、系统真实性或补丁安全性。
 - 真机验证（Pixel6/Android15，2026-10-26）：普通App公开枚举与独立Release采集均返回40个APEX包；`com.android.art`和`com.android.conscrypt`的版本号均为`352090000`，`com.android.i18n`为`1`，三者versionName均为null。原41项Mainline清单及其摘要与上一报告完全相同；这些观察仅对应当前设备状态。
+- 展示：`packages`组默认按原始序号合并为包概览，每页20个包，直接比较包名、精确版本号和版本名，保留重复包名。未知字段参与整行差异，完整字段折叠后仍可展开并按50字段分页；空数组、旧结构缺少包名/版本号或复杂身份字段回退原字段表。null、空字符串和单侧缺项分别显示；窄屏可横向滚动到两侧版本及状态，原报告与比较规则不改。
 
 ## CLDR 区域数据版本
 

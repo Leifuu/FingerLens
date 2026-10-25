@@ -83,7 +83,7 @@
 ## 实际 APEX 包清单补充
 
 - `build/apex-packages`独立使用API29+公开`getInstalledPackages(MATCH_APEX)`并按`isApex`筛选，记录当前App可见、已安装且已激活APEX的实际包名、版本名和int64版本号。与ModuleInfo配置包名不做推测关联；不覆盖原模块清单、不代表staged文件或完整设备库存。
-- 输入上限20000项，明细上限256项，完整排序数组SHA-256覆盖截断外变化并保留重复；空集合、unsupported、denied和error分开，未知不转false。旧JSON缺新增项正常比较，前端沿用每页50字段的通用展示。来源与规范化方式见[指纹来源说明](android-risk-fingerprint-sources.md#当前-app-可见的已安装-apex-包)。
+- 输入上限20000项，明细上限256项，完整排序数组SHA-256覆盖截断外变化并保留重复；空集合、unsupported、denied和error分开，未知不转false。旧JSON缺新增项正常比较；前端默认每页20包概览，未知字段参与差异，原字段折叠后按每页50字段展示，不完整旧结构回退通用表。来源与规范化方式见[指纹来源说明](android-risk-fingerprint-sources.md#当前-app-可见的已安装-apex-包)。
 
 ## CLDR 数据版本补充
 
