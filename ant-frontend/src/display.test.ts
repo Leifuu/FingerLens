@@ -462,6 +462,12 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].title).toBe('当前进程状态摘要');
     expect(sections[0].rows.map(row => row.key)).toEqual(['available', 'status', 'traced', 'tracerPid', 'state', 'threadCount', 'noNewPrivs', 'seccompMode', 'capEffPresent', 'capBndPresent', 'fieldsObserved', 'truncated']);
   });
+  it('内存映射摘要展示权限与来源计数而不展开路径', () => {
+    const value = item('kernel/maps-summary', 'kernel', { available: true, status: 'ok', mapCount: 20, invalidLineCount: 0, executableMappingCount: 8, writableMappingCount: 7, privateMappingCount: 18, sharedMappingCount: 2, anonymousMappingCount: 9, fileBackedMappingCount: 11, devMappingCount: 1, memfdMappingCount: 0, ashmemMappingCount: 0, apkMappingCount: 5, apexMappingCount: 3, deletedMappingCount: 0, markerMatchCount: 0, markerPresence: { frida: false, gadget: false, xposed: false, substrate: false, riru: false, zygisk: false, magisk: false }, permissionCounts: { 'r-xp': 8, 'rw-p': 7 }, truncated: false, errno: null });
+    const sections = buildSections(value);
+    expect(sections[0].title).toBe('当前进程内存映射摘要');
+    expect(sections[0].rows.map(row => row.key)).toEqual(['available', 'status', 'mapCount', 'invalidLineCount', 'executableMappingCount', 'writableMappingCount', 'privateMappingCount', 'sharedMappingCount', 'anonymousMappingCount', 'fileBackedMappingCount', 'devMappingCount', 'memfdMappingCount', 'ashmemMappingCount', 'apkMappingCount', 'apexMappingCount', 'deletedMappingCount', 'markerMatchCount', 'markerPresence.frida', 'markerPresence.gadget', 'markerPresence.xposed', 'markerPresence.substrate', 'markerPresence.riru', 'markerPresence.zygisk', 'markerPresence.magisk', 'permissionCounts.r-xp', 'permissionCounts.rw-p', 'truncated', 'errno']);
+  });
   it('挂载拓扑摘要展示文件系统计数而不展开路径', () => {
     const value = item('kernel/mount-summary', 'kernel', { available: true, status: 'ok', entryCount: 12, readOnlyCount: 4, sharedMountCount: 2, masterMountCount: 1, optionalFieldCount: 3, overlayCount: 1, tmpfsCount: 4, procCount: 1, sysfsCount: 1, ext4Count: 2, rootFsType: 'overlay', fsTypeCount: 5, fsTypesTruncated: false, truncated: false, fsTypeCounts: { overlay: 1, tmpfs: 4 } });
     const sections = buildSections(value);

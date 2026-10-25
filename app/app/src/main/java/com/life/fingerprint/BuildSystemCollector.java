@@ -23,6 +23,7 @@ public final class BuildSystemCollector implements Collector {
             "ro.product.first_api_level","ro.product.cpu.abilist","ro.debuggable","ro.secure",
             "ro.adb.secure","ro.build.tags","ro.build.type","ro.build.version.security_patch"};
     private static final Set<String> RISK_PROPERTY_SET=new HashSet<>(Arrays.asList(RISK_PROPERTY_KEYS));
+    private static final String[] MAP_MARKERS={"frida","gadget","xposed","substrate","riru","zygisk","magisk"};
     private final String module;
     public BuildSystemCollector(String name){module=name;}
     public void collect(ItemSink s)throws Exception {
@@ -91,6 +92,7 @@ public final class BuildSystemCollector implements Collector {
         s.ok("kernel","kernel/uname","内核 uname","jni","uname",new JSONObject(NativeProbe.kernel()));
         for(String p:new String[]{"/proc/version","/proc/cpuinfo","/proc/meminfo","/proc/self/status","/proc/self/maps","/proc/self/mountinfo","/proc/self/mounts","/proc/self/cgroup","/proc/self/limits","/proc/self/sched","/proc/self/attr/current","/proc/1/cgroup","/proc/uptime","/proc/sys/kernel/random/boot_id","/proc/sys/kernel/osrelease","/sys/devices/system/cpu/present","/sys/devices/system/cpu/online"})s.file("kernel","kernel/file"+p,p);
         s.read("kernel","kernel/process-status-summary","当前进程状态摘要","/proc/self/status",BuildSystemCollector::processStatusSummary);
+        s.read("kernel","kernel/maps-summary","当前进程内存映射摘要","/proc/self/maps",BuildSystemCollector::mapsSummary);
         s.read("kernel","kernel/mount-summary","挂载拓扑摘要","/proc/self/mountinfo",BuildSystemCollector::mountSummary);
         s.read("kernel","kernel/cgroup-summary","Cgroup 环境摘要","/proc/self/cgroup",BuildSystemCollector::cgroupSummary);
         s.read("kernel","kernel/cpu-summary","CPU 拓扑与频率摘要","/sys/devices/system/cpu",BuildSystemCollector::cpuSummary);
@@ -106,6 +108,28 @@ public final class BuildSystemCollector implements Collector {
         Integer tracerPid=integer(fields.get("TracerPid"));return Json.obj("available",true,"status","ok","traced",tracerPid!=null&&tracerPid!=0,"tracerPid",tracerPid,"state",fields.get("State"),"threadCount",integer(fields.get("Threads")),"noNewPrivs",integer(fields.get("NoNewPrivs")),"seccompMode",integer(fields.get("Seccomp")),"capEffPresent",fields.containsKey("CapEff"),"capBndPresent",fields.containsKey("CapBnd"),"fieldsObserved",fields.size(),"truncated",raw.optBoolean("truncated"));
     }
     private static Integer integer(String value){if(value==null)return null;try{return Integer.valueOf(value);}catch(NumberFormatException e){return null;}}
+    // 业务块：从公开 maps 元数据提取映射权限、来源类别和受控 marker；不把路径复制进摘要，也不据此判定具体工具。
+    private static JSONObject mapsSummary()throws Exception{
+        JSONObject raw=new JSONObject(NativeProbe.readFile("/proc/self/maps",262144));boolean truncated=raw.optBoolean("truncated");
+        if(!raw.optBoolean("ok")){int errno=raw.optInt("errno",0);return mapsUnavailable(errno==1||errno==13?"denied":"error",errno,truncated);}
+        Object decoded=raw.has("base64")?Json.bytes(raw.getString("base64")):null;
+        if(!(decoded instanceof String))return mapsUnavailable("unavailable",0,truncated);
+        int mapCount=0,invalidLineCount=0,executable=0,writable=0,privateCount=0,sharedCount=0,anonymous=0,fileBacked=0,dev=0,memfd=0,ashmem=0,apk=0,apex=0,deleted=0,markerMatches=0;
+        Map<String,Integer> permissions=new TreeMap<>();JSONObject markers=emptyMapMarkerPresence();
+        for(String line:((String)decoded).split("\\n")){
+            String normalized=line.trim();if(normalized.isEmpty())continue;String[] columns=normalized.split("\\s+",6);
+            if(columns.length<5||columns[1].length()<4){invalidLineCount++;continue;}
+            String perms=columns[1];mapCount++;permissions.put(perms,permissions.containsKey(perms)?permissions.get(perms)+1:1);
+            if(perms.indexOf('x')>=0)executable++;if(perms.indexOf('w')>=0)writable++;if(perms.charAt(3)=='p')privateCount++;if(perms.charAt(3)=='s')sharedCount++;
+            String path=columns.length>=6?columns[5].trim():"";String lower=path.toLowerCase(Locale.ROOT);boolean pseudo=path.isEmpty()||path.startsWith("[");if(pseudo)anonymous++;else fileBacked++;
+            if(lower.startsWith("/dev/"))dev++;if(lower.contains("memfd:"))memfd++;if(lower.contains("ashmem"))ashmem++;if(lower.contains(".apk"))apk++;if(lower.contains(".apex")||lower.contains("/apex/"))apex++;if(lower.endsWith("(deleted)"))deleted++;
+            boolean matched=false;for(String marker:MAP_MARKERS)if(lower.contains(marker)){Json.put(markers,marker,true);matched=true;}if(matched)markerMatches++;
+        }
+        JSONObject permissionCounts=new JSONObject();for(Map.Entry<String,Integer> entry:permissions.entrySet())Json.put(permissionCounts,entry.getKey(),entry.getValue());
+        return Json.obj("available",true,"status","ok","mapCount",mapCount,"invalidLineCount",invalidLineCount,"executableMappingCount",executable,"writableMappingCount",writable,"privateMappingCount",privateCount,"sharedMappingCount",sharedCount,"anonymousMappingCount",anonymous,"fileBackedMappingCount",fileBacked,"devMappingCount",dev,"memfdMappingCount",memfd,"ashmemMappingCount",ashmem,"apkMappingCount",apk,"apexMappingCount",apex,"deletedMappingCount",deleted,"markerMatchCount",markerMatches,"markerPresence",markers,"permissionCounts",permissionCounts,"truncated",truncated);
+    }
+    private static JSONObject mapsUnavailable(String status,int errno,boolean truncated){return Json.obj("available",false,"status",status,"mapCount",null,"invalidLineCount",null,"executableMappingCount",null,"writableMappingCount",null,"privateMappingCount",null,"sharedMappingCount",null,"anonymousMappingCount",null,"fileBackedMappingCount",null,"devMappingCount",null,"memfdMappingCount",null,"ashmemMappingCount",null,"apkMappingCount",null,"apexMappingCount",null,"deletedMappingCount",null,"markerMatchCount",null,"markerPresence",emptyMapMarkerPresence(),"permissionCounts",new JSONObject(),"truncated",truncated,"errno",errno==0?null:errno);}
+    private static JSONObject emptyMapMarkerPresence(){JSONObject out=new JSONObject();for(String marker:MAP_MARKERS)Json.put(out,marker,false);return out;}
     // 业务块：压缩 mountinfo 的文件系统和挂载属性计数，不导出挂载路径、源设备或原始行。
     private static JSONObject mountSummary()throws Exception{
         JSONObject raw=new JSONObject(NativeProbe.readFile("/proc/self/mountinfo",262144));
