@@ -118,6 +118,11 @@ describe('设备格式化展示边界', () => {
     expect(sections.find(section => section.key === 'permissions')?.rows[0].key).toBe('[0].name');
     expect(sections.find(section => section.key === 'permissions')?.rows.find(row => row.key === '[0].protectionBase')?.value).toBe('危险');
   });
+  it('当前 App 组件摘要展示导出面统计', () => {
+    const sections = buildSections(item('security/self-components-summary', 'security', { available: true, status: 'ok', activityCount: 2, receiverCount: 1, serviceCount: 2, providerCount: 1, componentCount: 6, enabledCount: 5, exportedCount: 2, permissionFieldCount: 3, directBootAwareCount: 1, isolatedServiceCount: 0, foregroundServiceTypeCount: 1, providerReadPermissionCount: 1, providerWritePermissionCount: 1 }));
+    expect(sections[0].title).toBe('当前 App 组件攻击面摘要');
+    expect(sections[0].rows.map(row => row.key)).toContain('exportedCount');
+  });
   it('安全提供者摘要保留有界服务集合并单独展示提供者详情', () => {
     const sections = buildSections(item('security/providers-summary', 'security', {
       available: true, status: 'ok', providerCount: 2, serviceCount: 3, providerNamesTruncated: false,

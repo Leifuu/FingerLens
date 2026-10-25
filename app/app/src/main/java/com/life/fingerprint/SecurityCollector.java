@@ -36,6 +36,7 @@ public final class SecurityCollector implements Collector {
         s.read("security","security/process-identity-summary","当前进程身份与沙箱摘要","Process / UserHandle",()->processIdentitySummary(s.context));
         s.read("security","security/self-runtime","应用运行时可分析配置","ApplicationInfo public runtime flags",()->selfRuntimeSummary(s.context));
         s.read("security","security/self-permissions","当前 App 运行时权限摘要","PackageManager.GET_PERMISSIONS",()->selfPermissions(s.context));
+        s.read("security","security/self-components-summary","当前 App 组件攻击面摘要","PackageManager component metadata",()->selfComponentsSummary(s.context));
         s.read("security","security/self-integrity","当前 App 签名与安装环境","PackageManager.getPackageInfo / getInstallSourceInfo",()->selfIntegrity(s.context));
         s.read("security","security/device-management","设备管理与用户环境","DevicePolicyManager / UserManager",()->managementEnvironment(s.context));
         s.read("security","security/special-access","本 App 特殊访问状态","AppOpsManager / PackageManager / NotificationManager / Environment / Settings",()->specialAccess(s.context));
@@ -87,6 +88,21 @@ public final class SecurityCollector implements Collector {
             if(i<limit)values.put(permission);
         }
         return Json.obj("available",true,"status","ok","requestedCount",requested,"grantedCount",granted,"deniedCount",denied,"unknownCount",unknown,"dangerousRequestedCount",dangerousRequested,"dangerousGrantedCount",dangerousGranted,"protectionInfoCount",protectionInfo,"returnedCount",values.length(),"truncated",requested>limit,"permissions",values);
+    }
+    // 业务块：汇总当前 App 的公开组件元数据，便于比较导出面，不展开其它包或组件名称。
+    private static JSONObject selfComponentsSummary(Context context)throws Exception{
+        PackageManager packages=context.getPackageManager();
+        if(packages==null)return Json.obj("available",false,"status","unavailable","activityCount",null,"receiverCount",null,"serviceCount",null,"providerCount",null,"componentCount",null,"enabledCount",null,"exportedCount",null,"permissionFieldCount",null,"directBootAwareCount",null,"isolatedServiceCount",null,"foregroundServiceTypeCount",null,"providerReadPermissionCount",null,"providerWritePermissionCount",null);
+        int flags=PackageManager.GET_ACTIVITIES|PackageManager.GET_RECEIVERS|PackageManager.GET_SERVICES|PackageManager.GET_PROVIDERS;
+        PackageInfo info=packages.getPackageInfo(context.getPackageName(),flags);
+        android.content.pm.ActivityInfo[] activities=info.activities,receivers=info.receivers;android.content.pm.ServiceInfo[] services=info.services;android.content.pm.ProviderInfo[] providers=info.providers;
+        int activityCount=activities==null?0:activities.length,receiverCount=receivers==null?0:receivers.length,serviceCount=services==null?0:services.length,providerCount=providers==null?0:providers.length;
+        int enabled=0,exported=0,permissionFields=0,directBoot=0,isolated=0,foregroundTypes=0,providerRead=0,providerWrite=0;
+        if(activities!=null)for(android.content.pm.ActivityInfo component:activities){if(component==null)continue;if(component.enabled)enabled++;if(component.exported)exported++;if(component.permission!=null&&!component.permission.isEmpty())permissionFields++;if(component.directBootAware)directBoot++;}
+        if(receivers!=null)for(android.content.pm.ActivityInfo component:receivers){if(component==null)continue;if(component.enabled)enabled++;if(component.exported)exported++;if(component.permission!=null&&!component.permission.isEmpty())permissionFields++;if(component.directBootAware)directBoot++;}
+        if(services!=null)for(android.content.pm.ServiceInfo component:services){if(component==null)continue;if(component.enabled)enabled++;if(component.exported)exported++;if(component.permission!=null&&!component.permission.isEmpty())permissionFields++;if(component.directBootAware)directBoot++;if((component.flags&android.content.pm.ServiceInfo.FLAG_ISOLATED_PROCESS)!=0)isolated++;if(Build.VERSION.SDK_INT>=29&&component.getForegroundServiceType()!=0)foregroundTypes++;}
+        if(providers!=null)for(android.content.pm.ProviderInfo component:providers){if(component==null)continue;if(component.enabled)enabled++;if(component.exported)exported++;if(component.directBootAware)directBoot++;if(component.readPermission!=null&&!component.readPermission.isEmpty()){permissionFields++;providerRead++;}if(component.writePermission!=null&&!component.writePermission.isEmpty()){permissionFields++;providerWrite++;}}
+        return Json.obj("available",true,"status","ok","activityCount",activityCount,"receiverCount",receiverCount,"serviceCount",serviceCount,"providerCount",providerCount,"componentCount",activityCount+receiverCount+serviceCount+providerCount,"enabledCount",enabled,"exportedCount",exported,"permissionFieldCount",permissionFields,"directBootAwareCount",directBoot,"isolatedServiceCount",isolated,"foregroundServiceTypeCount",foregroundTypes,"providerReadPermissionCount",providerRead,"providerWritePermissionCount",providerWrite);
     }
     // 业务块：汇总安全边界状态，不展开证书、序列号、窗口内容或其它用户/包信息；原始 security/* 条目继续保留。
     private static JSONObject securitySummary(Context context){
