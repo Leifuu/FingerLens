@@ -7,6 +7,7 @@ import android.os.Build;
 import android.telephony.*;
 import android.bluetooth.*;
 import org.json.*;
+import java.nio.charset.StandardCharsets;
 import java.net.*;
 import java.util.*;
 
@@ -87,7 +88,8 @@ public final class NetworkCollector implements Collector {
         s.read("network","network/wifi-cached-scan","系统已有 Wi-Fi 缓存（不发起扫描）","WifiManager.getScanResults",()->{JSONArray a=new JSONArray();for(ScanResult i:wifi.getScanResults())a.put(Json.obj("ssid",i.SSID,"bssid",i.BSSID,"capabilities",i.capabilities,"frequency",i.frequency,"level",i.level,"timestamp",i.timestamp,"channelWidth",i.channelWidth,"centerFreq0",i.centerFreq0,"centerFreq1",i.centerFreq1));return a;});
         s.read("network","network/wifi-summary","Wi-Fi 能力摘要","WifiManager.getConnectionInfo / getScanResults",()->wifiSummary(wifi));
         s.read("network","network/wifi-capabilities","Wi-Fi 链路能力","WifiInfo capability APIs",()->wifiCapabilities(wifi));
-        s.read("network","network/proxy","默认代理","ConnectivityManager.getDefaultProxy",()->{ProxyInfo p=c.getDefaultProxy();return p==null?null:Json.obj("host",p.getHost(),"port",p.getPort(),"exclusionList",p.getExclusionList(),"pacFileUrl",p.getPacFileUrl().toString());});
+        s.read("network","network/proxy-summary","代理环境摘要","ConnectivityManager.getDefaultProxy",()->proxySummary(c));
+        s.read("network","network/proxy","默认代理","ConnectivityManager.getDefaultProxy",()->{ProxyInfo p=c.getDefaultProxy();return p==null?null:Json.obj("host",p.getHost(),"port",p.getPort(),"exclusionList",p.getExclusionList(),"pacFileUrl",p.getPacFileUrl()==null?null:p.getPacFileUrl().toString());});
         s.read("network","network/bluetooth","蓝牙及已配对设备","BluetoothManager / BluetoothAdapter.getBondedDevices",()->{BluetoothManager m=s.context.getSystemService(BluetoothManager.class);BluetoothAdapter b=m==null?null:m.getAdapter();if(b==null)return null;JSONArray devices=new JSONArray();for(BluetoothDevice d:b.getBondedDevices())devices.put(Json.obj("address",d.getAddress(),"name",d.getName(),"type",d.getType(),"bondState",d.getBondState()));return Json.obj("name",b.getName(),"address",b.getAddress(),"state",b.getState(),"pairedDevices",devices);});
         s.read("network","network/bluetooth-summary","蓝牙能力摘要","BluetoothManager / BluetoothAdapter",()->bluetoothSummary(s.context));
         s.read("network","network/bluetooth-capabilities","蓝牙 LE 能力","BluetoothAdapter LE capability APIs",()->bluetoothCapabilities(s.context));
@@ -108,6 +110,27 @@ public final class NetworkCollector implements Collector {
         Network active;try{active=manager.getActiveNetwork();}catch(Exception e){active=null;}JSONObject transports=new JSONObject();int capabilitiesAvailableCount=0,linkPropertiesAvailableCount=0,validatedCount=0,vpnCount=0,notMeteredCount=0,activeIndex=-1;
         for(int i=0;i<networks.length;i++){Network network=networks[i];if(active!=null&&active.equals(network))activeIndex=i;NetworkCapabilities cap;try{cap=manager.getNetworkCapabilities(network);}catch(Exception e){cap=null;}if(cap!=null){capabilitiesAvailableCount++;for(int type=0;type<=10;type++)if(cap.hasTransport(type))Json.put(transports,String.valueOf(type),transports.optInt(String.valueOf(type),0)+1);if(cap.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED))validatedCount++;if(cap.hasTransport(NetworkCapabilities.TRANSPORT_VPN))vpnCount++;if(cap.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED))notMeteredCount++;}try{if(manager.getLinkProperties(network)!=null)linkPropertiesAvailableCount++;}catch(Exception ignored){}}
         return Json.obj("available",true,"networkCount",networks.length,"activePresent",active!=null,"activeIndex",activeIndex,"activeNetworkHandle",active==null?null:active.getNetworkHandle(),"capabilitiesAvailableCount",capabilitiesAvailableCount,"linkPropertiesAvailableCount",linkPropertiesAvailableCount,"validatedCount",validatedCount,"vpnCount",vpnCount,"notMeteredCount",notMeteredCount,"transportCounts",transports);
+    }
+    // 业务块：代理摘要只保留可比较元数据，不把主机、排除列表或 PAC 地址复制到摘要；network/proxy 继续保留原始条目。
+    private static JSONObject proxySummary(ConnectivityManager manager)throws Exception{
+        JSONObject value=Json.obj("available",manager!=null,"status",manager==null?"unavailable":"none","configured",false,"hostPresent",false,"hostLength",null,"hostSha256",null,"port",null,"exclusionCount",0,"pacFilePresent",false,"pacScheme",null);
+        if(manager==null)return value;
+        ProxyInfo proxy=manager.getDefaultProxy();
+        if(proxy==null)return value;
+        String host=proxy.getHost();
+        String pac=proxy.getPacFileUrl()==null?null:proxy.getPacFileUrl().toString();
+        String[] exclusions=proxy.getExclusionList();
+        Json.put(value,"status","ok");
+        Json.put(value,"configured",true);
+        Json.put(value,"hostPresent",host!=null&&!host.isEmpty());
+        Json.put(value,"hostLength",host==null?null:host.length());
+        Json.put(value,"hostSha256",host==null||host.isEmpty()?null:PackageInputCollector.sha(host.getBytes(StandardCharsets.UTF_8)));
+        Json.put(value,"port",proxy.getPort());
+        Json.put(value,"exclusionCount",exclusions==null?0:Math.min(256,exclusions.length));
+        boolean pacPresent=pac!=null&&!pac.isEmpty();
+        Json.put(value,"pacFilePresent",pacPresent);
+        Json.put(value,"pacScheme",pacPresent&&proxy.getPacFileUrl()!=null?proxy.getPacFileUrl().getScheme():null);
+        return value;
     }
     // 业务块：公开蓝牙能力只保留计数与存在性；权限不足时返回结构化状态，不伪造已配对设备。
     private static JSONObject bluetoothSummary(Context context){

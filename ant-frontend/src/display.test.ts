@@ -263,6 +263,11 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].title).toBe('Wi-Fi 链路能力');
     expect(sections[0].rows.map(row => row.key)).toEqual(['available', 'access', 'wifiStandard', 'maxSupportedRxLinkSpeedMbps', 'maxSupportedTxLinkSpeedMbps', 'apMldMacPresent', 'apMloLinkId', 'affiliatedMloLinkCount']);
   });
+  it('代理摘要只展示配置元数据', () => {
+    const sections = buildSections(item('network/proxy-summary', 'network', { available: true, status: 'none', configured: false, hostPresent: false, hostLength: null, hostSha256: null, port: null, exclusionCount: 0, pacFilePresent: false, pacScheme: null }));
+    expect(sections[0].title).toBe('代理环境摘要');
+    expect(sections[0].rows.map(row => row.key)).toEqual(['available', 'status', 'configured', 'hostPresent', 'hostLength', 'hostSha256', 'port', 'exclusionCount', 'pacFilePresent', 'pacScheme']);
+  });
   it('锁屏与生物识别摘要只展示公开状态', () => {
     const sections = buildSections(item('security/lock-biometric', 'security', { keyguardSecure: true, keyguardLocked: false, deviceSecure: true, deviceLocked: false, fingerprintFeature: true, faceFeature: false, irisFeature: false, biometricStrongCode: 0, biometricStrongStatus: 'success', biometricWeakCode: 11, biometricWeakStatus: 'none_enrolled' }));
     expect(sections[0].title).toBe('锁屏与生物识别环境');
