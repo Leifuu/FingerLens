@@ -18,3 +18,4 @@
 @media(max-width:1439px){.file-card .ant-card-extra{flex-basis:100%}.capture-controls .device-select{max-width:none}.capture-controls{justify-content:flex-start}}
 @media(max-width:480px){.capture-controls{gap:6px}.capture-controls .device-select{min-width:110px}.capture-controls .ant-btn{padding-inline:9px}.capture-controls .ant-tag{font-size:11px}.file-card .ant-card-head{padding-inline:10px}}
 .capture-controls .capture-status-tag{height:44px;display:inline-flex;align-items:center;padding-inline:12px;font-size:12px}
+.root-path-overview .ant-typography-secondary{color:#a6b5b0}.root-path-scroll-hint{display:none}@media(max-width:768px){.root-path-scroll-hint{display:block}}
