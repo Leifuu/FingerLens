@@ -47,6 +47,7 @@ public final class BuildSystemCollector implements Collector {
             s.ok("build","build/risk-properties-summary","风控相关原生属性摘要","jni","__system_property_foreach + __system_property_read_callback",riskPropertiesSummary(props));
         }else s.add("build","build/native-properties","原生属性枚举","jni","__system_property_read_callback","unsupported",null,Json.obj("minSdk",26),null);
         s.ok("build","build/abi-summary","ABI 与运行时架构摘要","android-api","Build.SUPPORTED_ABIS / Process.is64Bit",abiSummary());
+        s.ok("build","build/hardware-summary","硬件型号与 SoC 摘要","android-api","Build public hardware fields",hardwareSummary());
         Commands.collect(s,"build","build/getprop","/system/bin/getprop");
     }
     // 业务块：把公开 ABI 列表压缩为架构族和位数计数；Build 原始字段继续保留。
@@ -57,6 +58,11 @@ public final class BuildSystemCollector implements Collector {
         int arm=0,x86=0,riscv=0,other=0;
         for(String abi:all){String value=abi==null?"":abi.toLowerCase(Locale.ROOT);if(value.startsWith("arm")||value.startsWith("aarch"))arm++;else if(value.startsWith("x86"))x86++;else if(value.startsWith("riscv"))riscv++;else other++;}
         return Json.obj("available",true,"supportedAbiCount",all.length,"supported32BitAbiCount",bit32.length,"supported64BitAbiCount",bit64.length,"primaryAbi",all.length==0?null:all[0],"armAbiCount",arm,"x86AbiCount",x86,"riscvAbiCount",riscv,"otherAbiCount",other,"runtime64Bit",Build.VERSION.SDK_INT>=23?android.os.Process.is64Bit():null);
+    }
+    // 业务块：整理公开硬件型号和 SoC 字段；构建指纹只输出长度与 SHA-256，原始 Build 字段继续保留。
+    private static JSONObject hardwareSummary()throws Exception{
+        String fingerprint=Build.FINGERPRINT;
+        return Json.obj("available",true,"manufacturer",Build.MANUFACTURER,"brand",Build.BRAND,"model",Build.MODEL,"device",Build.DEVICE,"product",Build.PRODUCT,"hardware",Build.HARDWARE,"board",Build.BOARD,"fingerprintPresent",fingerprint!=null&&!fingerprint.isEmpty(),"fingerprintLength",fingerprint==null?null:fingerprint.length(),"fingerprintSha256",fingerprint==null?null:PackageInputCollector.sha(fingerprint.getBytes(java.nio.charset.StandardCharsets.UTF_8)),"socManufacturer",Build.VERSION.SDK_INT>=31?Build.SOC_MANUFACTURER:null,"socModel",Build.VERSION.SDK_INT>=31?Build.SOC_MODEL:null);
     }
     // 业务块：从完整原生属性中提取稳定的风控字段；原始属性条目继续完整保留。
     private static JSONObject riskPropertiesSummary(JSONArray props)throws JSONException{

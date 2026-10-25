@@ -124,6 +124,12 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].title).toBe('ABI 与运行时架构摘要');
     expect(sections[0].rows.map(row => row.key)).toEqual(['available', 'supportedAbiCount', 'supported32BitAbiCount', 'supported64BitAbiCount', 'primaryAbi', 'armAbiCount', 'x86AbiCount', 'riscvAbiCount', 'otherAbiCount', 'runtime64Bit']);
   });
+  it('硬件摘要展示型号与构建指纹哈希', () => {
+    const sections = buildSections(item('build/hardware-summary', 'build', { available: true, manufacturer: 'Google', brand: 'google', model: 'Pixel', device: 'oriole', product: 'oriole', hardware: 'oriole', board: 'oriole', fingerprintPresent: true, fingerprintLength: 96, fingerprintSha256: 'a'.repeat(64), socManufacturer: 'Google', socModel: 'Tensor' }));
+    expect(sections[0].title).toBe('硬件型号与 SoC 摘要');
+    expect(sections[0].rows.map(row => row.key)).toEqual(['available', 'manufacturer', 'brand', 'model', 'device', 'product', 'hardware', 'board', 'fingerprintPresent', 'fingerprintLength', 'fingerprintSha256', 'socManufacturer', 'socModel']);
+    expect(sections[0].rows.find(row => row.key === 'fingerprintSha256')?.value).toBe('a'.repeat(64));
+  });
   it('Widevine 与 Play Integrity 摘要不展开成大段 JSON', () => {
     const drm = buildSections(item('hardware/drm/widevine', 'hardware', { supported: true, vendor: 'Google', deviceUniqueId: { sha256: 'a'.repeat(64), length: 32, rawExported: false } }));
     const integrity = buildSections(item('attestation/play-integrity-environment', 'attestation', { verdictAvailable: false, playServices: { present: true, versionName: '1' } }));
