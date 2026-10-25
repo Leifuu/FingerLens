@@ -536,6 +536,15 @@ describe('设备格式化展示边界', () => {
     expect(sections[1].rows.find(row => row.key === '[0].futureField')?.value).toBe('kept');
     expect(JSON.stringify(value)).toBe(original);
   });
+  it('资源语言区分 App 与系统范围，保留原始标签和空值', () => {
+    const value = item('environment/resource-locales', 'environment', { available: true, status: 'partial', appAssetLocaleCount: 257, appAssetLocaleTags: [null, '', 'iw', 'zh_CN', 'future-tag'], systemAssetLocaleTags: ['en-US'], futureField: 0 });
+    const original = JSON.stringify(value), sections = buildSections(value);
+    expect(sections.map(section => section.title)).toEqual(['资源语言集合摘要', 'App 已加载资源语言（含系统资源，最多 256 项）', '系统资源语言（最多 256 项）']);
+    expect(sections[0].rows.find(row => row.key === 'status')?.value).toBe('部分可观察');
+    expect(sections[0].rows.find(row => row.key === 'futureField')?.value).toBe('0');
+    expect(sections[1].rows.map(row => row.value)).toEqual(['null', '', 'iw', 'zh_CN', 'future-tag']);
+    expect(JSON.stringify(value)).toBe(original);
+  });
   it('系统运行参数展示 16 KiB 页大小，并保留不可用项与原始值', () => {
     const value = item('kernel/sysconf-summary', 'kernel', { available: true, status: 'partial', pageSizeBytes: { $type: 'int64', value: '16384' }, clockTicksPerSecond: null, entries: [{ name: '_SC_PAGESIZE', status: 'ok', rawValue: { $type: 'int64', value: '16384' }, errorClass: null }, { name: '_SC_CLK_TCK', status: 'unavailable', rawValue: { $type: 'int64', value: '-1' }, errorClass: null }] });
     const original = JSON.stringify(value), sections = buildSections(value);

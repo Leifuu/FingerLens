@@ -246,6 +246,7 @@ public final class BuildSystemCollector implements Collector {
     private void environment(ItemSink s){
         s.read("environment","environment/locales","语言与区域","Configuration / LocaleList / TimeZone",()->{Configuration c=s.context.getResources().getConfiguration();TimeZone z=TimeZone.getDefault();return Json.obj("locales",c.getLocales().toLanguageTags(),"timezoneId",z.getID(),"timezoneDisplayName",z.getDisplayName(),"rawOffset",z.getRawOffset(),"daylightSavings",z.getDSTSavings(),"configuration",c.toString(),"fontScale",c.fontScale,"densityDpi",c.densityDpi,"uiMode",c.uiMode,"keyboard",c.keyboard,"navigation",c.navigation,"touchscreen",c.touchscreen);});
         s.read("environment","environment/locale-summary","语言与时区摘要","Configuration / DateFormat / LocaleManager",()->localeSummary(s.context));
+        s.read("environment","environment/resource-locales","资源语言集合摘要","AssetManager.getLocales / Resources.getSystem",()->resourceLocaleValues(s.context.getAssets().getLocales(),android.content.res.Resources.getSystem().getAssets().getLocales()));
         s.read("environment","environment/system-fonts","系统字体集合摘要","SystemFonts.getAvailableFonts / Font metadata",BuildSystemCollector::systemFonts);
         s.read("environment","environment/android-id-summary","Android ID 摘要","Settings.Secure.ANDROID_ID",()->androidIdSummary(s.context));
         s.ok("environment","environment/clocks","单次时钟快照","android-api","SystemClock",Json.obj("elapsedRealtime",SystemClock.elapsedRealtime(),"uptimeMillis",SystemClock.uptimeMillis(),"wallClockMillis",System.currentTimeMillis()));
@@ -323,6 +324,20 @@ public final class BuildSystemCollector implements Collector {
                 "fontCount",records.size(),"fileBackedCount",fileBacked,"noFileCount",records.size()-fileBacked,"italicCount",italic,"variationConfiguredCount",variable,
                 "returnedCount",entries.length(),"entryLimit",128,"entriesTruncated",records.size()>128,
                 "metadataSetSha256",PackageInputCollector.sha(canonical.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)),"entries",entries);
+    }
+    // 业务块：区分 App 已加载资源与系统资源的语言集合，不把资源语言当作用户首选语言。
+    static JSONObject resourceLocaleValues(String[] app,String[] system)throws Exception{
+        JSONObject out=Json.obj("available",true,"scope","current-app-assets-and-system-resources","entryLimit",256);boolean truncated=false;
+        String[][] sources={app,system};String[] prefixes={"appAsset","systemAsset"};
+        for(int i=0;i<sources.length;i++){
+            if(sources[i]==null)throw new IllegalArgumentException("资源语言集合不可用");
+            String[] sorted=sources[i].clone();Arrays.sort(sorted,Comparator.nullsFirst(Comparator.naturalOrder()));int nulls=0;for(String tag:sorted)if(tag==null)nulls++;
+            JSONArray full=new JSONArray(Arrays.asList(sorted)),shown=new JSONArray(Arrays.asList(Arrays.copyOf(sorted,Math.min(256,sorted.length))));String prefix=prefixes[i];
+            Json.put(out,prefix+"LocaleCount",sorted.length);Json.put(out,prefix+"ReturnedCount",shown.length());Json.put(out,prefix+"NullCount",nulls);
+            Json.put(out,prefix+"LocalesTruncated",sorted.length>256);Json.put(out,prefix+"LocalesSha256",PackageInputCollector.sha(full.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)));Json.put(out,prefix+"LocaleTags",shown);
+            truncated|=sorted.length>256;
+        }
+        Json.put(out,"status",truncated?"partial":"ok");return out;
     }
     private static JSONObject clockSummary(){
         long elapsedRealtime=SystemClock.elapsedRealtime();long uptimeMillis=SystemClock.uptimeMillis();long wallClockMillis=System.currentTimeMillis();

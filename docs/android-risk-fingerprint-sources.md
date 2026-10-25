@@ -96,6 +96,12 @@
 - [fingerprintjs/fingerprintjs-pro-android](https://github.com/fingerprintjs/fingerprintjs-pro-android)：官方 Android SDK 仓库公开说明提供 Device Intelligence 与 Smart Signals。其具体信号由服务端返回，未在本工程复制未公开字段，后续仅作为供应商能力对照。
 - `virtualization/risk-summary` 汇总 RootBeer/Talsec 类公开检查的路径存在性、构建字符串标记和 `test-keys` 线索；逐路径 JNI 结果仍保留，摘要只标记 `evidenceOnly`，不形成自动风控结论。
 
+## 资源语言集合（公开 SDK 实现对照）
+
+- [FingerprintJS Android 的 DevicePersonalizationInfoProvider](https://github.com/fingerprintjs/fingerprintjs-android/blob/a9c2bf327877115481049935dd99e8e78dae0cf0/fingerprint/src/main/java/com/fingerprintjs/android/fingerprint/info_providers/DevicePersonalizationInfoProvider.kt)（2026-10-26 经 GitHub API 获取固定提交源码）：`availableLocales()` 读取注入的 `AssetManager.locales`。这是开源 Android 指纹库的可核验实现，不据此推导其 Pro 服务端或其它供应商的私有字段。
+- [AssetManager.getLocales](https://developer.android.com/reference/android/content/res/AssetManager#getLocales())、[Resources.getSystem](https://developer.android.com/reference/android/content/res/Resources#getSystem()) 与 [AOSP AssetManager](https://github.com/aosp-mirror/platform_frameworks_base/blob/main/core/java/android/content/res/AssetManager.java)：公开 API 自 API 1 可用；AOSP 说明 API 21+ 返回 BCP-47 标签，旧版本曾使用 `ll_CC`，`getLocales()` 包含系统资源，`getNonSystemLocales()` 是隐藏 API，本工程不调用后者。
+- 新增 `environment/resource-locales`，分别读取当前 App 已加载资源和系统 Resources 的 AssetManager 语言集合；它们不是用户当前语言，也不证明 APK 自身提供全部这些翻译。每组保存原始数量、null 数量、最多 256 项排序明细、截断状态和完整 JSON 数组的 UTF-8 SHA-256；保留重复项、空字符串、null、旧语言代码和未知标签，不做标签归一化。缺失数组不伪装为空集合。集合受系统资源、覆盖层、APK/依赖和已加载资源影响，不是永久硬件标识；旧语言条目与 schema 1.0 不变。
+
 ## 技术论坛交叉核对
 
 - [Stack Overflow：Device identifier of Android emulator](https://stackoverflow.com/questions/4402262/device-identifier-of-android-emulator)

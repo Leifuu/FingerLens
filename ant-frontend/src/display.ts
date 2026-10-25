@@ -344,6 +344,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     'environment/system-settings': { title: '显示与动画设置摘要', order: ['available', 'status', 'settings'], arrays: [] },
      'environment/locale-summary': { title: '语言与时区摘要', order: ['available', 'localeTags', 'localeCount', 'defaultLocale', 'timezoneId', 'rawOffsetMillis', 'usesDaylightTime', 'inDaylightTime', 'is24HourFormat', 'layoutDirection', 'fontScale', 'densityDpi', 'uiMode', 'applicationLocaleAccess', 'applicationLocaleTags'], arrays: [] },
     'environment/clock-summary': { title: '系统时钟摘要', order: ['elapsedRealtimeMillis', 'uptimeMillis', 'wallClockMillis', 'bootTimeMillis', 'sleepMillis'], arrays: [] },
+    'environment/resource-locales': { title: '资源语言集合摘要', order: ['available', 'status', 'scope', 'entryLimit', 'appAssetLocaleCount', 'appAssetReturnedCount', 'appAssetNullCount', 'appAssetLocalesTruncated', 'appAssetLocalesSha256', 'systemAssetLocaleCount', 'systemAssetReturnedCount', 'systemAssetNullCount', 'systemAssetLocalesTruncated', 'systemAssetLocalesSha256'], arrays: ['appAssetLocaleTags', 'systemAssetLocaleTags'] },
     'environment/system-fonts': { title: '系统字体集合摘要', order: ['available', 'status', 'scope', 'fontCount', 'fileBackedCount', 'noFileCount', 'italicCount', 'variationConfiguredCount', 'returnedCount', 'entryLimit', 'entriesTruncated', 'metadataSetSha256'], arrays: ['entries'] },
     'environment/android-id-summary': { title: 'Android ID 摘要', order: ['available', 'status', 'scope', 'androidIdPresent', 'androidIdLength', 'androidIdSha256'], arrays: [] },
     'environment/device-state': { title: '设备初始化与运行状态', order: ['deviceProvisioned', 'userSetupComplete', 'bootCount', 'lowRamDevice', 'demoUser', 'userUnlocked', 'userRunning', 'userMonkey', 'testHarness', 'backgroundRestricted'], arrays: [] },
@@ -367,7 +368,8 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
   };
   const definition = definitions[key];
   if (!definition) return undefined;
-  const sections: DisplaySection[] = [section('summary', definition.title, objectRows(value, definition.order))];
+  const summaryOrder = key === 'environment/resource-locales' ? [...definition.order, ...Object.keys(value)] : definition.order;
+  const sections: DisplaySection[] = [section('summary', definition.title, objectRows(value, summaryOrder))];
   for (const arrayKey of definition.arrays) {
     if (Array.isArray(value[arrayKey])) {
       const title = key === 'build/risk-properties-summary'
@@ -376,6 +378,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
           ? arrayKey === 'moduleNames' ? '模块名称' : '模块包名'
         : key === 'environment/location'
           ? arrayKey === 'providers' ? '定位 provider' : 'GNSS 天线载波频率（MHz）'
+          : key === 'environment/resource-locales' ? arrayKey === 'appAssetLocaleTags' ? 'App 已加载资源语言（含系统资源，最多 256 项）' : '系统资源语言（最多 256 项）'
           : key === 'sensors/summary' && arrayKey === 'vendors' ? '传感器厂商'
            : key === 'hardware/graphics-summary' && arrayKey === 'vulkanExtensionNames' ? 'Vulkan 扩展名'
            : key === 'hardware/features-summary'
@@ -415,7 +418,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     }
   }
   if (key === 'network/risk-signals' && typeof value.capabilitiesRaw === 'string') sections.push(section('capabilitiesRaw', '系统原始能力字符串', [row('value', value.capabilitiesRaw)], false));
-  if (key === 'security/root-path-summary' || key === 'security/root-mount-summary' || key === 'kernel/sysconf-summary' || key === 'build/sdk-extensions' || key === 'environment/system-fonts') for (const group of sections) for (const entry of group.rows) {
+  if (key === 'security/root-path-summary' || key === 'security/root-mount-summary' || key === 'kernel/sysconf-summary' || key === 'build/sdk-extensions' || key === 'environment/system-fonts' || key === 'environment/resource-locales') for (const group of sections) for (const entry of group.rows) {
     if ((entry.key === 'status' || entry.key.endsWith('.status')) && Object.hasOwn(STATUS_LABELS, entry.value)) entry.value = STATUS_LABELS[entry.value];
   }
   if (key === 'build/sdk-extensions') for (const entry of sections[0].rows) if (entry.key === 'enumerationMode') {
