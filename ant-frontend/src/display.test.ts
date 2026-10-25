@@ -271,6 +271,12 @@ describe('设备格式化展示边界', () => {
     expect(sections.find(section => section.key === 'simStates')?.rows.map(row => row.value)).toEqual(['5', '1']);
     expect(sections.find(section => section.key === 'mccs')?.rows[0].value).toBe('460');
   });
+  it('eSIM 摘要展示能力边界而不展开 EID', () => {
+    const sections = buildSections(item('sim/euicc-summary', 'sim', { available: true, status: 'ok', managerPresent: true, enabled: true, euiccInfoPresent: true, euiccOsVersion: 'test', availableMemoryBytes: 4096 }));
+    expect(sections[0].title).toBe('eSIM 能力摘要');
+    expect(sections[0].rows.map(row => row.key)).toContain('availableMemoryBytes');
+    expect(JSON.stringify(sections).toLowerCase()).not.toContain('eid');
+  });
   it('电话射频摘要展示设备能力而不展开敏感标识', () => {
     const sections = buildSections(item('sim/radio-summary', 'sim', { available: true, status: 'ok', activeModemCount: 2, supportedModemCount: 2, supportedRadioAccessFamily: { $type: 'int64', value: '123' }, dataCapable: true, voiceCapable: true, smsCapable: true, deviceVoiceCapable: true, deviceSmsCapable: true }));
     expect(sections[0].title).toBe('电话射频能力摘要');

@@ -20,6 +20,7 @@ public final class NetworkCollector implements Collector {
     private void sim(ItemSink s){
         TelephonyManager t=s.context.getSystemService(TelephonyManager.class);
         s.read("sim","sim/summary","SIM 与电话环境摘要","TelephonyManager / SubscriptionManager",()->simSummary(s.context));
+        s.read("sim","sim/euicc-summary","eSIM 能力摘要","EuiccManager.isEnabled / getEuiccInfo",()->euiccSummary(s.context));
         s.read("sim","sim/radio-summary","电话射频能力摘要","TelephonyManager public capability APIs",()->radioSummary(s.context));
         s.read("sim","sim/service-summary","电话注册服务摘要","TelephonyManager.getServiceState / ServiceState",()->serviceSummary(s.context));
         s.read("sim","sim/signal-summary","电话信号摘要","TelephonyManager.getSignalStrength / SignalStrength",()->signalSummary(s.context));
@@ -42,6 +43,19 @@ public final class NetworkCollector implements Collector {
         s.read("sim","sim/line1","号码（可能受限）","TelephonyManager.getLine1Number",t::getLine1Number);
         s.read("sim","sim/subscriptions","活动订阅","SubscriptionManager.getActiveSubscriptionInfoList",()->{SubscriptionManager m=s.context.getSystemService(SubscriptionManager.class);java.util.List<SubscriptionInfo> list=m.getActiveSubscriptionInfoList();if(list==null)return null;JSONArray a=new JSONArray();for(SubscriptionInfo i:list){JSONObject o=Json.obj("subscriptionId",i.getSubscriptionId(),"simSlotIndex",i.getSimSlotIndex(),"carrierName",String.valueOf(i.getCarrierName()),"displayName",String.valueOf(i.getDisplayName()),"countryIso",i.getCountryIso(),"iccId",i.getIccId(),"number",i.getNumber(),"dataRoaming",i.getDataRoaming());if(Build.VERSION.SDK_INT>=29){Json.put(o,"mcc",i.getMccString());Json.put(o,"mnc",i.getMncString());Json.put(o,"embedded",i.isEmbedded());}a.put(o);}return a;});
         int count=1;try{count=Math.min(16,Math.max(1,t.getPhoneCount()));}catch(Exception ignored){}for(int i=0;i<count;i++){final int slot=i;s.read("sim","sim/slot/"+i,"SIM 槽位 "+i,"TelephonyManager.getSimState(slot)",()->{if(Build.VERSION.SDK_INT<26)throw new UnsupportedOperationException("requires API 26");return t.getSimState(slot);});}
+    }
+    // 业务块：只读取公开 eSIM 能力与 eUICC 软件版本，不读取 EID、不执行订阅操作。
+    private static JSONObject euiccSummary(Context context){
+        if(Build.VERSION.SDK_INT<28)return Json.obj("available",false,"status","unsupported","managerPresent",false,"enabled",null,"euiccInfoPresent",null,"euiccOsVersion",null,"availableMemoryBytes",null);
+        android.telephony.euicc.EuiccManager manager=context.getSystemService(android.telephony.euicc.EuiccManager.class);
+        if(manager==null)return Json.obj("available",false,"status","unavailable","managerPresent",false,"enabled",null,"euiccInfoPresent",null,"euiccOsVersion",null,"availableMemoryBytes",null);
+        try{
+            android.telephony.euicc.EuiccInfo info=manager.getEuiccInfo();
+            Long memory=null;
+            if(Build.VERSION.SDK_INT>=35)try{long value=manager.getAvailableMemoryInBytes();if(value>=0)memory=value;}catch(SecurityException ignored){}
+            return Json.obj("available",true,"status","ok","managerPresent",true,"enabled",manager.isEnabled(),"euiccInfoPresent",info!=null,"euiccOsVersion",info==null?null:info.getOsVersion(),"availableMemoryBytes",memory);
+        }catch(SecurityException e){return Json.obj("available",true,"status","denied","managerPresent",true,"enabled",null,"euiccInfoPresent",null,"euiccOsVersion",null,"availableMemoryBytes",null);}
+        catch(RuntimeException e){return Json.obj("available",true,"status","error","managerPresent",true,"enabled",null,"euiccInfoPresent",null,"euiccOsVersion",null,"availableMemoryBytes",null,"error",e.getClass().getName());}
     }
     // 业务块：只汇总电话/SIM 环境元数据，不复制 IMEI、IMSI、ICCID 或号码；原始 sim/* 条目继续保留。
     @android.annotation.SuppressLint("MissingPermission")
