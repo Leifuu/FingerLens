@@ -294,6 +294,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     'hardware/audio-summary': { title: '音频能力摘要', order: ['available', 'count', 'sourceCount', 'sinkCount', 'productNamesTruncated', 'typeCounts'], arrays: ['productNames', 'sampleRates', 'encodings'] },
     'hardware/vibrator': { title: '振动器能力', order: ['available', 'count', 'hasVibrator', 'hasAmplitudeControl'], arrays: ['vibrators'] },
     'hardware/nfc': { title: 'NFC 能力', order: ['available', 'enabled', 'secureNfcSupported', 'secureNfcEnabled', 'antennaInfoAvailable', 'antennaCount', 'deviceWidth', 'deviceHeight', 'deviceFoldable'], arrays: [] },
+     'hardware/usb-summary': { title: 'USB 能力摘要', order: ['available', 'deviceCount', 'deviceCountTruncated', 'interfaceCount', 'endpointCount', 'permissionQueryStatus', 'permissionGrantedCount', 'vendorIdCount', 'productIdCount', 'vendorIdsTruncated', 'productIdsTruncated', 'deviceClassCounts', 'interfaceClassCounts'], arrays: ['vendorIds', 'productIds'] },
     'battery/summary': { title: '电池环境摘要', order: ['available', 'level', 'scale', 'percentage', 'status', 'charging', 'plugged', 'pluggedAc', 'pluggedUsb', 'pluggedWireless', 'health', 'temperatureC', 'voltageMv', 'technology', 'present', 'capacityPercent', 'chargeCounterUah', 'currentNowUa', 'currentAverageUa', 'energyCounterNwh'], arrays: [] },
     'battery/cycle-count': { title: '电池循环次数', order: ['available', 'status', 'cycleCount'], arrays: [] },
     'sim/summary': { title: 'SIM 与电话环境摘要', order: ['available', 'phoneType', 'phoneCount', 'simState', 'simOperator', 'simOperatorName', 'simCountry', 'networkOperator', 'networkName', 'networkCountry', 'dataNetworkType', 'roaming', 'dataEnabled', 'subscriptionAccess', 'subscriptionCount', 'embeddedCount'], arrays: ['simStates', 'simSlotIndexes', 'carrierNames', 'mccs', 'mncs'] },
@@ -366,6 +367,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
           : key === 'storage/capacity-summary' && arrayKey === 'entries' ? '固定路径容量'
           : key === 'hardware/audio-summary'
             ? arrayKey === 'productNames' ? '音频设备名' : arrayKey === 'sampleRates' ? '采样率' : '编码格式'
+          : key === 'hardware/usb-summary' ? arrayKey === 'vendorIds' ? 'USB 厂商 ID' : 'USB 产品 ID'
           : key === 'kernel/cgroup-summary' && arrayKey === 'controllerNames' ? 'Cgroup 控制器'
           : key === 'kernel/cpu-summary' ? arrayKey === 'coreIds' ? 'CPU 核心 ID' : '物理封装 ID'
           : key === 'network/wifi-summary' && arrayKey === 'frequencies' ? '缓存扫描频率（MHz）'

@@ -103,6 +103,7 @@ public final class HardwareCollector implements Collector {
     }
     // 业务块：只读取 UsbManager 已公开的设备描述符，不申请 USB 权限、不读取序列号。
     private void usb(ItemSink s){
+        s.read("hardware","hardware/usb-summary","USB 能力摘要","UsbManager.getDeviceList / UsbDevice",()->usbSummary(s.context));
         s.read("hardware","hardware/usb","USB 设备公开清单","UsbManager.getDeviceList / UsbDevice",()->{
             UsbManager manager=s.context.getSystemService(UsbManager.class);
             if(manager==null)return Json.obj("count",0,"devices",new JSONArray());
@@ -118,6 +119,15 @@ public final class HardwareCollector implements Collector {
             }
             return Json.obj("count",values.length(),"devices",values);
         });
+    }
+    // 业务块：压缩 USB 描述符为可比较摘要；不复制设备路径、序列号或接口逐项数据。
+    private static JSONObject usbSummary(Context context){
+        UsbManager manager=context.getSystemService(UsbManager.class);
+        if(manager==null)return Json.obj("available",false,"deviceCount",null,"deviceCountTruncated",false,"interfaceCount",null,"endpointCount",null,"permissionQueryStatus","unavailable","permissionGrantedCount",null,"vendorIdCount",null,"productIdCount",null,"vendorIds",new JSONArray(),"productIds",new JSONArray(),"vendorIdsTruncated",false,"productIdsTruncated",false,"deviceClassCounts",new JSONObject(),"interfaceClassCounts",new JSONObject());
+        Map<String,UsbDevice> devices=manager.getDeviceList();ArrayList<String> names=new ArrayList<>(devices.keySet());Collections.sort(names);TreeSet<Integer> vendors=new TreeSet<>(),products=new TreeSet<>();JSONObject deviceClasses=new JSONObject(),interfaceClasses=new JSONObject();int interfaces=0,endpoints=0,permissionGranted=0;String permissionStatus="allowed";int limit=Math.min(256,names.size());
+        for(int i=0;i<limit;i++){UsbDevice device=devices.get(names.get(i));if(device==null)continue;vendors.add(device.getVendorId());products.add(device.getProductId());count(deviceClasses,String.valueOf(device.getDeviceClass()));try{if(manager.hasPermission(device))permissionGranted++;}catch(SecurityException e){permissionStatus="denied";}for(int j=0;j<device.getInterfaceCount();j++){UsbInterface face=device.getInterface(j);interfaces++;endpoints+=face.getEndpointCount();count(interfaceClasses,String.valueOf(face.getInterfaceClass()));}}
+        JSONArray vendorValues=new JSONArray(),productValues=new JSONArray();for(Integer id:vendors)if(vendorValues.length()<128)vendorValues.put(id);for(Integer id:products)if(productValues.length()<128)productValues.put(id);
+        return Json.obj("available",true,"deviceCount",devices.size(),"deviceCountTruncated",devices.size()>256,"interfaceCount",interfaces,"endpointCount",endpoints,"permissionQueryStatus",permissionStatus,"permissionGrantedCount",permissionGranted,"vendorIdCount",vendors.size(),"productIdCount",products.size(),"vendorIds",vendorValues,"productIds",productValues,"vendorIdsTruncated",vendors.size()>128,"productIdsTruncated",products.size()>128,"deviceClassCounts",deviceClasses,"interfaceClassCounts",interfaceClasses);
     }
     // 业务块：只读取 NFC 适配器公开能力，不启停适配器、不读取标签内容。
     private void nfc(ItemSink s){

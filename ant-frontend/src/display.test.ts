@@ -273,6 +273,12 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.map(row => row.key)).toContain('signalLevel');
     expect(sections[0].rows.map(row => row.key)).not.toContain('cellIdentity');
   });
+  it('USB 摘要不展开设备路径与描述符', () => {
+    const sections = buildSections(item('hardware/usb-summary', 'hardware', { available: true, deviceCount: 2, deviceCountTruncated: false, interfaceCount: 3, endpointCount: 5, permissionQueryStatus: 'allowed', permissionGrantedCount: 1, vendorIdCount: 2, productIdCount: 2, vendorIds: [18, 1204], productIds: [52, 4660], vendorIdsTruncated: false, productIdsTruncated: false, deviceClassCounts: { '0': 2 }, interfaceClassCounts: { '3': 1 } }));
+    expect(sections[0].title).toBe('USB 能力摘要');
+    expect(sections[0].rows.map(row => row.key)).toContain('deviceCount');
+    expect(JSON.stringify(sections)).not.toContain('deviceName');
+  });
   it('存储摘要展示存储卷拓扑与状态计数', () => {
     const sections = buildSections(item('storage/summary', 'storage', { available: true, volumeCount: 2, mountedCount: 2, primaryCount: 1, removableCount: 1, emulatedCount: 1, uuidPresentCount: 1, stateCounts: { mounted: 2 } }));
     expect(sections[0].title).toBe('存储卷环境摘要');

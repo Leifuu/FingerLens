@@ -152,8 +152,8 @@ public class CollectionChecks {
     }
     @Test public void usbEvidenceUsesPublicDescriptorsOnly()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new HardwareCollector("hardware").collect(sink);
-        JSONObject usb=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("hardware/usb")){usb=item;break;}}
-        assertNotNull("应记录 USB 公开设备清单",usb);assertEquals("ok",usb.getString("status"));JSONObject value=usb.getJSONObject("value");assertTrue(value.has("count"));assertTrue(value.getInt("count")<=256);assertTrue(value.has("devices"));assertFalse(usb.toString().contains("serialNumber"));
+        JSONObject usb=null,summary=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("hardware/usb"))usb=item;if(item.getString("key").equals("hardware/usb-summary"))summary=item;}
+        assertNotNull("应记录 USB 公开设备清单",usb);assertNotNull("应生成 USB 能力摘要",summary);assertEquals("ok",usb.getString("status"));assertEquals("ok",summary.getString("status"));JSONObject value=usb.getJSONObject("value"),summaryValue=summary.getJSONObject("value");assertTrue(value.has("count"));assertTrue(value.getInt("count")<=256);assertTrue(value.has("devices"));assertTrue(summaryValue.has("deviceCount"));assertTrue(summaryValue.has("interfaceCount"));assertTrue(summaryValue.has("endpointCount"));assertTrue(summaryValue.has("vendorIds"));assertTrue(summaryValue.has("productIds"));assertTrue(summaryValue.getJSONArray("vendorIds").length()<=128);assertTrue(summaryValue.getJSONArray("productIds").length()<=128);assertFalse( summary.toString().contains("deviceName"));assertFalse(summary.toString().contains("serialNumber"));assertFalse(usb.toString().contains("serialNumber"));
     }
     @Test public void nfcEvidenceUsesPublicAdapterState()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new HardwareCollector("hardware").collect(sink);
