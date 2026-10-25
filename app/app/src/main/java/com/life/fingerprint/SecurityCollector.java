@@ -32,6 +32,8 @@ public final class SecurityCollector implements Collector {
         if(module.equals("virtualization")){virtualization(s);return;}
         s.read("security","security/summary","安全环境摘要","Debug / DevicePolicyManager / AppOpsManager / KeyguardManager",()->securitySummary(s.context));
         s.read("security","security/selinux-summary","SELinux 环境摘要","/sys/fs/selinux/enforce / /proc/self/attr/current",SecurityCollector::selinuxSummary);
+        try{s.ok("security","security/root-path-summary","Root 相关路径检查摘要","jni","openat(O_PATH|O_NOFOLLOW) + fstatat(AT_SYMLINK_NOFOLLOW)",rootPathSummary());}
+        catch(Exception|LinkageError e){s.failed("security","security/root-path-summary","Root 相关路径检查摘要","jni","openat + fstatat","error",e);}
         s.ok("security","security/self","应用安全上下文","android-api","Process / ApplicationInfo / Debug",Json.obj("uid",android.os.Process.myUid(),"pid",android.os.Process.myPid(),"debuggable",(s.context.getApplicationInfo().flags&ApplicationInfo.FLAG_DEBUGGABLE)!=0,"debuggerConnected",Debug.isDebuggerConnected(),"waitingForDebugger",Debug.waitingForDebugger()));
         s.read("security","security/process-identity-summary","当前进程身份与沙箱摘要","Process / UserHandle",()->processIdentitySummary(s.context));
         s.read("security","security/self-runtime","应用运行时可分析配置","ApplicationInfo public runtime flags",()->selfRuntimeSummary(s.context));
@@ -48,6 +50,31 @@ public final class SecurityCollector implements Collector {
         s.read("security","security/providers-summary","安全提供者摘要","Security.getProviders",SecurityCollector::providerSummary);
         s.read("security","security/trust-store","当前 App 可见 CA 信任库","KeyStore AndroidCAStore",()->{KeyStore store=KeyStore.getInstance("AndroidCAStore");store.load(null);JSONArray a=new JSONArray();Enumeration<String> names=store.aliases();int count=0;while(names.hasMoreElements()){String name=names.nextElement();if(++count>4096)throw new IllegalStateException("CA 数量超过 4096");Certificate cert=store.getCertificate(name);a.put(Json.obj("alias",name,"derBase64",cert==null?null:Base64.encodeToString(cert.getEncoded(),Base64.NO_WRAP),"sha256",cert==null?null:PackageInputCollector.sha(cert.getEncoded())));}return a;});
         s.read("security","security/trust-store-summary","CA 信任库摘要","KeyStore AndroidCAStore",SecurityCollector::trustStoreSummary);
+    }
+    // 业务块：固定检查 RootBeer 公开目录中的 su/BusyBox，只观察元数据，不读取正文或执行二进制。
+    private static JSONObject rootPathSummary()throws Exception{
+        String[] directories={"/data/local/","/data/local/bin/","/data/local/xbin/","/sbin/","/su/bin/","/system/bin/","/system/bin/.ext/","/system/bin/failsafe/","/system/sd/xbin/","/system/usr/we-need-root/","/system/xbin/","/system_ext/bin/","/cache/","/data/","/dev/"};
+        ArrayList<String> paths=new ArrayList<>();for(String directory:directories)for(String binary:new String[]{"su","busybox"})paths.add(directory+binary);
+        paths.add("/vendor/bin/su");paths.add("/data/adb");
+        JSONArray entries=new JSONArray();int present=0,missing=0,denied=0,unresolved=0,errors=0;
+        for(String path:paths){
+            JSONObject stat=new JSONObject(NativeProbe.inspectPath(path));String status=rootPathStatus(stat);
+            if(status.equals("present"))present++;else if(status.equals("missing"))missing++;else if(status.equals("denied"))denied++;else if(status.equals("unresolved"))unresolved++;else errors++;
+            entries.put(Json.obj("path",path,"status",status,"errno",stat.getInt("errno"),"type",stat.opt("type")));
+        }
+        int unknown=denied+unresolved+errors;
+        return Json.obj("available",true,"status",unknown>0?"partial":"ok","pathChecks",entries.length(),"pathLimit",32,
+                "presentCount",present,"missingCount",missing,"deniedCount",denied,"unresolvedCount",unresolved,"errorCount",errors,"unknownCount",unknown,
+                "binaryExecutionAttempted",false,"followParentSymlinks",false,"evidenceOnly",true,"entries",entries);
+    }
+    // ENOTDIR 也可能来自拒绝跟随父级符号链接，不能将它与 ENOENT 混为不存在。
+    static String rootPathStatus(JSONObject stat)throws JSONException{
+        if(stat.getBoolean("ok"))return "present";
+        int errno=stat.getInt("errno");
+        if(errno==2)return "missing";
+        if(errno==13||errno==1)return "denied";
+        if(errno==20||errno==40)return "unresolved";
+        return "error";
     }
     // 业务块：记录当前进程 UID 的公开分类和用户范围，不把 UID 类型直接解释为 Root 或欺诈。
     private static JSONObject processIdentitySummary(Context context){

@@ -2,6 +2,7 @@ import type { Row } from './types';
 
 // 业务块：Root 视图复用已有证据，不修改原始分类，也不依据单项线索生成结论。
 const rootEvidenceKeys = new Set([
+  'security/root-path-summary',
   'virtualization/path/system/bin/su', 'virtualization/path/system/xbin/su',
   'virtualization/path/sbin/su', 'virtualization/path/vendor/bin/su', 'virtualization/path/data/adb',
   'virtualization/build-evidence', 'virtualization/build-markers', 'virtualization/risk-summary',

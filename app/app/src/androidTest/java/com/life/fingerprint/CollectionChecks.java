@@ -317,6 +317,22 @@ public class CollectionChecks {
         JSONObject components=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("security/self-components-summary")){components=item;break;}}
         assertNotNull("应记录当前 App 组件摘要",components);assertEquals("ok",components.getString("status"));JSONObject value=components.getJSONObject("value");assertTrue(value.getBoolean("available"));assertTrue(value.has("activityCount"));assertTrue(value.has("receiverCount"));assertTrue(value.has("serviceCount"));assertTrue(value.has("providerCount"));assertEquals(value.getInt("componentCount"),value.getInt("activityCount")+value.getInt("receiverCount")+value.getInt("serviceCount")+value.getInt("providerCount"));assertTrue(value.has("exportedCount"));assertTrue(value.has("permissionFieldCount"));assertTrue(value.has("directBootAwareCount"));assertTrue(value.has("isolatedServiceCount"));assertTrue(value.has("foregroundServiceTypeCount"));assertFalse(components.toString().contains("sourceDir"));assertFalse(components.toString().contains("otherPackages"));
     }
+    @Test public void rootPathEvidenceSeparatesMissingDeniedAndUnresolved()throws Exception{
+        assertEquals("present",SecurityCollector.rootPathStatus(Json.obj("ok",true,"errno",0)));
+        assertEquals("missing",SecurityCollector.rootPathStatus(Json.obj("ok",false,"errno",2)));
+        for(int errno:new int[]{1,13})assertEquals("denied",SecurityCollector.rootPathStatus(Json.obj("ok",false,"errno",errno)));
+        for(int errno:new int[]{20,40})assertEquals("unresolved",SecurityCollector.rootPathStatus(Json.obj("ok",false,"errno",errno)));
+        assertEquals("error",SecurityCollector.rootPathStatus(Json.obj("ok",false,"errno",5)));
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new SecurityCollector("security").collect(sink);
+        JSONObject summary=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("security/root-path-summary")){summary=item;break;}}
+        assertNotNull(summary);assertEquals("ok",summary.getString("status"));assertEquals("jni",summary.getJSONObject("source").getString("kind"));JSONObject value=summary.getJSONObject("value");
+        assertEquals(32,value.getInt("pathChecks"));assertEquals(32,value.getInt("pathLimit"));assertFalse(value.getBoolean("binaryExecutionAttempted"));assertFalse(value.getBoolean("followParentSymlinks"));assertTrue(value.getBoolean("evidenceOnly"));
+        assertEquals(32,value.getInt("presentCount")+value.getInt("missingCount")+value.getInt("unknownCount"));assertEquals(value.getInt("unknownCount"),value.getInt("deniedCount")+value.getInt("unresolvedCount")+value.getInt("errorCount"));
+        JSONArray entries=value.getJSONArray("entries");assertEquals(32,entries.length());java.util.Set<String> paths=new java.util.HashSet<>();java.util.Map<String,Integer> counts=new java.util.HashMap<>();
+        for(int i=0;i<entries.length();i++){JSONObject entry=entries.getJSONObject(i);assertTrue(paths.add(entry.getString("path")));String status=entry.getString("status");assertTrue(java.util.Arrays.asList("present","missing","denied","unresolved","error").contains(status));counts.put(status,counts.getOrDefault(status,0)+1);assertTrue(entry.has("errno"));assertFalse(entry.has("linkBase64"));}
+        for(String status:new String[]{"present","missing","denied","unresolved","error"})assertEquals((int)counts.getOrDefault(status,0),value.getInt(status+"Count"));
+        assertTrue(paths.contains("/system_ext/bin/su"));assertTrue(paths.contains("/system/xbin/busybox"));assertTrue(paths.contains("/data/adb"));assertFalse(value.has("isRooted"));
+    }
     @Test public void trustStoreSummaryBoundsCertificateMaterial()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new SecurityCollector("security").collect(sink);
         JSONObject summary=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("security/trust-store-summary")){summary=item;break;}}

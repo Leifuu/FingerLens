@@ -18,6 +18,13 @@ describe('设备格式化展示边界', () => {
     expect(buildSections(value)[0].rows.map(row => row.key)).toEqual(['returnedCount']);
     expect(JSON.stringify(value)).toBe(original);
   });
+  it('Root 路径的未知状态不读取对象原型属性', () => {
+    for (const status of ['__proto__', 'constructor', 'future_status']) {
+      const sections = buildSections(item('security/root-path-summary', 'security', { status, entries: [{ status }] }));
+      expect(sections[0].rows.find(row => row.key === 'status')?.value).toBe(status);
+      expect(sections[1].rows.find(row => row.key === '[0].status')?.value).toBe(status);
+    }
+  });
   it('应用清单摘要展示包环境统计并保留旧枚举条目', () => {
     const sections = buildSections(item('packages/summary', 'packages', { returnedCount: 3, applicationInfoCount: 3, enabledCount: 2, debuggableCount: 1, systemAppCount: 2, updatedSystemAppCount: 1, nativeCodeCount: 2, splitPackageCount: 1, sharedUserIdCount: 0, versionNameCount: 3, requestedPermissionCount: 8, permissionPackageCount: 2, grantedRequestedPermissionCount: 4, uniqueRequestedPermissionCount: 3, requestedPermissionNames: ['android.permission.CAMERA', 'android.permission.INTERNET'], requestedPermissionNamesTruncated: false, activityCount: 4, receiverCount: 2, serviceCount: 3, providerCount: 1, targetSdkCounts: { '35': 2, '37': 1 } }));
     expect(sections[0].title).toBe('应用清单摘要');
@@ -480,6 +487,18 @@ describe('设备格式化展示边界', () => {
     const sections = buildSections(item('security/trust-store-summary', 'security', { available: true, status: 'ok', certificateCount: 3, userCertificateCount: 1, systemCertificateCount: 2, otherCertificateCount: 0, hasUserCertificates: true, hashedCertificateCount: 3, uniqueSha256Count: 3, certificateSetSha256: 'a'.repeat(64), certificateReadErrorCount: 0, hashLimit: 4096, hashTruncated: false }));
     expect(sections[0].title).toBe('CA 信任库摘要');
     expect(sections[0].rows.map(row => row.key)).toContain('userCertificateCount');
+  });
+  it('Root 路径摘要区分不存在与观察受限，保留逐路径 errno', () => {
+    const value = item('security/root-path-summary', 'security', { available: true, status: 'partial', pathChecks: 2, pathLimit: 32, missingCount: 1, deniedCount: 1, entries: [{ path: '/system/bin/su', status: 'missing', errno: 2, type: null }, { path: '/data/adb', status: 'denied', errno: 13, type: null }] });
+    const original = JSON.stringify(value);
+    const sections = buildSections(value);
+    expect(sections[0].title).toBe('Root 相关路径检查摘要');
+    expect(sections[0].rows.find(row => row.key === 'status')?.value).toBe('部分可观察');
+    expect(sections[1].title).toBe('路径观察结果（固定 32 项，不执行）');
+    expect(sections[1].rows.some(row => row.value === '路径不存在')).toBe(true);
+    expect(sections[1].rows.some(row => row.value === '受限/未授权')).toBe(true);
+    expect(sections[1].rows.some(row => row.key.endsWith('.errno') && row.value === '13')).toBe(true);
+    expect(JSON.stringify(value)).toBe(original);
   });
   it('应用清单签名详情压缩 DER，只展示哈希和长度', () => {
     const value = item('packages/com.example', 'packages', { packageName: 'com.example', signatures: [{ sha256: 'b'.repeat(64), derBase64: 'B'.repeat(12000) }] });

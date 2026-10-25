@@ -48,6 +48,7 @@ const STATUS_LABELS: Record<string, string> = {
   allowed: '已授权', denied: '受限/未授权', unsupported: '系统不支持', unavailable: '接口不可用',
   success: '可用', none_enrolled: '未录入', no_hardware: '无硬件', hardware_unavailable: '硬件暂不可用',
   security_update_required: '需要安全更新', error: '读取异常', skipped: '未执行', truncated: '已截断', ok: '成功',
+  present: '已观察到', missing: '路径不存在', unresolved: '路径未解析', partial: '部分可观察',
 };
 
 const APP_OP_MODE_LABELS: Record<number, string> = {
@@ -292,6 +293,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     'network/private-dns-summary': { title: 'Private DNS 环境摘要', order: ['available', 'status', 'activeNetworkPresent', 'linkPropertiesAvailable', 'privateDnsSupported', 'privateDnsActive', 'dnsServerCount', 'dnsIpv4Count', 'dnsIpv6Count', 'privateDnsServerNamePresent', 'privateDnsServerNameLength', 'privateDnsServerNameSha256'], arrays: [] },
     'network/proxy-summary': { title: '代理环境摘要', order: ['available', 'status', 'configured', 'hostPresent', 'hostLength', 'hostSha256', 'port', 'exclusionCount', 'pacFilePresent', 'pacScheme'], arrays: [] },
     'virtualization/risk-summary': { title: '虚拟化与提权线索摘要', order: ['pathChecks', 'evidenceOnly', 'testKeys', 'conclusion'], arrays: ['presentPaths', 'pathErrors', 'matchedBuildMarkers'] },
+    'security/root-path-summary': { title: 'Root 相关路径检查摘要', order: ['available', 'status', 'pathChecks', 'pathLimit', 'presentCount', 'missingCount', 'deniedCount', 'unresolvedCount', 'errorCount', 'unknownCount', 'binaryExecutionAttempted', 'followParentSymlinks', 'evidenceOnly'], arrays: ['entries'] },
     'hardware/drm/widevine': { title: 'Widevine DRM 能力', order: ['supported', 'schemeUuid', 'vendor', 'version', 'description', 'algorithms', 'maxSecurityLevel', 'deviceUniqueId'], arrays: [] },
     'hardware/features-summary': { title: '系统特性能力摘要', order: ['count', 'namedCount', 'versionedCount', 'maxVersion', 'featureNamesTruncated'], arrays: ['featureNames', 'glEsVersions'] },
      'hardware/graphics-summary': { title: '图形能力摘要', order: ['available', 'eglInitialized', 'eglError', 'eglVendor', 'eglVersion', 'glVendor', 'glRenderer', 'glVersion', 'eglExtensionsLength', 'eglExtensionCount', 'glExtensionsLength', 'glExtensionCount', 'vulkanLibraryLoaded', 'vulkanExtensionResult', 'vulkanExtensionCount', 'vulkanExtensionNamesTruncated'], arrays: ['vulkanExtensionNames'] },
@@ -381,6 +383,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
           : key === 'security/providers-summary' && arrayKey === 'providers' ? '安全提供者'
           : key === 'security/providers-summary' && arrayKey === 'serviceNames' ? '服务名（最多 512 项）'
           : key === 'security/self-permissions' && arrayKey === 'permissions' ? '声明权限（最多 256 项）'
+          : key === 'security/root-path-summary' && arrayKey === 'entries' ? '路径观察结果（固定 32 项，不执行）'
           : key === 'storage/capacity-summary' && arrayKey === 'entries' ? '固定路径容量'
           : key === 'hardware/audio-summary'
             ? arrayKey === 'productNames' ? '音频设备名' : arrayKey === 'sampleRates' ? '采样率' : '编码格式'
@@ -400,6 +403,9 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     }
   }
   if (key === 'network/risk-signals' && typeof value.capabilitiesRaw === 'string') sections.push(section('capabilitiesRaw', '系统原始能力字符串', [row('value', value.capabilitiesRaw)], false));
+  if (key === 'security/root-path-summary') for (const group of sections) for (const entry of group.rows) {
+    if ((entry.key === 'status' || entry.key.endsWith('.status')) && Object.hasOwn(STATUS_LABELS, entry.value)) entry.value = STATUS_LABELS[entry.value];
+  }
   return sections.filter(item => item.rows.length);
 }
 
