@@ -248,9 +248,16 @@ public final class SecurityCollector implements Collector {
                 "signingCertificateSha256",hashes,"signingCertificateHistorySha256",history,"hasPastSigningCertificates",hasPast,
                 "enabled",application==null?null:application.enabled,
                 "applicationFlags",application==null?null:application.flags,
+                "applicationFlagsSummary",applicationFlagsSummary(application),
                 "debuggable",application!=null&&(application.flags&ApplicationInfo.FLAG_DEBUGGABLE)!=0,
                 "hasCode",application!=null&&(application.flags&ApplicationInfo.FLAG_HAS_CODE)!=0,
                 "instantApp",instantApp,"packageSuspended",packageSuspended,"packageSuspensionQueryStatus",packageSuspensionQueryStatus);
+    }
+    // 业务块：把公开 ApplicationInfo 标志解码为可读布尔值，同时保留旧的 applicationFlags 整数。
+    private static JSONObject applicationFlagsSummary(ApplicationInfo application){
+        if(application==null)return Json.obj("debuggable",null,"hasCode",null,"system",null,"testOnly",null,"externalStorage",null,"largeHeap",null,"multiArch",null,"usesCleartextTraffic",null,"hardwareAccelerated",null,"isGame",null,"allowBackup",null,"fullBackupOnly",null,"vmSafeMode",null,"stopped",null,"supportsRtl",null,"dataOnly",null);
+        int flags=application.flags;
+        return Json.obj("debuggable",(flags&ApplicationInfo.FLAG_DEBUGGABLE)!=0,"hasCode",(flags&ApplicationInfo.FLAG_HAS_CODE)!=0,"system",(flags&ApplicationInfo.FLAG_SYSTEM)!=0,"testOnly",(flags&ApplicationInfo.FLAG_TEST_ONLY)!=0,"externalStorage",(flags&ApplicationInfo.FLAG_EXTERNAL_STORAGE)!=0,"largeHeap",(flags&ApplicationInfo.FLAG_LARGE_HEAP)!=0,"multiArch",(flags&ApplicationInfo.FLAG_MULTIARCH)!=0,"usesCleartextTraffic",(flags&ApplicationInfo.FLAG_USES_CLEARTEXT_TRAFFIC)!=0,"hardwareAccelerated",(flags&ApplicationInfo.FLAG_HARDWARE_ACCELERATED)!=0,"isGame",(flags&ApplicationInfo.FLAG_IS_GAME)!=0,"allowBackup",(flags&ApplicationInfo.FLAG_ALLOW_BACKUP)!=0,"fullBackupOnly",(flags&ApplicationInfo.FLAG_FULL_BACKUP_ONLY)!=0,"vmSafeMode",(flags&ApplicationInfo.FLAG_VM_SAFE_MODE)!=0,"stopped",(flags&ApplicationInfo.FLAG_STOPPED)!=0,"supportsRtl",(flags&ApplicationInfo.FLAG_SUPPORTS_RTL)!=0,"dataOnly",(flags&ApplicationInfo.FLAG_IS_DATA_ONLY)!=0);
     }
     // 业务块：把公开安装来源常量转换为稳定名称；未知常量保留数值，避免伪造来源结论。
     private static String packageSourceName(Integer source){
