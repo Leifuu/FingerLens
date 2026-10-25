@@ -47,6 +47,7 @@ public final class SecurityCollector implements Collector {
         s.read("security","security/providers","安全提供者","Security.getProviders",()->{JSONArray a=new JSONArray();for(Provider p:Security.getProviders()){JSONArray services=new JSONArray();for(Provider.Service v:p.getServices())services.put(Json.obj("type",v.getType(),"algorithm",v.getAlgorithm(),"className",v.getClassName()));a.put(Json.obj("name",p.getName(),"info",p.getInfo(),"version",p.getVersion(),"services",services));}return a;});
         s.read("security","security/providers-summary","安全提供者摘要","Security.getProviders",SecurityCollector::providerSummary);
         s.read("security","security/trust-store","当前 App 可见 CA 信任库","KeyStore AndroidCAStore",()->{KeyStore store=KeyStore.getInstance("AndroidCAStore");store.load(null);JSONArray a=new JSONArray();Enumeration<String> names=store.aliases();int count=0;while(names.hasMoreElements()){String name=names.nextElement();if(++count>4096)throw new IllegalStateException("CA 数量超过 4096");Certificate cert=store.getCertificate(name);a.put(Json.obj("alias",name,"derBase64",cert==null?null:Base64.encodeToString(cert.getEncoded(),Base64.NO_WRAP),"sha256",cert==null?null:PackageInputCollector.sha(cert.getEncoded())));}return a;});
+        s.read("security","security/trust-store-summary","CA 信任库摘要","KeyStore AndroidCAStore",SecurityCollector::trustStoreSummary);
     }
     // 业务块：记录当前进程 UID 的公开分类和用户范围，不把 UID 类型直接解释为 Root 或欺诈。
     private static JSONObject processIdentitySummary(Context context){
@@ -121,6 +122,17 @@ public final class SecurityCollector implements Collector {
         }
         JSONArray names=new JSONArray();for(String name:serviceNames)names.put(name);
         return Json.obj("available",true,"status","ok","providerCount",providers.length,"serviceCount",serviceCount,"providers",values,"providerNamesTruncated",providerLimit,"serviceTypeCounts",typeCounts,"serviceNames",names,"serviceNamesTruncated",serviceLimit);
+    }
+    // 业务块：把 CA 信任库压缩为分类计数和有界哈希，避免摘要重复导出证书 DER。
+    private static JSONObject trustStoreSummary()throws Exception{
+        KeyStore store=KeyStore.getInstance("AndroidCAStore");store.load(null);Enumeration<String> names=store.aliases();TreeSet<String> hashes=new TreeSet<>();int total=0,user=0,system=0,other=0,processed=0,readErrors=0;final int hashLimit=4096;
+        while(names.hasMoreElements()){
+            String name=names.nextElement();total++;if(name!=null&&name.startsWith("user:"))user++;else if(name!=null&&name.startsWith("system:"))system++;else other++;
+            if(processed>=hashLimit)continue;processed++;
+            try{Certificate cert=store.getCertificate(name);if(cert==null){readErrors++;continue;}hashes.add(PackageInputCollector.sha(cert.getEncoded()));}catch(Exception ignored){readErrors++;}
+        }
+        boolean truncated=total>hashLimit;StringBuilder canonical=new StringBuilder();for(String hash:hashes)canonical.append(hash).append('\n');
+        return Json.obj("available",true,"status",truncated?"truncated":"ok","certificateCount",total,"userCertificateCount",user,"systemCertificateCount",system,"otherCertificateCount",other,"hasUserCertificates",user>0,"hashedCertificateCount",processed-readErrors,"uniqueSha256Count",hashes.size(),"certificateSetSha256",truncated?null:PackageInputCollector.sha(canonical.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)),"certificateReadErrorCount",readErrors,"hashLimit",hashLimit,"hashTruncated",truncated);
     }
     // 业务块：只保留 SELinux enforcing 状态和当前上下文的存在性/哈希；原始安全文件继续单独保留。
     private static JSONObject selinuxSummary(){

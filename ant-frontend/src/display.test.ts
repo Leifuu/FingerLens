@@ -476,6 +476,11 @@ describe('设备格式化展示边界', () => {
     expect(JSON.stringify(sections)).not.toContain('A'.repeat(100));
     expect(JSON.stringify(value)).toBe(original);
   });
+  it('CA 信任库摘要展示用户证书计数而不展开 DER', () => {
+    const sections = buildSections(item('security/trust-store-summary', 'security', { available: true, status: 'ok', certificateCount: 3, userCertificateCount: 1, systemCertificateCount: 2, otherCertificateCount: 0, hasUserCertificates: true, hashedCertificateCount: 3, uniqueSha256Count: 3, certificateSetSha256: 'a'.repeat(64), certificateReadErrorCount: 0, hashLimit: 4096, hashTruncated: false }));
+    expect(sections[0].title).toBe('CA 信任库摘要');
+    expect(sections[0].rows.map(row => row.key)).toContain('userCertificateCount');
+  });
   it('应用清单签名详情压缩 DER，只展示哈希和长度', () => {
     const value = item('packages/com.example', 'packages', { packageName: 'com.example', signatures: [{ sha256: 'b'.repeat(64), derBase64: 'B'.repeat(12000) }] });
     const original = JSON.stringify(value);
