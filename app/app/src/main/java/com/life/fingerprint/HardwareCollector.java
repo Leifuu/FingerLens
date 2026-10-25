@@ -155,8 +155,12 @@ public final class HardwareCollector implements Collector {
             return value;
         });
     }
-    // 业务块：只导出 Widevine 能力和唯一值摘要，绝不输出原始 DRM deviceUniqueId。
+    // 业务块：枚举平台 DRM 方案并保留既有 Widevine 能力，绝不输出原始 DRM deviceUniqueId。
     private void drm(ItemSink s){
+        s.read("hardware","hardware/drm-schemes","DRM 支持方案摘要","MediaDrm.getSupportedCryptoSchemes",()->{
+            if(Build.VERSION.SDK_INT<30)throw new UnsupportedOperationException("requires API 30");
+            return drmSchemeValues(MediaDrm.getSupportedCryptoSchemes());
+        });
         final UUID widevine=UUID.fromString("edef8ba9-79d6-4ace-a3c8-27dcd51d21ed");
         s.read("hardware","hardware/drm/widevine","Widevine DRM 能力","MediaDrm",()->{
             if(!MediaDrm.isCryptoSchemeSupported(widevine))return Json.obj("supported",false,"schemeUuid",widevine.toString());
@@ -176,6 +180,17 @@ public final class HardwareCollector implements Collector {
                 return value;
             }finally{if(drm!=null)drm.release();}
         });
+    }
+    // 业务块：只枚举平台支持方案，保留重复与未知 UUID；完整排序集合参与哈希，不打开 DRM 会话。
+    static JSONObject drmSchemeValues(List<UUID> schemes)throws Exception{
+        if(schemes==null)throw new IllegalArgumentException("missing DRM scheme list");
+        ArrayList<String> values=new ArrayList<>();
+        for(UUID scheme:schemes){if(scheme==null)throw new IllegalArgumentException("null DRM scheme");values.add(scheme.toString());}
+        Collections.sort(values);JSONArray complete=new JSONArray(values),returned=new JSONArray();
+        for(int i=0;i<Math.min(32,values.size());i++)returned.put(values.get(i));
+        return Json.obj("available",true,"status",values.size()>32?"partial":"ok","scope","platform-supported-crypto-schemes",
+                "schemeCount",values.size(),"returnedCount",returned.length(),"schemeLimit",32,"truncated",values.size()>32,
+                "schemeListSha256",PackageInputCollector.sha(complete.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)),"schemeUuids",returned);
     }
     private Object cameraValue(Object value){
         if(value==null)return null;

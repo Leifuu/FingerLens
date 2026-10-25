@@ -196,6 +196,19 @@ describe('设备格式化展示边界', () => {
     expect(sections.find(section => section.key === 'moduleNames')?.title).toBe('模块名称');
     expect(sections.find(section => section.key === 'packageNames')?.title).toBe('模块包名');
   });
+  it('DRM 方案摘要分组显示 UUID，保留重复、未知 UUID 和后续字段', () => {
+    const uuid = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
+    const value = item('hardware/drm-schemes', 'hardware', { available: true, status: 'partial', scope: 'platform-supported-crypto-schemes', schemeCount: 34, returnedCount: 32, schemeLimit: 32, truncated: true, schemeListSha256: 'a'.repeat(64), schemeUuids: [uuid, uuid], futureField: null });
+    const original = JSON.stringify(value);
+    const sections = buildSections(value);
+    expect(sections[0].title).toBe('DRM 支持方案摘要');
+    expect(sections[0].rows.find(row => row.key === 'schemeCount')?.value).toBe('34');
+    expect(sections[0].rows.find(row => row.key === 'schemeListSha256')?.value).toBe('a'.repeat(64));
+    expect(sections[0].rows.find(row => row.key === 'futureField')?.value).toBe('null');
+    expect(sections.find(section => section.key === 'schemeUuids')?.title).toBe('平台支持的 DRM 方案 UUID（最多 32 项）');
+    expect(sections.find(section => section.key === 'schemeUuids')?.rows.map(row => row.value)).toEqual([uuid, uuid]);
+    expect(JSON.stringify(value)).toBe(original);
+  });
   it('Widevine 与 Play Integrity 摘要不展开成大段 JSON', () => {
     const drm = buildSections(item('hardware/drm/widevine', 'hardware', { supported: true, vendor: 'Google', deviceUniqueId: { sha256: 'a'.repeat(64), length: 32, rawExported: false } }));
     const integrity = buildSections(item('attestation/play-integrity-environment', 'attestation', { verdictAvailable: false, playServices: { present: true, versionName: '1' } }));

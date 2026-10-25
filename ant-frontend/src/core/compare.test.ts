@@ -6,6 +6,18 @@ const raw = { semantic: false, ignoreDynamic: false }, semantic = { semantic: tr
 const find = (rows: ReturnType<typeof compare>, key: string) => rows.find(x => x.key === key)!;
 
 describe('原始与语义比较', () => {
+  it('旧 DRM JSON 保留新清单单侧状态，截断外方案变化仍参与比较', () => {
+    const legacy = fixture([fixtureItem('hardware/drm/widevine', { supported: true }, { category: 'hardware' })]);
+    const current = fixture([...legacy.data.items, fixtureItem('hardware/drm-schemes', { schemeUuids: ['uuid'], schemeListSha256: 'full-a' }, { category: 'hardware' })]);
+    const changed = structuredClone(current);
+    changed.data.items[1].value = { schemeUuids: ['uuid'], schemeListSha256: 'full-b' };
+    for (const rules of [raw, semantic, smart]) {
+      const rows = compare(legacy, current, rules);
+      expect(find(rows, 'hardware/drm/widevine').state).toBe('same');
+      expect(find(rows, 'hardware/drm-schemes').state).toBe('right-only');
+      expect(find(compare(current, changed, rules), 'hardware/drm-schemes').changedPaths).toEqual(['/value/schemeListSha256']);
+    }
+  });
   it('WebView 签名轮换顺序和截断外历史哈希参与所有模式比较，旧 JSON 缺项保留差异', () => {
     const key = 'environment/webview-package-summary';
     const old = fixture([fixtureItem(key, { signatureCount: 1 }, { category: 'environment' })]);

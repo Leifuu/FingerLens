@@ -210,6 +210,33 @@ public class CollectionChecks {
         JSONObject drm=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("hardware/drm/widevine")){drm=item;break;}}
         assertNotNull("应记录 Widevine 支持状态",drm);if("ok".equals(drm.getString("status"))){JSONObject value=drm.getJSONObject("value");assertFalse(value.toString().contains("deviceUniqueIdBase64"));if(value.optJSONObject("deviceUniqueId")!=null)assertFalse(value.getJSONObject("deviceUniqueId").optBoolean("rawExported",true));}
     }
+    @Test public void drmSchemesKeepCompleteHashAndPublicEnumeration()throws Exception{
+        ArrayList<UUID> schemes=new ArrayList<>();for(int i=34;i>0;i--)schemes.add(new UUID(0,i));ArrayList<UUID> original=new ArrayList<>(schemes);
+        JSONObject value=HardwareCollector.drmSchemeValues(schemes);assertEquals(original,schemes);
+        assertEquals("partial",value.getString("status"));assertEquals(34,value.getInt("schemeCount"));assertEquals(32,value.getInt("returnedCount"));assertEquals(32,value.getInt("schemeLimit"));assertTrue(value.getBoolean("truncated"));
+        assertEquals(new UUID(0,1).toString(),value.getJSONArray("schemeUuids").getString(0));assertEquals(new UUID(0,32).toString(),value.getJSONArray("schemeUuids").getString(31));
+        JSONArray canonical=new JSONArray();for(int i=1;i<=34;i++)canonical.put(new UUID(0,i).toString());
+        assertEquals(PackageInputCollector.sha(canonical.toString().getBytes(StandardCharsets.UTF_8)),value.getString("schemeListSha256"));
+        Collections.reverse(schemes);assertEquals(value.toString(),HardwareCollector.drmSchemeValues(schemes).toString());
+        schemes.set(33,new UUID(0,35));JSONObject outside=HardwareCollector.drmSchemeValues(schemes);
+        assertEquals(value.getJSONArray("schemeUuids").toString(),outside.getJSONArray("schemeUuids").toString());assertNotEquals(value.getString("schemeListSha256"),outside.getString("schemeListSha256"));
+        UUID unknown=UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff");
+        JSONObject duplicates=HardwareCollector.drmSchemeValues(Arrays.asList(unknown,new UUID(0,1),unknown));
+        assertEquals(3,duplicates.getInt("schemeCount"));assertEquals(unknown.toString(),duplicates.getJSONArray("schemeUuids").getString(1));assertEquals(unknown.toString(),duplicates.getJSONArray("schemeUuids").getString(2));
+        JSONObject empty=HardwareCollector.drmSchemeValues(Collections.emptyList());assertEquals("ok",empty.getString("status"));assertEquals(0,empty.getInt("schemeCount"));assertFalse(empty.getBoolean("truncated"));
+        try{HardwareCollector.drmSchemeValues(null);fail("缺失列表不能冒充空集合");}catch(IllegalArgumentException expected){}
+        try{HardwareCollector.drmSchemeValues(Collections.singletonList(null));fail("缺失 UUID 不能静默丢弃");}catch(IllegalArgumentException expected){}
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new HardwareCollector("hardware").collect(sink);
+        JSONObject item=null;boolean old=false;for(int i=0;i<sink.items.length();i++){JSONObject entry=sink.items.getJSONObject(i);if(entry.getString("key").equals("hardware/drm-schemes"))item=entry;if(entry.getString("key").equals("hardware/drm/widevine"))old=true;}
+        assertNotNull(item);assertTrue("旧 Widevine 条目必须保留",old);
+        if(Build.VERSION.SDK_INT<30){assertEquals("unsupported",item.getString("status"));return;}
+        assertEquals("ok",item.getString("status"));JSONObject actual=new JSONObject(item.toString()).getJSONObject("value");
+        List<UUID> supported=android.media.MediaDrm.getSupportedCryptoSchemes();assertEquals(supported.size(),actual.getInt("schemeCount"));
+        ArrayList<String> sorted=new ArrayList<>();for(UUID scheme:supported){assertTrue(android.media.MediaDrm.isCryptoSchemeSupported(scheme));sorted.add(scheme.toString());}Collections.sort(sorted);
+        assertEquals(PackageInputCollector.sha(new JSONArray(sorted).toString().getBytes(StandardCharsets.UTF_8)),actual.getString("schemeListSha256"));
+        assertEquals(Math.min(32,sorted.size()),actual.getInt("returnedCount"));for(int i=0;i<Math.min(32,sorted.size());i++)assertEquals(sorted.get(i),actual.getJSONArray("schemeUuids").getString(i));
+        assertFalse(actual.has("deviceUniqueId"));assertFalse(actual.has("sessionId"));
+    }
     @Test public void usbEvidenceUsesPublicDescriptorsOnly()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new HardwareCollector("hardware").collect(sink);
         JSONObject usb=null,summary=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("hardware/usb"))usb=item;if(item.getString("key").equals("hardware/usb-summary"))summary=item;}

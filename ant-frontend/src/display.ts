@@ -365,11 +365,12 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     'environment/webview-provider': { title: 'WebView 提供方环境', order: ['packageName', 'versionName', 'versionCode'], arrays: ['signatures'] },
     'environment/webview-package-summary': { title: 'WebView 提供方安装环境摘要', order: ['available', 'status', 'packageName', 'selectedVersionName', 'selectedVersionCode', 'packageQueryStatus', 'selectionVersionMatches', 'versionName', 'versionCode', 'applicationInfoAvailable', 'enabled', 'systemApp', 'updatedSystemApp', 'targetSdkVersion', 'minSdkVersion', 'firstInstallTime', 'lastUpdateTime', 'signatureCount', 'signatureLimit', 'signaturesTruncated', 'hasMultipleSigners', 'hasPastSigningCertificates', 'signingHistoryStatus', 'signingHistoryCount', 'signingHistoryLimit', 'signingHistoryTruncated', 'signingHistorySha256', 'installer', 'installerQueryStatus'], arrays: ['signingCertificateSha256', 'signingCertificateHistorySha256'] },
     'environment/power-thermal': { title: '电源与热状态', order: ['powerSaveMode', 'interactive', 'ignoresBatteryOptimizations', 'batteryOptimizationQueryStatus', 'deviceIdleMode', 'lightDeviceIdleMode', 'locationPowerSaveMode', 'thermalStatus', 'thermalHeadroom'], arrays: [] },
+    'hardware/drm-schemes': { title: 'DRM 支持方案摘要', order: ['available', 'status', 'scope', 'schemeCount', 'returnedCount', 'schemeLimit', 'truncated', 'schemeListSha256'], arrays: ['schemeUuids'] },
     'hardware/usb': { title: 'USB 设备公开清单', order: ['count'], arrays: ['devices'] },
   };
   const definition = definitions[key];
   if (!definition) return undefined;
-  const summaryOrder = key === 'environment/resource-locales' ? [...definition.order, ...Object.keys(value)] : definition.order;
+  const summaryOrder = key === 'environment/resource-locales' || key === 'hardware/drm-schemes' ? [...definition.order, ...Object.keys(value)] : definition.order;
   const sections: DisplaySection[] = [section('summary', definition.title, objectRows(value, summaryOrder))];
   for (const arrayKey of definition.arrays) {
     if (Array.isArray(value[arrayKey])) {
@@ -400,6 +401,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
           : key === 'kernel/sysconf-summary' && arrayKey === 'entries' ? '系统调用原始结果（固定 2 项）'
           : key === 'build/sdk-extensions' && arrayKey === 'entries' ? '扩展标识与版本（最多 32 项）'
           : key === 'environment/system-fonts' && arrayKey === 'entries' ? '系统字体元数据（最多 128 项）'
+          : key === 'hardware/drm-schemes' && arrayKey === 'schemeUuids' ? '平台支持的 DRM 方案 UUID（最多 32 项）'
           : key === 'storage/capacity-summary' && arrayKey === 'entries' ? '固定路径容量'
           : key === 'hardware/audio-summary'
             ? arrayKey === 'productNames' ? '音频设备名' : arrayKey === 'sampleRates' ? '采样率' : '编码格式'
