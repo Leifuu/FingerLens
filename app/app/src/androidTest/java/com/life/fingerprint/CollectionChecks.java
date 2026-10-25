@@ -262,6 +262,18 @@ public class CollectionChecks {
         assertNotNull("应记录 WebView 提供方条目",provider);assertTrue(provider.getString("status").equals("ok")||provider.getString("status").equals("unsupported"));
         if("ok".equals(provider.getString("status"))&&!provider.isNull("value")){JSONObject value=provider.getJSONObject("value");assertTrue(value.getString("packageName").length()>0);assertTrue(value.has("signatures"));}
     }
+    @Test public void webViewPackageSummaryKeepsScopedAndBoundedEvidence()throws Exception{
+        android.content.pm.Signature[] synthetic=new android.content.pm.Signature[18];for(int i=0;i<synthetic.length;i++)synthetic[i]=new android.content.pm.Signature(new byte[]{(byte)i});
+        JSONArray hashes=BuildSystemCollector.webViewSignerHashes(synthetic);assertEquals(16,hashes.length());assertEquals(PackageInputCollector.sha(new byte[]{0}),hashes.getString(0));assertEquals(PackageInputCollector.sha(new byte[]{15}),hashes.getString(15));
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new BuildSystemCollector("environment").collect(sink);
+        JSONObject summary=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("environment/webview-package-summary")){summary=item;break;}}
+        assertNotNull(summary);assertEquals("ok",summary.getString("status"));JSONObject value=summary.getJSONObject("value");
+        if(!value.getBoolean("available")){assertTrue(java.util.Arrays.asList("unsupported","no-provider").contains(value.getString("status")));return;}
+        assertTrue(value.getString("packageName").length()>0);assertTrue(value.has("selectedVersionCode"));assertTrue(value.has("selectionVersionMatches"));assertTrue(value.has("packageQueryStatus"));assertTrue(value.has("installerQueryStatus"));assertEquals(16,value.getInt("signatureLimit"));
+        JSONArray actual=value.getJSONArray("signingCertificateSha256");assertTrue(actual.length()<=16);for(int i=0;i<actual.length();i++)assertTrue(actual.getString(i).matches("[a-f0-9]{64}"));
+        if("allowed".equals(value.getString("packageQueryStatus"))){assertFalse(value.isNull("versionCode"));assertTrue(value.has("firstInstallTime"));assertTrue(value.has("targetSdkVersion"));assertTrue(value.has("systemApp"));if(!value.isNull("signatureCount")){assertEquals(Math.min(16,value.getInt("signatureCount")),actual.length());assertEquals(value.getInt("signatureCount")>16,value.getBoolean("signaturesTruncated"));}}
+        assertFalse(value.toString().contains("derBase64"));assertFalse(value.toString().contains("sourceDir"));assertFalse(value.toString().contains("dataDir"));
+    }
     @Test public void deviceManagementEvidenceIsScopedToCurrentApp()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new SecurityCollector("security").collect(sink);
         JSONObject management=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("security/device-management")){management=item;break;}}

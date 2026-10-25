@@ -208,6 +208,20 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.find(row => row.key === 'userAgent')?.value).toBe('Mozilla/5.0 Android');
     expect(sections[0].rows.find(row => row.key === 'length')?.value).toBe('20');
   });
+  it('WebView 安装摘要展示查询状态、版本竞态和有界签名哈希', () => {
+    const value = item('environment/webview-package-summary', 'environment', { available: true, packageName: 'synthetic.webview', selectedVersionCode: '1', versionCode: '2', selectionVersionMatches: false, packageQueryStatus: 'allowed', targetSdkVersion: 35, installer: null, installerQueryStatus: 'not-found-or-not-visible', signatureCount: 1, signatureLimit: 16, signaturesTruncated: false, signingCertificateSha256: ['a'.repeat(64)] });
+    const original = JSON.stringify(value);
+    const sections = buildSections(value);
+    expect(sections[0].title).toBe('WebView 提供方安装环境摘要');
+    expect(sections[0].rows.find(row => row.key === 'selectionVersionMatches')?.value).toBe('false');
+    expect(sections[0].rows.find(row => row.key === 'installerQueryStatus')?.value).toBe('未找到或当前 App 不可见');
+    expect(sections.find(section => section.key === 'signingCertificateSha256')?.rows[0].value).toBe('a'.repeat(64));
+    expect(JSON.stringify(value)).toBe(original);
+    for (const status of ['__proto__', 'constructor', 'future_status']) {
+      const rows = buildSections(item('environment/webview-package-summary', 'environment', { packageQueryStatus: status }))[0].rows;
+      expect(rows[0].value).toBe(status);
+    }
+  });
   it('USB 设备详情按数量与接口摘要展示', () => {
     const value = item('hardware/usb', 'hardware', { count: 1, devices: [{ deviceName: '/dev/bus/usb/001/002', vendorId: 18, productId: 52, interfaces: [{ id: 0, endpointCount: 2 }] }] });
     const sections = buildSections(value);

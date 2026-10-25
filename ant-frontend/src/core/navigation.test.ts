@@ -11,11 +11,14 @@ describe('WebView 与 Root 证据导航', () => {
       fixtureItem('environment/webview-user-agent', { userAgent: 'old' }, { category: 'environment' }),
       fixtureItem('environment/locale-summary', {}, { category: 'environment' }),
     ])));
-    const right = fixture([fixtureItem('environment/webview-provider', { versionName: '2' }, { category: 'environment' })]);
+    const right = fixture([
+      fixtureItem('environment/webview-provider', { versionName: '2' }, { category: 'environment' }),
+      fixtureItem('environment/webview-package-summary', { packageQueryStatus: 'allowed' }, { category: 'environment' }),
+    ]);
     const original = JSON.stringify(left);
     const rows = compare(left, right, { semantic: false, ignoreDynamic: false });
     const webview = rows.filter(row => navigationGroups(row).includes('webview'));
-    expect(webview.map(row => row.state)).toEqual(['different', 'left-only']);
+    expect(webview.map(row => row.state)).toEqual(['different', 'left-only', 'right-only']);
     expect(webview.every(row => row.category === 'environment')).toBe(true);
     expect(rows.filter(row => navigationGroups(row).includes('environment')).map(row => row.key)).toEqual(['environment/locale-summary']);
     expect(JSON.stringify(left)).toBe(original);

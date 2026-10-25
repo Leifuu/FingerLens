@@ -234,6 +234,7 @@ public final class BuildSystemCollector implements Collector {
             if(userAgent==null)return null;
             return Json.obj("userAgent",userAgent,"length",userAgent.length());
         });
+        s.read("environment","environment/webview-package-summary","WebView 提供方安装环境摘要","WebView.getCurrentWebViewPackage / PackageManager.getPackageInfo / getInstallSourceInfo",()->webViewPackageSummary(s.context));
         // 业务块：只记录 PowerManager 公开的当前电源/热状态，不控制电源策略。
         s.read("environment","environment/power-thermal","电源与热状态","PowerManager",()->{
             PowerManager power=s.context.getSystemService(PowerManager.class);
@@ -421,6 +422,38 @@ public final class BuildSystemCollector implements Collector {
         if("1".equals(value)||"true".equalsIgnoreCase(value)||"on".equalsIgnoreCase(value))return true;
         if("0".equals(value)||"false".equalsIgnoreCase(value)||"off".equalsIgnoreCase(value))return false;
         return null;
+    }
+    // 业务块：只查询选中的 WebView 包，不复制安装路径或 DER；保留查询受限和更新竞态证据。
+    private static JSONObject webViewPackageSummary(Context context){
+        if(Build.VERSION.SDK_INT<26)return Json.obj("available",false,"status","unsupported");
+        PackageInfo selected=WebView.getCurrentWebViewPackage();
+        if(selected==null)return Json.obj("available",false,"status","no-provider");
+        PackageManager pm=context.getPackageManager();
+        long selectedVersion=Build.VERSION.SDK_INT>=28?selected.getLongVersionCode():(long)selected.versionCode;
+        JSONObject out=Json.obj("available",true,"status","ok","packageName",selected.packageName,"selectedVersionName",selected.versionName,"selectedVersionCode",selectedVersion,
+                "packageQueryStatus","unavailable","selectionVersionMatches",null,"versionName",null,"versionCode",null,
+                "applicationInfoAvailable",false,"enabled",null,"systemApp",null,"updatedSystemApp",null,"targetSdkVersion",null,"minSdkVersion",null,
+                "firstInstallTime",null,"lastUpdateTime",null,"signatureCount",null,"signatureLimit",16,"signaturesTruncated",null,"signingCertificateSha256",new JSONArray(),"installer",null,"installerQueryStatus","unavailable");
+        try{
+            PackageInfo observed=pm.getPackageInfo(selected.packageName,Build.VERSION.SDK_INT>=28?PackageManager.GET_SIGNING_CERTIFICATES:PackageManager.GET_SIGNATURES);
+            long version=Build.VERSION.SDK_INT>=28?observed.getLongVersionCode():(long)observed.versionCode;
+            Json.put(out,"packageQueryStatus","allowed");Json.put(out,"selectionVersionMatches",selected.packageName.equals(observed.packageName)&&selectedVersion==version);
+            Json.put(out,"versionName",observed.versionName);Json.put(out,"versionCode",version);Json.put(out,"firstInstallTime",observed.firstInstallTime);Json.put(out,"lastUpdateTime",observed.lastUpdateTime);
+            ApplicationInfo app=observed.applicationInfo;
+            if(app!=null){Json.put(out,"applicationInfoAvailable",true);Json.put(out,"enabled",app.enabled);Json.put(out,"systemApp",(app.flags&ApplicationInfo.FLAG_SYSTEM)!=0);Json.put(out,"updatedSystemApp",(app.flags&ApplicationInfo.FLAG_UPDATED_SYSTEM_APP)!=0);Json.put(out,"targetSdkVersion",app.targetSdkVersion);Json.put(out,"minSdkVersion",app.minSdkVersion);}
+            android.content.pm.Signature[] signatures=Build.VERSION.SDK_INT>=28&&observed.signingInfo!=null?observed.signingInfo.getApkContentsSigners():observed.signatures;
+            if(signatures!=null){Json.put(out,"signingCertificateSha256",webViewSignerHashes(signatures));Json.put(out,"signatureCount",signatures.length);Json.put(out,"signaturesTruncated",signatures.length>16);}
+        }catch(PackageManager.NameNotFoundException e){Json.put(out,"packageQueryStatus","not-found-or-not-visible");}
+        catch(SecurityException e){Json.put(out,"packageQueryStatus","denied");}
+        catch(Exception e){Json.put(out,"packageQueryStatus","error");}
+        try{String installer=Build.VERSION.SDK_INT>=30?pm.getInstallSourceInfo(selected.packageName).getInstallingPackageName():pm.getInstallerPackageName(selected.packageName);Json.put(out,"installer",installer);Json.put(out,"installerQueryStatus","allowed");}
+        catch(PackageManager.NameNotFoundException|IllegalArgumentException e){Json.put(out,"installerQueryStatus","not-found-or-not-visible");}
+        catch(SecurityException e){Json.put(out,"installerQueryStatus","denied");}
+        catch(Exception e){Json.put(out,"installerQueryStatus","error");}
+        return out;
+    }
+    static JSONArray webViewSignerHashes(android.content.pm.Signature[] signatures)throws Exception{
+        JSONArray hashes=new JSONArray();for(int i=0;i<Math.min(16,signatures.length);i++)hashes.put(PackageInputCollector.sha(signatures[i].toByteArray()));return hashes;
     }
     // 业务块：只读取定位开关、provider 元数据与 GNSS 能力，不获取位置样本或坐标。
     private static JSONObject locationEnvironment(Context context)throws JSONException{

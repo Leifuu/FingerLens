@@ -20,7 +20,7 @@ const rootPropertyNames = new Set([
 export function navigationGroups(row: Pick<Row, 'key' | 'category'>): string[] {
   const { key, category } = row;
   // 旧 JSON 的 environment 分类照常保留，WebView 在工作台单独导航。
-  if (key === 'environment/webview-provider' || key === 'environment/webview-user-agent') return ['webview'];
+  if (key === 'environment/webview-provider' || key === 'environment/webview-user-agent' || key === 'environment/webview-package-summary') return ['webview'];
   const rootEvidence = rootEvidenceKeys.has(key)
     || key.startsWith('build/native-property/') && rootPropertyNames.has(key.slice('build/native-property/'.length));
   if (rootEvidence && category !== 'root') return [category, 'root'];
