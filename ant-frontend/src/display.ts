@@ -314,6 +314,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     'security/summary': { title: '安全环境摘要', order: ['selfDebuggable', 'debuggerConnected', 'waitingForDebugger', 'deviceOwnerForSelf', 'profileOwnerForSelf', 'managedProfile', 'userUnlocked', 'specialAccessAvailable', 'appOpsCheckedCount', 'appOpsAllowedCount', 'canDrawOverlays', 'keyguardSecure', 'keyguardLocked', 'deviceSecure', 'deviceLocked', 'fingerprintFeature', 'faceFeature', 'irisFeature', 'accessibilityServiceCount', 'securityProviderCount'], arrays: [] },
     'security/selinux-summary': { title: 'SELinux 环境摘要', order: ['available', 'status', 'enforceFilePresent', 'enforcing', 'enforceValue', 'contextPresent', 'contextLength', 'contextSha256'], arrays: [] },
     'security/self-integrity': { title: '当前 App 签名与安装环境', order: ['packageName', 'versionName', 'versionCode', 'installer', 'enabled', 'applicationFlags', 'debuggable', 'hasCode', 'instantApp', 'packageSuspended', 'packageSuspensionQueryStatus', 'hasPastSigningCertificates'], arrays: ['signingCertificateSha256', 'signingCertificateHistorySha256'] },
+    'security/providers-summary': { title: '安全提供者摘要', order: ['available', 'status', 'providerCount', 'serviceCount', 'providerNamesTruncated', 'serviceTypeCounts', 'serviceNamesTruncated'], arrays: ['providers', 'serviceNames'] },
     'environment/risk-settings': { title: '系统风控相关设置', order: ['adbEnabled', 'developmentSettingsEnabled', 'airplaneModeOn', 'autoTime', 'autoTimeZone', 'privateDnsMode', 'privateDnsSpecifier', 'wifiOn', 'bluetoothOn', 'accessibilityEnabled', 'mockLocation', 'installNonMarketApps'], arrays: [] },
     'environment/system-settings': { title: '显示与动画设置摘要', order: ['available', 'status', 'settings'], arrays: [] },
      'environment/locale-summary': { title: '语言与时区摘要', order: ['available', 'localeTags', 'localeCount', 'defaultLocale', 'timezoneId', 'rawOffsetMillis', 'usesDaylightTime', 'inDaylightTime', 'is24HourFormat', 'layoutDirection', 'fontScale', 'densityDpi', 'uiMode', 'applicationLocaleAccess', 'applicationLocaleTags'], arrays: [] },
@@ -356,6 +357,8 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
             ? arrayKey === 'signingCertificateSha256' ? '当前签名 SHA-256' : '签名历史 SHA-256'
           : key === 'environment/process-exits' && arrayKey === 'entries' ? '最近退出条目'
           : key === 'environment/webview-provider' && arrayKey === 'signatures' ? '提供方签名 SHA-256'
+          : key === 'security/providers-summary' && arrayKey === 'providers' ? '安全提供者'
+          : key === 'security/providers-summary' && arrayKey === 'serviceNames' ? '服务名（最多 512 项）'
           : key === 'hardware/audio-summary'
             ? arrayKey === 'productNames' ? '音频设备名' : arrayKey === 'sampleRates' ? '采样率' : '编码格式'
           : key === 'kernel/cgroup-summary' && arrayKey === 'controllerNames' ? 'Cgroup 控制器'

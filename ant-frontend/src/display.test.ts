@@ -98,6 +98,18 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.map(row => row.key)).toContain('appOpsAllowedCount');
     expect(sections[0].rows.find(row => row.key === 'securityProviderCount')?.value).toBe('4');
   });
+  it('安全提供者摘要保留有界服务集合并单独展示提供者详情', () => {
+    const sections = buildSections(item('security/providers-summary', 'security', {
+      available: true, status: 'ok', providerCount: 2, serviceCount: 3, providerNamesTruncated: false,
+      serviceTypeCounts: { MessageDigest: 2, Signature: 1 }, serviceNamesTruncated: false,
+      providers: [{ name: 'AndroidKeyStore', version: 1, infoLength: 12, infoSha256: 'a'.repeat(64), serviceCount: 2, serviceTypeCounts: { KeyStore: 2 } }],
+      serviceNames: ['MessageDigest:SHA-256', 'Signature:SHA256withRSA'],
+    }));
+    expect(sections[0].title).toBe('安全提供者摘要');
+    expect(sections[0].rows.map(row => row.key)).toContain('serviceTypeCounts.MessageDigest');
+    expect(sections.find(section => section.key === 'providers')?.title).toBe('安全提供者');
+    expect(sections.find(section => section.key === 'serviceNames')?.title).toBe('服务名（最多 512 项）');
+  });
   it('密钥认证展示能力与长度，不展开 Base64 证书链', () => {
     const value = item('attestation/tee', 'attestation', { requestedAttestation: true, requestedStrongBox: false, algorithm: 'SHA256withECDSA', insideSecureHardware: true, securityLevel: 2, challengeBase64: 'C'.repeat(128), signatureBase64: 'S'.repeat(160), publicKeyBase64: 'P'.repeat(88), certificateChainBase64: ['A'.repeat(512), 'B'.repeat(256)] });
     const original = JSON.stringify(value);
