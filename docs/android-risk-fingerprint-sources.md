@@ -102,6 +102,13 @@
 
 - 真机边界（Pixel6/Android15，2026-10-26）：ModuleInfo中的41个配置包名仅6个关联包查询成功，35个返回未找到或不可见；例如配置为`com.google.android.art`，ADB的已安装APEX清单显示`com.android.art`。这证明配置名称与安装包名可以不同，不能仅替换名称前缀建立模块关联，也不能把查询失败当作APEX未安装。该ADB观察未写入App采集结果；实际APEX清单应另用公开包枚举查询验证。
 
+## 视频编解码器的公开范围
+
+- [CodecCapabilities.getVideoCapabilities](https://developer.android.com/reference/android/media/MediaCodecInfo.CodecCapabilities#getVideoCapabilities())和[VideoCapabilities](https://developer.android.com/reference/android/media/MediaCodecInfo.VideoCapabilities)公开视频码率、帧率、宽高范围和宽高对齐要求。本轮以本机Android SDK35公开源码及SDK37.0的api-versions.xml核对：相关六项getter和视频能力类自API21可用，本工程minSdk24无需新版本门槛；远程源码下载超时，未声称核对本轮网络上的源码版本。
+- `hardware/codecs[*].capabilities[*].videoCapabilities`新增固定对象：`bitrateBitsPerSecond`、`frameRatesPerSecond`、`widthPixels`、`heightPixels`各保存整数`lower/upper`，另有`widthAlignmentPixels`和`heightAlignmentPixels`。只读取当前App可见的公开能力，不创建编解码器、不扫描宽高组合、不播放媒体；范围是API返回限制，帧率不是实时性能指标，宽高/帧率上限不可任意组合成可播放结论，32位运行时也可能影响分辨率范围。
+- 非视频能力返回`available=false/status=not-video`及六项null；读取失败保留denied/error和异常类型，不改写原MIME、Profile、颜色格式和featureFlags。缺失CodecCapabilities不冒充非视频。旧JSON缺新增对象可导入比较，原编解码器概览继续聚合深层差异，完整字段分页可复核范围与未来字段，不据此单独判定真机或风险。
+- Pixel6/Android15验证：70个编解码器中的41个视频MIME读取成功，29个非视频MIME返回not-video，逐项与公开API对照一致；独立Release采集结果相同。示例`c2.exynos.h263.decoder`的video/3gpp能力返回宽32–720、高32–576、帧率1–60及宽高对齐4像素；只移除新增对象后原清单与上一报告完全一致，摘要也保持一致。
+
 ## 当前 App 可见的已安装 APEX 包
 
 - API29+通过[PackageManager.getInstalledPackages](https://developer.android.com/reference/android/content/pm/PackageManager#getInstalledPackages(int))传入`MATCH_APEX`，仅保留`PackageInfo.isApex=true`的项，新增独立条目`build/apex-packages`。依据上述固定AOSP公开契约，仅表示当前已安装、已激活且对本App可见的包，不包含待重启激活的staged文件，也不声称是设备完整库存。

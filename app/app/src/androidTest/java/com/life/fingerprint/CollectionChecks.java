@@ -371,6 +371,27 @@ public class CollectionChecks {
         JSONObject summary=null,list=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("hardware/codecs-summary"))summary=item;if(item.getString("key").equals("hardware/codecs"))list=item;}
         assertNotNull("应生成编解码能力摘要",summary);assertNotNull("应保留编解码完整清单",list);assertEquals("ok",summary.getString("status"));assertEquals("ok",list.getString("status"));JSONObject value=summary.getJSONObject("value");assertEquals(value.getInt("count"),list.getJSONArray("value").length());assertTrue(value.getJSONArray("codecNames").length()<=256);assertTrue(value.getJSONArray("mimeTypes").length()<=256);assertTrue(value.has("codecNamesTruncated"));assertTrue(value.has("mimeTypesTruncated"));
     }
+    @Test public void codecVideoRangesMatchPublicCapabilities()throws Exception{
+        try{HardwareCollector.codecVideoCapabilities(null);fail("缺失能力不能冒充非视频MIME");}catch(NullPointerException expected){}
+        ItemSink sink=new ItemSink(context,"video-capabilities-test");new HardwareCollector("hardware").collect(sink);
+        JSONObject item=null;boolean summary=false;for(int i=0;i<sink.items.length();i++){JSONObject entry=sink.items.getJSONObject(i);if(entry.getString("key").equals("hardware/codecs"))item=entry;if(entry.getString("key").equals("hardware/codecs-summary"))summary=true;}
+        assertNotNull(item);assertTrue(summary);assertEquals("ok",item.getString("status"));JSONArray codecs=new JSONObject(item.toString()).getJSONArray("value");
+        android.media.MediaCodecInfo[] platform=new android.media.MediaCodecList(android.media.MediaCodecList.ALL_CODECS).getCodecInfos();assertEquals(platform.length,codecs.length());int videoCount=0,otherCount=0;
+        for(int i=0;i<platform.length;i++){
+            JSONObject codec=codecs.getJSONObject(i);assertEquals(platform[i].getName(),codec.getString("name"));JSONArray types=codec.getJSONArray("capabilities");
+            for(int j=0;j<types.length();j++){
+                JSONObject type=types.getJSONObject(j);if(type.has("error"))continue;
+                assertTrue(type.has("colorFormats"));assertTrue(type.has("profileLevels"));assertTrue(type.has("featureFlags"));
+                android.media.MediaCodecInfo.VideoCapabilities video=platform[i].getCapabilitiesForType(type.getString("type")).getVideoCapabilities();JSONObject value=type.getJSONObject("videoCapabilities");
+                if(video==null){otherCount++;assertFalse(value.getBoolean("available"));assertEquals("not-video",value.getString("status"));for(String key:new String[]{"bitrateBitsPerSecond","frameRatesPerSecond","widthPixels","heightPixels","widthAlignmentPixels","heightAlignmentPixels"})assertTrue(value.isNull(key));continue;}
+                videoCount++;assertTrue(value.getBoolean("available"));assertEquals("ok",value.getString("status"));
+                android.util.Range<?>[] ranges={video.getBitrateRange(),video.getSupportedFrameRates(),video.getSupportedWidths(),video.getSupportedHeights()};String[] keys={"bitrateBitsPerSecond","frameRatesPerSecond","widthPixels","heightPixels"};
+                for(int k=0;k<keys.length;k++){JSONObject range=value.getJSONObject(keys[k]);assertEquals(ranges[k].getLower(),range.get("lower"));assertEquals(ranges[k].getUpper(),range.get("upper"));}
+                assertEquals(video.getWidthAlignment(),value.getInt("widthAlignmentPixels"));assertEquals(video.getHeightAlignment(),value.getInt("heightAlignmentPixels"));
+            }
+        }
+        assertTrue(videoCount>0);Bundle evidence=new Bundle();evidence.putString("videoMimeCount",String.valueOf(videoCount));evidence.putString("nonVideoMimeCount",String.valueOf(otherCount));InstrumentationRegistry.getInstrumentation().sendStatus(0,evidence);
+    }
     @Test public void codecFeaturesKeepPerMimeEvidence()throws Exception{
         try{HardwareCollector.codecFeatureFlags(null);fail("缺失能力不能被解释为不支持");}catch(NullPointerException expected){}
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new HardwareCollector("hardware").collect(sink);

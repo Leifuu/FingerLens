@@ -2,10 +2,26 @@ import { describe, it, expect } from 'vitest';
 import { compare, conditions } from './compare';
 import { rawText, formattedText } from './format';
 import { fixture, fixtureItem } from './fixtures';
+import type { Json } from './types';
 const raw = { semantic: false, ignoreDynamic: false }, semantic = { semantic: true, ignoreDynamic: false }, smart = { semantic: false, ignoreDynamic: true };
 const find = (rows: ReturnType<typeof compare>, key: string) => rows.find(x => x.key === key)!;
 
 describe('原始与语义比较', () => {
+  it('视频MIME能力新增不改旧字段，范围/空值/非视频状态参与比较', () => {
+    const key = 'hardware/codecs', old = { name: 'codec', encoder: false, capabilities: [{ type: 'video/test', profileLevels: [] }] };
+    const legacy = fixture([fixtureItem(key, [old], { category: 'hardware' })]);
+    const current = (value: Json) => fixture([fixtureItem(key, [{ ...old, capabilities: [{ ...old.capabilities[0], videoCapabilities: value }] }], { category: 'hardware' })]);
+    const video = { available: true, status: 'ok', frameRatesPerSecond: { lower: 0, upper: 960 }, widthPixels: { lower: 2, upper: 4096 }, heightPixels: { lower: 2, upper: 4096 }, widthAlignmentPixels: 2, heightAlignmentPixels: 2 };
+    const report = current(video), changed = current({ ...video, widthPixels: { lower: 2, upper: 8192 } });
+    const missing = current({ available: false, status: 'not-video', widthPixels: null });
+    const before = JSON.stringify([legacy, report, changed, missing]);
+    for (const rules of [raw, semantic, smart]) {
+      expect(find(compare(legacy, report, rules), key).changedPaths).toEqual(['/value/0/capabilities/0/videoCapabilities']);
+      expect(find(compare(report, changed, rules), key).state).toBe('different');
+      expect(find(compare(report, missing, rules), key).state).toBe('different');
+    }
+    expect(JSON.stringify([legacy, report, changed, missing])).toBe(before);
+  });
   it('独立APEX清单兼容旧模块JSON，精确版本和完整集合哈希参与比较', () => {
     const key = 'build/apex-packages';
     const legacy = fixture([fixtureItem('build/modules', { modules: [{ packageName: 'configured.module' }] }, { category: 'build' })]);

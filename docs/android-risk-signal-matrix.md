@@ -80,6 +80,11 @@
 
 - `build/modules.modules[*].packageVersion` 通过API29+的 [MATCH_APEX](https://developer.android.com/reference/android/content/pm/PackageManager#MATCH_APEX) 查询模块关联包，保存版本名、int64版本号、APEX标志与独立查询状态；最多512个模块，同包名查询复用。未找到或不可见不冒充版本0/非APEX，原模块元数据、旧集合哈希与旧JSON保留。版本变化在完整模块清单比较，不将关联包版本当作所有内部组件版本或风险结论。
 
+## 视频编解码能力范围补充
+
+- `hardware/codecs[*].capabilities[*].videoCapabilities`通过API21+公开VideoCapabilities固定读取码率/帧率/宽高的整数范围及宽高像素对齐要求；非视频MIME与读取失败分开，失败只影响新增对象。原Profile、颜色格式、功能标志及清单顺序保留，旧JSON可正常比较。
+- 范围不代表实时解码性能或任意宽高帧率组合均可用，不创建编解码实例或执行媒体任务。深层变化继续进入原编解码器概览差异，完整字段可展开分页复核；本轮依据本机公开SDK源码与API版本表，网络源码下载未成功。
+
 ## 实际 APEX 包清单补充
 
 - `build/apex-packages`独立使用API29+公开`getInstalledPackages(MATCH_APEX)`并按`isApex`筛选，记录当前App可见、已安装且已激活APEX的实际包名、版本名和int64版本号。与ModuleInfo配置包名不做推测关联；不覆盖原模块清单、不代表staged文件或完整设备库存。

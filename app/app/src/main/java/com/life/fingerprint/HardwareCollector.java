@@ -32,7 +32,7 @@ public final class HardwareCollector implements Collector {
         CameraManager cameras=s.context.getSystemService(CameraManager.class);
         if(cameras==null)s.ok("hardware","hardware/camera-summary","摄像头能力摘要","CameraManager","CameraManager unavailable",Json.obj("available",false,"count",0,"cameraIds",new JSONArray()));
         else {String[] cameraIds=cameras.getCameraIdList();for(String id:cameraIds)s.read("hardware","hardware/camera/"+id,"摄像头 "+id,"CameraManager.getCameraCharacteristics",()->{CameraCharacteristics c=cameras.getCameraCharacteristics(id);JSONObject o=Json.obj("id",id);for(CameraCharacteristics.Key<?> k:c.getKeys()){try{Json.put(o,k.getName(),cameraValue(c.get(k)));}catch(Exception e){Json.put(o,k.getName(),Json.obj("error",e.getClass().getName(),"message",e.getMessage()));}}return o;});s.read("hardware","hardware/camera-summary","摄像头能力摘要","CameraManager.getCameraCharacteristics",()->cameraSummary(cameras,cameraIds));}
-        s.read("hardware","hardware/codecs","媒体编解码器","MediaCodecList.ALL_CODECS",()->{JSONArray a=new JSONArray();for(MediaCodecInfo info:new MediaCodecList(MediaCodecList.ALL_CODECS).getCodecInfos()){JSONObject o=Json.obj("name",info.getName(),"encoder",info.isEncoder(),"supportedTypes",info.getSupportedTypes());if(Build.VERSION.SDK_INT>=29){Json.put(o,"hardwareAccelerated",info.isHardwareAccelerated());Json.put(o,"softwareOnly",info.isSoftwareOnly());Json.put(o,"vendor",info.isVendor());Json.put(o,"canonicalName",info.getCanonicalName());}JSONArray types=new JSONArray();for(String type:info.getSupportedTypes())try{MediaCodecInfo.CodecCapabilities cap=info.getCapabilitiesForType(type);JSONArray profiles=new JSONArray();for(MediaCodecInfo.CodecProfileLevel p:cap.profileLevels)profiles.put(Json.obj("profile",p.profile,"level",p.level));types.put(Json.obj("type",type,"colorFormats",cap.colorFormats,"maxSupportedInstances",cap.getMaxSupportedInstances(),"profileLevels",profiles,"featureFlags",codecFeatureFlags(cap)));}catch(Exception e){types.put(Json.obj("type",type,"error",e.getMessage()));}Json.put(o,"capabilities",types);a.put(o);}return a;});
+        s.read("hardware","hardware/codecs","媒体编解码器","MediaCodecList.ALL_CODECS",()->{JSONArray a=new JSONArray();for(MediaCodecInfo info:new MediaCodecList(MediaCodecList.ALL_CODECS).getCodecInfos()){JSONObject o=Json.obj("name",info.getName(),"encoder",info.isEncoder(),"supportedTypes",info.getSupportedTypes());if(Build.VERSION.SDK_INT>=29){Json.put(o,"hardwareAccelerated",info.isHardwareAccelerated());Json.put(o,"softwareOnly",info.isSoftwareOnly());Json.put(o,"vendor",info.isVendor());Json.put(o,"canonicalName",info.getCanonicalName());}JSONArray types=new JSONArray();for(String type:info.getSupportedTypes())try{MediaCodecInfo.CodecCapabilities cap=info.getCapabilitiesForType(type);JSONArray profiles=new JSONArray();for(MediaCodecInfo.CodecProfileLevel p:cap.profileLevels)profiles.put(Json.obj("profile",p.profile,"level",p.level));types.put(Json.obj("type",type,"colorFormats",cap.colorFormats,"maxSupportedInstances",cap.getMaxSupportedInstances(),"profileLevels",profiles,"featureFlags",codecFeatureFlags(cap),"videoCapabilities",codecVideoCapabilities(cap)));}catch(Exception e){types.put(Json.obj("type",type,"error",e.getMessage()));}Json.put(o,"capabilities",types);a.put(o);}return a;});
     }
     // 业务块：压缩图形扩展长字符串为可比较摘要；原始 hardware/graphics 继续保留。
     private static JSONObject graphicsSummary()throws Exception{
@@ -69,6 +69,19 @@ public final class HardwareCollector implements Collector {
         }
         return flags;
     }
+    // 业务块：只读视频能力的固定范围，不枚举宽高组合、不创建编解码器；失败只影响该 MIME 的新增对象。
+    static JSONObject codecVideoCapabilities(MediaCodecInfo.CodecCapabilities capabilities){
+        Objects.requireNonNull(capabilities,"missing codec capabilities");
+        JSONObject missing=Json.obj("available",false,"status","not-video","bitrateBitsPerSecond",null,"frameRatesPerSecond",null,
+                "widthPixels",null,"heightPixels",null,"widthAlignmentPixels",null,"heightAlignmentPixels",null);
+        try{
+            MediaCodecInfo.VideoCapabilities video=capabilities.getVideoCapabilities();if(video==null)return missing;
+            return Json.obj("available",true,"status","ok","bitrateBitsPerSecond",codecRange(video.getBitrateRange()),
+                    "frameRatesPerSecond",codecRange(video.getSupportedFrameRates()),"widthPixels",codecRange(video.getSupportedWidths()),
+                    "heightPixels",codecRange(video.getSupportedHeights()),"widthAlignmentPixels",video.getWidthAlignment(),"heightAlignmentPixels",video.getHeightAlignment());
+        }catch(Exception|LinkageError e){Json.put(missing,"status",e instanceof SecurityException?"denied":"error");Json.put(missing,"errorClass",e.getClass().getName());return missing;}
+    }
+    private static JSONObject codecRange(Range<Integer> range){Objects.requireNonNull(range,"missing video capability range");return Json.obj("lower",range.getLower(),"upper",range.getUpper());}
     // 业务块：只提取摄像头能力元数据，异常按设备计数并保留原始 hardware/camera/* 条目。
     private static JSONObject cameraSummary(CameraManager cameras,String[] ids)throws Exception{
         JSONObject lensFacingCounts=new JSONObject(),hardwareLevelCounts=new JSONObject(),orientationCounts=new JSONObject();JSONArray cameraIds=new JSONArray();int flashAvailableCount=0,logicalMultiCameraCount=0,physicalCameraIdCount=0,errorCount=0;

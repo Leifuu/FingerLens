@@ -16,6 +16,16 @@ function grouped(left: Json[] | undefined, right?: Json[]) {
 }
 
 describe('编解码器概览', () => {
+  it('视频范围、对齐要求和未来字段变化参与整行差异，旧JSON缺新增对象仍可查看', () => {
+    const old = { name: 'codec', encoder: false, capabilities: [{ type: 'video/test', profileLevels: [] }] };
+    const video = { available: true, status: 'ok', widthPixels: { lower: 2, upper: 4096 }, widthAlignmentPixels: 2, future: null };
+    const current = (videoCapabilities: Json) => ({ ...old, capabilities: [{ ...old.capabilities[0], videoCapabilities }] });
+    expect(grouped([old], [current(video)])![0].state).toBe('changed');
+    expect(grouped([current(video)], [current(video)])![0].state).toBe('same');
+    for (const changed of [{ ...video, widthPixels: { lower: 2, upper: 8192 } }, { ...video, widthAlignmentPixels: 4 }, { ...video, future: false }, { ...video, available: false, status: 'error', widthPixels: null }]) {
+      expect(grouped([current(video)], [current(changed)])![0].state).toBe('changed');
+    }
+  });
   it('按原始序号保留别名和重复项，不按规范名重新配对', () => {
     const entries = [{ name: 'c2.codec', encoder: false, canonicalName: 'c2.codec' }, { name: 'OMX.alias', encoder: false, canonicalName: 'c2.codec' }, { name: 'OMX.alias', encoder: false, canonicalName: 'c2.codec' }];
     const rows = grouped(entries, entries)!;
