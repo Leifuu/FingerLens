@@ -40,6 +40,17 @@ describe('编解码器概览', () => {
     expect(grouped([a], [{ ...a, future: { flag: true } }])![0].state).toBe('changed');
     expect(grouped([a], [{ ...a, added: null }])![0].state).toBe('changed');
   });
+  it('MIME 特性的支持/必需变化和旧 JSON 缺项都影响概览，不推断未知值', () => {
+    const old = { name: 'codec', encoder: false, capabilities: [{ type: 'video/test', profileLevels: [] }] };
+    const current = { ...old, capabilities: [{ ...old.capabilities[0], featureFlags: { 'secure-playback': { status: 'ok', supported: true, required: false }, 'low-latency': { status: 'unsupported', supported: null, required: null } } }] };
+    expect(grouped([old], [old])![0].state).toBe('same');
+    expect(grouped([old], [current])![0].state).toBe('changed');
+    expect(grouped([current], [current])![0].state).toBe('same');
+    for (const feature of [{ status: 'ok', supported: true, required: true }, { status: 'ok', supported: false, required: false }, { status: 'error', supported: null, required: null }]) {
+      const changed = { ...current, capabilities: [{ ...current.capabilities[0], featureFlags: { ...current.capabilities[0].featureFlags, 'secure-playback': feature } }] };
+      expect(grouped([current], [changed])![0].state).toBe('changed');
+    }
+  });
   it('空数组、混合格式、复杂名称或任一侧缺少必要字段时回退原字段表', () => {
     expect(grouped([], [])).toBeUndefined();
     expect(grouped(['legacy'])).toBeUndefined();

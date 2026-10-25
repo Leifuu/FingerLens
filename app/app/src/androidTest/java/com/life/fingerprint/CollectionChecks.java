@@ -296,6 +296,26 @@ public class CollectionChecks {
         JSONObject summary=null,list=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("hardware/codecs-summary"))summary=item;if(item.getString("key").equals("hardware/codecs"))list=item;}
         assertNotNull("应生成编解码能力摘要",summary);assertNotNull("应保留编解码完整清单",list);assertEquals("ok",summary.getString("status"));assertEquals("ok",list.getString("status"));JSONObject value=summary.getJSONObject("value");assertEquals(value.getInt("count"),list.getJSONArray("value").length());assertTrue(value.getJSONArray("codecNames").length()<=256);assertTrue(value.getJSONArray("mimeTypes").length()<=256);assertTrue(value.has("codecNamesTruncated"));assertTrue(value.has("mimeTypesTruncated"));
     }
+    @Test public void codecFeaturesKeepPerMimeEvidence()throws Exception{
+        try{HardwareCollector.codecFeatureFlags(null);fail("缺失能力不能被解释为不支持");}catch(NullPointerException expected){}
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new HardwareCollector("hardware").collect(sink);
+        JSONObject item=null;for(int i=0;i<sink.items.length();i++)if(sink.items.getJSONObject(i).getString("key").equals("hardware/codecs"))item=sink.items.getJSONObject(i);
+        assertNotNull(item);assertEquals("ok",item.getString("status"));JSONArray codecs=new JSONObject(item.toString()).getJSONArray("value");
+        android.media.MediaCodecInfo[] platform=new android.media.MediaCodecList(android.media.MediaCodecList.ALL_CODECS).getCodecInfos();assertEquals(platform.length,codecs.length());
+        String[] names={"adaptive-playback","secure-playback","tunneled-playback","low-latency"};int checked=0,supported=0,required=0;
+        for(int i=0;i<platform.length;i++){
+            JSONObject codec=codecs.getJSONObject(i);assertEquals(platform[i].getName(),codec.getString("name"));JSONArray types=codec.getJSONArray("capabilities");
+            for(int j=0;j<types.length();j++){
+                JSONObject type=types.getJSONObject(j);if(type.has("error"))continue;
+                assertTrue(type.has("colorFormats"));assertTrue(type.has("maxSupportedInstances"));assertTrue(type.has("profileLevels"));
+                android.media.MediaCodecInfo.CodecCapabilities capability=platform[i].getCapabilitiesForType(type.getString("type"));JSONObject flags=type.getJSONObject("featureFlags");assertEquals(4,flags.length());
+                for(String name:names){JSONObject flag=flags.getJSONObject(name);if(name.equals("low-latency")&&Build.VERSION.SDK_INT<30){assertEquals("unsupported",flag.getString("status"));assertTrue(flag.isNull("supported"));assertTrue(flag.isNull("required"));continue;}
+                    assertEquals("ok",flag.getString("status"));assertEquals(capability.isFeatureSupported(name),flag.getBoolean("supported"));assertEquals(capability.isFeatureRequired(name),flag.getBoolean("required"));if(flag.getBoolean("supported"))supported++;if(flag.getBoolean("required"))required++;checked++;
+                }
+            }
+        }
+        assertTrue("应核对真实MIME特性",checked>0);System.out.println("codec feature queries="+checked+", supported="+supported+", required="+required);
+    }
     @Test public void cameraSummaryKeepsPerCameraEvidence()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new HardwareCollector("hardware").collect(sink);
         File checkpoint=new File(context.getCacheDir(),"camera-checkpoint.json");ReportStore.write(checkpoint,sink.items.toString());assertEquals("完整硬件检查点必须可重新解析",sink.items.length(),new JSONArray(ReportStore.read(checkpoint)).length());

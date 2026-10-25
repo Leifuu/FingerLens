@@ -6,6 +6,21 @@ const raw = { semantic: false, ignoreDynamic: false }, semantic = { semantic: tr
 const find = (rows: ReturnType<typeof compare>, key: string) => rows.find(x => x.key === key)!;
 
 describe('原始与语义比较', () => {
+  it('编解码MIME特性保持旧JSON缺项、未知与false及必须启用标志的差异', () => {
+    const key = 'hardware/codecs';
+    const old = { name: 'codec', encoder: false, capabilities: [{ type: 'video/test', profileLevels: [] }] };
+    const legacy = fixture([fixtureItem(key, [old], { category: 'hardware' })]);
+    const current = (supported: boolean | null, required: boolean | null) => fixture([fixtureItem(key, [{ ...old, capabilities: [{ ...old.capabilities[0], featureFlags: { 'secure-playback': { supported, required } } }] }], { category: 'hardware' })]);
+    const unknown = current(null, null), disabled = current(false, false), optional = current(true, false), mandatory = current(true, true);
+    const before = JSON.stringify([legacy, unknown, disabled, optional, mandatory]);
+    for (const rules of [raw, semantic, smart]) {
+      expect(find(compare(legacy, legacy, rules), key).state).toBe('same');
+      expect(find(compare(legacy, unknown, rules), key).state).toBe('different');
+      expect(find(compare(unknown, disabled, rules), key).state).toBe('different');
+      expect(find(compare(optional, mandatory, rules), key).changedPaths).toEqual(['/value/0/capabilities/0/featureFlags/secure-playback/required']);
+    }
+    expect(JSON.stringify([legacy, unknown, disabled, optional, mandatory])).toBe(before);
+  });
   it('旧摄像头 JSON 保留新组合单侧状态，截断外组合变化与空集合区别参与所有比较模式', () => {
     const key = 'hardware/camera-concurrency';
     const legacy = fixture([fixtureItem('hardware/camera-summary', { count: 2 }, { category: 'hardware' })]);
