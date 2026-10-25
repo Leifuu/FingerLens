@@ -11,6 +11,10 @@
 - 本工程新增 `network/risk-signals`，只保存活动链路的这些公开能力、是否计费、接口名和代理摘要；值仍由 `ItemSink` 独立记录状态，VPN 或代理不会被自动判定为恶意。
 - 本工程新增 `network/connectivity-summary`，汇总可见网络数量、活动链路、transport、VALIDATED、VPN 和链路属性可用性，不复制地址、DNS、路由或原始字符串。
 
+## Android 安全环境资料
+
+- [Android SELinux](https://source.android.com/docs/security/features/selinux)：说明 Android 运行时的 enforcing/permissive 策略状态与进程安全上下文。本工程新增 `security/selinux-summary`，只保存 enforcing 状态、上下文长度和 SHA-256，原始安全文件继续保留。
+
 ## 官方 Android 设备标识资料
 
 - [Build](https://developer.android.com/reference/android/os/Build)：公开硬件、产品、指纹、ABI 等构建字段。

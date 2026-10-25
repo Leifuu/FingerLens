@@ -30,6 +30,7 @@ public final class SecurityCollector implements Collector {
         if(module.equals("attestation")){attestation(s);return;}
         if(module.equals("virtualization")){virtualization(s);return;}
         s.read("security","security/summary","安全环境摘要","Debug / DevicePolicyManager / AppOpsManager / KeyguardManager",()->securitySummary(s.context));
+        s.read("security","security/selinux-summary","SELinux 环境摘要","/sys/fs/selinux/enforce / /proc/self/attr/current",SecurityCollector::selinuxSummary);
         s.ok("security","security/self","应用安全上下文","android-api","Process / ApplicationInfo / Debug",Json.obj("uid",android.os.Process.myUid(),"pid",android.os.Process.myPid(),"debuggable",(s.context.getApplicationInfo().flags&ApplicationInfo.FLAG_DEBUGGABLE)!=0,"debuggerConnected",Debug.isDebuggerConnected(),"waitingForDebugger",Debug.waitingForDebugger()));
         s.read("security","security/self-integrity","当前 App 签名与安装环境","PackageManager.getPackageInfo / getInstallSourceInfo",()->selfIntegrity(s.context));
         s.read("security","security/device-management","设备管理与用户环境","DevicePolicyManager / UserManager",()->managementEnvironment(s.context));
@@ -49,6 +50,15 @@ public final class SecurityCollector implements Collector {
         int providerCount=Security.getProviders()==null?0:Security.getProviders().length;
         return Json.obj("selfDebuggable",application!=null&&(application.flags&ApplicationInfo.FLAG_DEBUGGABLE)!=0,"debuggerConnected",Debug.isDebuggerConnected(),"waitingForDebugger",Debug.waitingForDebugger(),"deviceOwnerForSelf",policy!=null&&policy.isDeviceOwnerApp(packageName),"profileOwnerForSelf",policy!=null&&policy.isProfileOwnerApp(packageName),"managedProfile",Build.VERSION.SDK_INT>=30&&users!=null&&users.isManagedProfile(),"userUnlocked",Build.VERSION.SDK_INT<24||users==null||users.isUserUnlocked(),"specialAccessAvailable",ops!=null,"appOpsCheckedCount",ops==null?0:appOpNames.length,"appOpsAllowedCount",appOpsAllowed,"canDrawOverlays",Settings.canDrawOverlays(context),"keyguardSecure",keyguard!=null&&keyguard.isKeyguardSecure(),"keyguardLocked",keyguard!=null&&keyguard.isKeyguardLocked(),"deviceSecure",Build.VERSION.SDK_INT<23||keyguard!=null&&keyguard.isDeviceSecure(),"deviceLocked",Build.VERSION.SDK_INT<23||keyguard!=null&&keyguard.isDeviceLocked(),"fingerprintFeature",packages.hasSystemFeature(PackageManager.FEATURE_FINGERPRINT),"faceFeature",Build.VERSION.SDK_INT>=29&&packages.hasSystemFeature(PackageManager.FEATURE_FACE),"irisFeature",Build.VERSION.SDK_INT>=29&&packages.hasSystemFeature(PackageManager.FEATURE_IRIS),"accessibilityServiceCount",accessibilityCount,"securityProviderCount",providerCount);
     }
+    // 业务块：只保留 SELinux enforcing 状态和当前上下文的存在性/哈希；原始安全文件继续单独保留。
+    private static JSONObject selinuxSummary(){
+        JSONObject out=Json.obj("available",true,"status","unavailable","enforceFilePresent",false,"enforcing",null,"enforceValue",null,"contextPresent",false,"contextLength",null,"contextSha256",null);
+        String enforce=readTextFile("/sys/fs/selinux/enforce",32),context=readTextFile("/proc/self/attr/current",4096);boolean enforceOk=false,contextOk=false;
+        if(enforce!=null){String value=enforce.trim();if("0".equals(value)||"1".equals(value)){enforceOk=true;Json.put(out,"enforceFilePresent",true);Json.put(out,"enforceValue",value);Json.put(out,"enforcing","1".equals(value));}}
+        if(context!=null){String value=context.trim();if(!value.isEmpty()){contextOk=true;Json.put(out,"contextPresent",true);Json.put(out,"contextLength",value.length());try{Json.put(out,"contextSha256",PackageInputCollector.sha(value.getBytes(java.nio.charset.StandardCharsets.UTF_8)));}catch(Exception ignored){}}}
+        Json.put(out,"status",enforceOk&&contextOk?"ok":enforceOk||contextOk?"partial":"unavailable");return out;
+    }
+    private static String readTextFile(String path,int limit){try{JSONObject raw=new JSONObject(NativeProbe.readFile(path,limit));if(!raw.optBoolean("ok"))return null;Object value=raw.has("base64")?Json.bytes(raw.getString("base64")):null;return value instanceof String?(String)value:null;}catch(Exception ignored){return null;}}
     // 业务块：只查询当前用户和本 App 的管理状态，避免枚举其它管理员或用户身份。
     private static JSONObject managementEnvironment(Context context){
         DevicePolicyManager policy=context.getSystemService(DevicePolicyManager.class);

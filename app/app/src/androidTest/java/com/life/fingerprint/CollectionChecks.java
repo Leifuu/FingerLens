@@ -251,6 +251,11 @@ public class CollectionChecks {
         JSONObject summary=null,self=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("security/summary"))summary=item;if(item.getString("key").equals("security/self"))self=item;}
         assertNotNull("应生成安全环境摘要",summary);assertNotNull("应保留应用安全上下文",self);assertEquals("ok",summary.getString("status"));assertEquals("ok",self.getString("status"));JSONObject value=summary.getJSONObject("value");assertTrue(value.has("selfDebuggable"));assertTrue(value.has("appOpsAllowedCount"));assertEquals(10,value.getInt("appOpsCheckedCount"));assertTrue(value.has("keyguardSecure"));assertTrue(value.has("accessibilityServiceCount"));assertTrue(value.has("securityProviderCount"));assertFalse(summary.toString().contains("derBase64"));assertFalse(summary.toString().contains("certificateChainBase64"));assertFalse(summary.toString().contains("windowText"));
     }
+    @Test public void selinuxSummaryKeepsContextOutOfEvidence()throws Exception{
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new SecurityCollector("security").collect(sink);
+        JSONObject summary=null,raw=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("security/selinux-summary"))summary=item;if(item.getString("key").equals("security/file/proc/self/attr/current"))raw=item;}
+        assertNotNull("应生成 SELinux 环境摘要",summary);assertNotNull("应保留 SELinux 原始上下文条目",raw);assertEquals("ok",summary.getString("status"));JSONObject value=summary.getJSONObject("value");assertTrue(value.has("enforceFilePresent"));assertTrue(value.has("enforcing"));assertTrue(value.has("contextPresent"));assertTrue(value.has("contextLength"));assertTrue(value.has("contextSha256"));assertFalse(value.has("context"));if(value.getBoolean("contextPresent"))assertTrue(value.getString("contextSha256").matches("[0-9a-f]{64}"));
+    }
     @Test public void specialAccessEvidenceUsesCurrentAppOps()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new SecurityCollector("security").collect(sink);
         JSONObject access=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("security/special-access")){access=item;break;}}

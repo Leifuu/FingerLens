@@ -296,6 +296,12 @@ describe('设备格式化展示边界', () => {
     expect(sections.find(section => section.key === 'signingCertificateHistorySha256')?.title).toBe('签名历史 SHA-256');
     expect(sections[0].rows.find(row => row.key === 'packageSuspensionQueryStatus')?.value).toBe('已授权');
   });
+  it('SELinux 摘要展示 enforcing 状态而不展开上下文', () => {
+    const sections = buildSections(item('security/selinux-summary', 'security', { available: true, status: 'ok', enforceFilePresent: true, enforcing: true, enforceValue: '1', contextPresent: true, contextLength: 20, contextSha256: 'd'.repeat(64) }));
+    expect(sections[0].title).toBe('SELinux 环境摘要');
+    expect(sections[0].rows.map(row => row.key)).toContain('enforcing');
+    expect(sections[0].rows.map(row => row.key)).not.toContain('context');
+  });
   it('系统风控设置摘要按稳定字段顺序展示', () => {
     const sections = buildSections(item('environment/risk-settings', 'environment', { adbEnabled: true, developmentSettingsEnabled: true, mockLocation: false, privateDnsMode: 'opportunistic' }));
     expect(sections[0].title).toBe('系统风控相关设置');
