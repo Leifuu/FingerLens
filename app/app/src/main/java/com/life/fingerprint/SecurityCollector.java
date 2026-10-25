@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.PermissionInfo;
 import android.app.admin.DevicePolicyManager;
 import android.app.AppOpsManager;
 import android.app.KeyguardManager;
@@ -33,6 +34,7 @@ public final class SecurityCollector implements Collector {
         s.read("security","security/selinux-summary","SELinux 环境摘要","/sys/fs/selinux/enforce / /proc/self/attr/current",SecurityCollector::selinuxSummary);
         s.ok("security","security/self","应用安全上下文","android-api","Process / ApplicationInfo / Debug",Json.obj("uid",android.os.Process.myUid(),"pid",android.os.Process.myPid(),"debuggable",(s.context.getApplicationInfo().flags&ApplicationInfo.FLAG_DEBUGGABLE)!=0,"debuggerConnected",Debug.isDebuggerConnected(),"waitingForDebugger",Debug.waitingForDebugger()));
         s.read("security","security/self-runtime","应用运行时可分析配置","ApplicationInfo public runtime flags",()->selfRuntimeSummary(s.context));
+        s.read("security","security/self-permissions","当前 App 运行时权限摘要","PackageManager.GET_PERMISSIONS",()->selfPermissions(s.context));
         s.read("security","security/self-integrity","当前 App 签名与安装环境","PackageManager.getPackageInfo / getInstallSourceInfo",()->selfIntegrity(s.context));
         s.read("security","security/device-management","设备管理与用户环境","DevicePolicyManager / UserManager",()->managementEnvironment(s.context));
         s.read("security","security/special-access","本 App 特殊访问状态","AppOpsManager / PackageManager / NotificationManager / Environment / Settings",()->specialAccess(s.context));
@@ -57,6 +59,22 @@ public final class SecurityCollector implements Collector {
                 "nativeHeapZeroInitialized",Build.VERSION.SDK_INT>=31?application.getNativeHeapZeroInitialized():null,
                 "requestRawExternalStorageAccess",Build.VERSION.SDK_INT>=31?application.getRequestRawExternalStorageAccess():null,
                 "attributionsUserVisible",Build.VERSION.SDK_INT>=31?application.areAttributionsUserVisible():null);
+    }
+    // 业务块：汇总当前 App 的声明权限与授权状态，限制返回规模，不申请权限也不查询其它包。
+    private static JSONObject selfPermissions(Context context)throws Exception{
+        PackageManager packages=context.getPackageManager();
+        if(packages==null)return Json.obj("available",false,"status","unavailable","requestedCount",null,"grantedCount",null,"deniedCount",null,"unknownCount",null,"dangerousRequestedCount",null,"dangerousGrantedCount",null,"protectionInfoCount",null,"returnedCount",0,"truncated",null,"permissions",new JSONArray());
+        PackageInfo info=packages.getPackageInfo(context.getPackageName(),PackageManager.GET_PERMISSIONS);
+        String[] names=info.requestedPermissions;int[] flags=info.requestedPermissionsFlags;int requested=names==null?0:names.length,granted=0,denied=0,unknown=0,dangerousRequested=0,dangerousGranted=0,protectionInfo=0;JSONArray values=new JSONArray();int limit=Math.min(256,requested);
+        for(int i=0;i<requested;i++){
+            String name=names[i];if(name==null)continue;
+            Boolean isGranted=flags!=null&&i<flags.length?((flags[i]&PackageInfo.REQUESTED_PERMISSION_GRANTED)!=0):null;
+            if(isGranted==null)unknown++;else if(isGranted)granted++;else denied++;
+            JSONObject permission=Json.obj("name",name,"granted",isGranted,"protectionLevel",null,"protectionBase",null,"dangerous",null);
+            try{PermissionInfo details=packages.getPermissionInfo(name,0);int level=details.protectionLevel,base=level&PermissionInfo.PROTECTION_MASK_BASE;Json.put(permission,"protectionLevel",level);Json.put(permission,"protectionBase",base);boolean dangerous=base==PermissionInfo.PROTECTION_DANGEROUS;Json.put(permission,"dangerous",dangerous);protectionInfo++;if(dangerous){dangerousRequested++;if(Boolean.TRUE.equals(isGranted))dangerousGranted++;}}catch(PackageManager.NameNotFoundException ignored){}
+            if(i<limit)values.put(permission);
+        }
+        return Json.obj("available",true,"status","ok","requestedCount",requested,"grantedCount",granted,"deniedCount",denied,"unknownCount",unknown,"dangerousRequestedCount",dangerousRequested,"dangerousGrantedCount",dangerousGranted,"protectionInfoCount",protectionInfo,"returnedCount",values.length(),"truncated",requested>limit,"permissions",values);
     }
     // 业务块：汇总安全边界状态，不展开证书、序列号、窗口内容或其它用户/包信息；原始 security/* 条目继续保留。
     private static JSONObject securitySummary(Context context){

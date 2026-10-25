@@ -302,6 +302,11 @@ public class CollectionChecks {
         JSONObject runtime=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("security/self-runtime")){runtime=item;break;}}
         assertNotNull("应记录应用运行时可分析配置",runtime);assertEquals("ok",runtime.getString("status"));JSONObject value=runtime.getJSONObject("value");assertTrue(value.getBoolean("available"));assertTrue(value.has("profileableByShell"));assertTrue(value.has("profileable"));assertTrue(value.has("virtualPreload"));assertTrue(value.has("gwpAsanMode"));assertTrue(value.has("memtagMode"));assertTrue(value.has("nativeHeapZeroInitialized"));assertTrue(value.has("requestRawExternalStorageAccess"));assertTrue(value.has("attributionsUserVisible"));assertFalse(runtime.toString().contains("debuggerConnected"));
     }
+    @Test public void selfPermissionsEvidenceIsBoundedAndScoped()throws Exception{
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new SecurityCollector("security").collect(sink);
+        JSONObject permissions=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("security/self-permissions")){permissions=item;break;}}
+        assertNotNull("应记录当前 App 权限摘要",permissions);assertEquals("ok",permissions.getString("status"));JSONObject value=permissions.getJSONObject("value");assertTrue(value.getBoolean("available"));assertTrue(value.has("requestedCount"));assertTrue(value.has("grantedCount"));assertTrue(value.has("deniedCount"));assertTrue(value.has("unknownCount"));assertTrue(value.has("dangerousRequestedCount"));assertTrue(value.has("dangerousGrantedCount"));assertTrue(value.has("protectionInfoCount"));assertTrue(value.getInt("returnedCount")<=256);assertTrue(value.getJSONArray("permissions").length()<=256);assertFalse(permissions.toString().contains("otherPackages"));
+    }
     @Test public void riskSettingsEvidenceIsStructuredAndExcludesAndroidId()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new BuildSystemCollector("environment").collect(sink);
         JSONObject settings=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("environment/risk-settings")){settings=item;break;}}
