@@ -65,9 +65,10 @@ public final class HardwareCollector implements Collector {
     // 业务块：只读取音频设备能力元数据，不获取音频样本；原始清单与摘要并存。
     private void audio(ItemSink s){
         AudioManager manager=s.context.getSystemService(AudioManager.class);
-        if(manager==null){s.ok("hardware","hardware/audio-summary","音频能力摘要","AudioManager","AudioManager unavailable",Json.obj("available",false,"count",0,"productNames",new JSONArray()));return;}
+        if(manager==null){s.ok("hardware","hardware/audio-summary","音频能力摘要","AudioManager","AudioManager unavailable",Json.obj("available",false,"count",0,"productNames",new JSONArray()));s.ok("hardware","hardware/microphone-summary","麦克风阵列能力摘要","AudioManager.getMicrophones","AudioManager unavailable",microphoneUnavailable("unavailable"));return;}
         s.read("hardware","hardware/audio","音频设备公开清单","AudioManager.getDevices",()->audioDevices(manager));
         s.read("hardware","hardware/audio-summary","音频能力摘要","AudioManager.getDevices",()->audioSummary(manager));
+        s.read("hardware","hardware/microphone-summary","麦克风阵列能力摘要","AudioManager.getMicrophones",()->microphoneSummary(manager));
     }
     private static JSONArray audioDevices(AudioManager manager){
         JSONArray devices=new JSONArray();for(AudioDeviceInfo device:manager.getDevices(AudioManager.GET_DEVICES_ALL)){CharSequence productName=device.getProductName();devices.put(Json.obj("id",device.getId(),"type",device.getType(),"productName",productName==null?null:productName.toString(),"isSource",device.isSource(),"isSink",device.isSink(),"addressPresent",device.getAddress()!=null&&!device.getAddress().isEmpty(),"channelCounts",device.getChannelCounts(),"sampleRates",device.getSampleRates(),"encodings",device.getEncodings()));}return devices;
@@ -78,6 +79,20 @@ public final class HardwareCollector implements Collector {
         JSONArray names=new JSONArray();for(String name:productNames)names.put(name);JSONArray rates=new JSONArray();for(Integer rate:sampleRates)rates.put(rate);JSONArray formats=new JSONArray();for(Integer encoding:encodings)formats.put(encoding);
         return Json.obj("available",true,"count",devices.length,"sourceCount",sourceCount,"sinkCount",sinkCount,"typeCounts",typeCounts,"productNames",names,"productNamesTruncated",productNamesTruncated,"sampleRates",rates,"encodings",formats);
     }
+    // 业务块：读取公开麦克风阵列能力，限制集合规模，不导出地址/描述或任何音频样本。
+    private static JSONObject microphoneSummary(AudioManager manager)throws Exception{
+        if(Build.VERSION.SDK_INT<28)return microphoneUnavailable("unsupported");
+        if(manager==null)return microphoneUnavailable("unavailable");
+        try{
+            List<MicrophoneInfo> microphones=manager.getMicrophones();if(microphones==null)return microphoneUnavailable("unavailable");
+            TreeSet<Integer> ids=new TreeSet<>(),locations=new TreeSet<>(),directionalities=new TreeSet<>(),groups=new TreeSet<>();JSONObject typeCounts=new JSONObject();
+            int limit=Math.min(256,microphones.size()),addressPresent=0,descriptionPresent=0,channelMappingCount=0,frequencyResponsePointCount=0;
+            for(int i=0;i<limit;i++){MicrophoneInfo microphone=microphones.get(i);if(microphone==null)continue;ids.add(microphone.getId());count(typeCounts,String.valueOf(microphone.getType()));locations.add(microphone.getLocation());directionalities.add(microphone.getDirectionality());if(microphone.getGroup()!=MicrophoneInfo.GROUP_UNKNOWN)groups.add(microphone.getGroup());String address=microphone.getAddress();if(address!=null&&!address.isEmpty())addressPresent++;String description=microphone.getDescription();if(description!=null&&!description.isEmpty())descriptionPresent++;List<android.util.Pair<Integer,Integer>> mapping=microphone.getChannelMapping();if(mapping!=null)channelMappingCount+=mapping.size();List<android.util.Pair<Float,Float>> response=microphone.getFrequencyResponse();if(response!=null)frequencyResponsePointCount+=response.size();}
+            return Json.obj("available",true,"status","ok","count",microphones.size(),"returnedCount",limit,"truncated",microphones.size()>limit,"microphoneIds",sortedIntegers(ids,64),"microphoneIdsTruncated",ids.size()>64,"typeCounts",typeCounts,"locationValues",sortedIntegers(locations,32),"directionalityValues",sortedIntegers(directionalities,32),"groupCount",groups.size(),"addressPresentCount",addressPresent,"descriptionPresentCount",descriptionPresent,"channelMappingCount",channelMappingCount,"frequencyResponsePointCount",frequencyResponsePointCount);
+        }catch(SecurityException e){return microphoneUnavailable("denied");}catch(java.io.IOException e){return microphoneUnavailable("error");}catch(RuntimeException e){return Json.obj("available",false,"status","error","count",null,"returnedCount",null,"truncated",false,"microphoneIds",new JSONArray(),"microphoneIdsTruncated",null,"typeCounts",new JSONObject(),"locationValues",new JSONArray(),"directionalityValues",new JSONArray(),"groupCount",null,"addressPresentCount",null,"descriptionPresentCount",null,"channelMappingCount",null,"frequencyResponsePointCount",null,"error",e.getClass().getName());}
+    }
+    private static JSONObject microphoneUnavailable(String status){return Json.obj("available",false,"status",status,"count",null,"returnedCount",null,"truncated",false,"microphoneIds",new JSONArray(),"microphoneIdsTruncated",null,"typeCounts",new JSONObject(),"locationValues",new JSONArray(),"directionalityValues",new JSONArray(),"groupCount",null,"addressPresentCount",null,"descriptionPresentCount",null,"channelMappingCount",null,"frequencyResponsePointCount",null);}
+    private static JSONArray sortedIntegers(Set<Integer> values,int limit){JSONArray out=new JSONArray();int count=0;for(Integer value:values){if(count++>=limit)break;out.put(value);}return out;}
     // 业务块：只读取振动器硬件能力，不触发振动或改变系统状态。
     private void vibrator(ItemSink s){
         s.read("hardware","hardware/vibrator","振动器能力","Vibrator / VibratorManager",()->{

@@ -191,6 +191,11 @@ public class CollectionChecks {
         JSONObject summary=null,list=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("hardware/audio-summary"))summary=item;if(item.getString("key").equals("hardware/audio"))list=item;}
         assertNotNull("应生成音频能力摘要",summary);assertNotNull("应保留音频设备完整清单",list);assertEquals("ok",summary.getString("status"));assertEquals("ok",list.getString("status"));JSONObject value=summary.getJSONObject("value");assertEquals(value.getInt("count"),list.getJSONArray("value").length());assertTrue(value.getJSONArray("productNames").length()<=128);assertTrue(value.has("productNamesTruncated"));assertTrue(value.has("sampleRates"));assertTrue(value.has("encodings"));
     }
+    @Test public void microphoneSummaryKeepsCapabilityBoundaryExplicit()throws Exception{
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new HardwareCollector("hardware").collect(sink);
+        JSONObject summary=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("hardware/microphone-summary")){summary=item;break;}}
+        assertNotNull("应生成麦克风阵列摘要",summary);String status=summary.getString("status");assertTrue("麦克风状态应明确: "+status,status.equals("ok")||status.equals("unsupported")||status.equals("denied")||status.equals("unavailable")||status.equals("error"));if(status.equals("ok")){JSONObject value=summary.getJSONObject("value");assertTrue(value.getBoolean("available"));assertTrue(value.getInt("count")>=0);assertTrue(value.getInt("returnedCount")<=256);assertTrue(value.getJSONArray("microphoneIds").length()<=64);assertTrue(value.has("typeCounts"));assertTrue(value.has("locationValues"));assertTrue(value.has("directionalityValues"));assertFalse(summary.toString().contains("MicrophoneInfo{"));}
+    }
     @Test public void vibratorEvidenceUsesPublicCapabilitiesOnly()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new HardwareCollector("hardware").collect(sink);
         JSONObject item=null;for(int i=0;i<sink.items.length();i++){JSONObject candidate=sink.items.getJSONObject(i);if(candidate.getString("key").equals("hardware/vibrator")){item=candidate;break;}}

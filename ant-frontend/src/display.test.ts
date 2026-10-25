@@ -229,6 +229,15 @@ describe('设备格式化展示边界', () => {
     expect(sections.find(section => section.key === 'productNames')?.title).toBe('音频设备名');
     expect(sections.find(section => section.key === 'sampleRates')?.rows[0].value).toBe('48000');
   });
+  it('麦克风摘要展示阵列能力且不展开地址', () => {
+    const value = item('hardware/microphone-summary', 'hardware', { available: true, status: 'ok', count: 2, returnedCount: 2, truncated: false, microphoneIds: [1, 2], microphoneIdsTruncated: false, typeCounts: { '15': 2 }, locationValues: [1], directionalityValues: [0], groupCount: 1, addressPresentCount: 2, descriptionPresentCount: 2, channelMappingCount: 4, frequencyResponsePointCount: 6 });
+    const sections = buildSections(value);
+    expect(sections[0].title).toBe('麦克风阵列能力摘要');
+    expect(sections[0].rows.map(row => row.key)).toEqual(['available', 'status', 'count', 'returnedCount', 'truncated', 'microphoneIdsTruncated', 'typeCounts.15', 'groupCount', 'addressPresentCount', 'descriptionPresentCount', 'channelMappingCount', 'frequencyResponsePointCount']);
+    expect(sections.find(section => section.key === 'microphoneIds')?.title).toBe('麦克风 ID');
+    expect(sections.find(section => section.key === 'locationValues')?.title).toBe('麦克风位置枚举');
+    expect(sections.find(section => section.key === 'directionalityValues')?.title).toBe('麦克风指向性枚举');
+  });
   it('振动器摘要展示硬件能力与设备列表', () => {
     const sections = buildSections(item('hardware/vibrator', 'hardware', { available: true, count: 1, hasVibrator: true, hasAmplitudeControl: true, vibrators: [{ id: 0, hasVibrator: true, hasAmplitudeControl: true, effectSupportCodes: [0, 2, 2, 0] }] }));
     expect(sections[0].title).toBe('振动器能力');

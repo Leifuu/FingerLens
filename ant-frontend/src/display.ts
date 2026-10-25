@@ -292,6 +292,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     'hardware/codecs-summary': { title: '媒体编解码能力摘要', order: ['count', 'encoderCount', 'decoderCount', 'hardwareAcceleratedCount', 'softwareOnlyCount', 'vendorCount', 'codecNamesTruncated', 'mimeTypesTruncated'], arrays: ['codecNames', 'mimeTypes'] },
     'hardware/camera-summary': { title: '摄像头能力摘要', order: ['available', 'count', 'cameraIdsTruncated', 'flashAvailableCount', 'logicalMultiCameraCount', 'physicalCameraIdCount', 'cameraAccessErrorCount'], arrays: ['cameraIds'] },
     'hardware/audio-summary': { title: '音频能力摘要', order: ['available', 'count', 'sourceCount', 'sinkCount', 'productNamesTruncated', 'typeCounts'], arrays: ['productNames', 'sampleRates', 'encodings'] },
+    'hardware/microphone-summary': { title: '麦克风阵列能力摘要', order: ['available', 'status', 'count', 'returnedCount', 'truncated', 'microphoneIdsTruncated', 'typeCounts', 'locationValues', 'directionalityValues', 'groupCount', 'addressPresentCount', 'descriptionPresentCount', 'channelMappingCount', 'frequencyResponsePointCount'], arrays: ['microphoneIds', 'locationValues', 'directionalityValues'] },
     'hardware/vibrator': { title: '振动器能力', order: ['available', 'count', 'hasVibrator', 'hasAmplitudeControl'], arrays: ['vibrators'] },
     'hardware/nfc': { title: 'NFC 能力', order: ['available', 'enabled', 'secureNfcSupported', 'secureNfcEnabled', 'antennaInfoAvailable', 'antennaCount', 'deviceWidth', 'deviceHeight', 'deviceFoldable'], arrays: [] },
      'hardware/usb-summary': { title: 'USB 能力摘要', order: ['available', 'deviceCount', 'deviceCountTruncated', 'interfaceCount', 'endpointCount', 'permissionQueryStatus', 'permissionGrantedCount', 'vendorIdCount', 'productIdCount', 'vendorIdsTruncated', 'productIdsTruncated', 'deviceClassCounts', 'interfaceClassCounts'], arrays: ['vendorIds', 'productIds'] },
@@ -368,6 +369,8 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
           : key === 'storage/capacity-summary' && arrayKey === 'entries' ? '固定路径容量'
           : key === 'hardware/audio-summary'
             ? arrayKey === 'productNames' ? '音频设备名' : arrayKey === 'sampleRates' ? '采样率' : '编码格式'
+          : key === 'hardware/microphone-summary'
+            ? arrayKey === 'microphoneIds' ? '麦克风 ID' : arrayKey === 'locationValues' ? '麦克风位置枚举' : '麦克风指向性枚举'
           : key === 'hardware/usb-summary' ? arrayKey === 'vendorIds' ? 'USB 厂商 ID' : 'USB 产品 ID'
           : key === 'kernel/cgroup-summary' && arrayKey === 'controllerNames' ? 'Cgroup 控制器'
           : key === 'kernel/cpu-summary' ? arrayKey === 'coreIds' ? 'CPU 核心 ID' : '物理封装 ID'
