@@ -300,7 +300,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     'virtualization/risk-summary': { title: '虚拟化与提权线索摘要', order: ['pathChecks', 'evidenceOnly', 'testKeys', 'conclusion'], arrays: ['presentPaths', 'pathErrors', 'matchedBuildMarkers'] },
     'security/root-path-summary': { title: 'Root 相关路径检查摘要', order: ['available', 'status', 'pathChecks', 'pathLimit', 'presentCount', 'missingCount', 'deniedCount', 'unresolvedCount', 'errorCount', 'unknownCount', 'binaryExecutionAttempted', 'followParentSymlinks', 'evidenceOnly'], arrays: ['entries'] },
     'security/root-mount-summary': { title: 'Root 相关系统路径挂载标志', order: ['available', 'status', 'scope', 'pathChecks', 'pathLimit', 'knownCount', 'unknownCount', 'readOnlyCount', 'readWriteFlagCount', 'deniedCount', 'missingCount', 'unresolvedCount', 'errorCount', 'followSymlinks', 'writeProbeAttempted', 'evidenceOnly'], arrays: ['entries'] },
-    'hardware/drm/widevine': { title: 'Widevine DRM 能力', order: ['supported', 'schemeUuid', 'vendor', 'version', 'description', 'algorithms', 'maxSecurityLevel', 'deviceUniqueId'], arrays: [] },
+    'hardware/drm/widevine': { title: 'Widevine DRM 能力', order: ['supported', 'schemeUuid', 'vendor', 'version', 'description', 'algorithms', 'securityLevelProperty', 'maxSecurityLevel', 'maxSecurityLevelKind', 'deviceUniqueId'], arrays: [] },
     'hardware/features-summary': { title: '系统特性能力摘要', order: ['count', 'namedCount', 'versionedCount', 'maxVersion', 'featureNamesTruncated'], arrays: ['featureNames', 'glEsVersions'] },
      'hardware/graphics-summary': { title: '图形能力摘要', order: ['available', 'eglInitialized', 'eglError', 'eglVendor', 'eglVersion', 'glVendor', 'glRenderer', 'glVersion', 'eglExtensionsLength', 'eglExtensionCount', 'glExtensionsLength', 'glExtensionCount', 'vulkanLibraryLoaded', 'vulkanExtensionResult', 'vulkanExtensionCount', 'vulkanExtensionNamesTruncated'], arrays: ['vulkanExtensionNames'] },
     'hardware/codecs-summary': { title: '媒体编解码能力摘要', order: ['count', 'encoderCount', 'decoderCount', 'hardwareAcceleratedCount', 'softwareOnlyCount', 'vendorCount', 'codecNamesTruncated', 'mimeTypesTruncated'], arrays: ['codecNames', 'mimeTypes'] },
@@ -373,6 +373,10 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
   if (!definition) return undefined;
   const summaryOrder = key === 'environment/resource-locales' || key === 'hardware/drm-schemes' || key === 'hardware/camera-concurrency' ? [...definition.order, ...Object.keys(value)] : definition.order;
   const sections: DisplaySection[] = [section('summary', definition.title, objectRows(value, summaryOrder))];
+  // 业务块：修正历史字段的展示语义，保留其key和原值，不把请求常量标成设备实测级别。
+  if (key === 'hardware/drm/widevine') for (const field of sections[0].rows) {
+    if (field.key === 'maxSecurityLevel') field.label = 'maxSecurityLevel（最大级别请求常量）';
+  }
   for (const arrayKey of definition.arrays) {
     if (Array.isArray(value[arrayKey])) {
       const title = key === 'build/risk-properties-summary'

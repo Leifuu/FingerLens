@@ -7,6 +7,20 @@ const raw = { semantic: false, ignoreDynamic: false }, semantic = { semantic: tr
 const find = (rows: ReturnType<typeof compare>, key: string) => rows.find(x => x.key === key)!;
 
 describe('原始与语义比较', () => {
+  it('Widevine插件级别与请求常量分开，兼容旧JSON且不把失败当L3', () => {
+    const key = 'hardware/drm/widevine', old = { supported: true, maxSecurityLevel: 6, deviceUniqueId: { sha256: 'a', length: 32, rawExported: false } };
+    const report = (value: Json) => fixture([fixtureItem(key, value, { category: 'hardware' })]);
+    const legacy = report(old), current = (securityLevelProperty: Json) => report({ ...old, maxSecurityLevelKind: 'request-sentinel', securityLevelProperty });
+    const l1 = current({ property: 'securityLevel', status: 'ok', value: 'L1' }), l3 = current({ property: 'securityLevel', status: 'ok', value: 'L3' });
+    const failed = current({ property: 'securityLevel', status: 'error', value: null, errorClass: 'synthetic' }), empty = current({ property: 'securityLevel', status: 'ok', value: '' });
+    const before = JSON.stringify([legacy, l1, l3, failed, empty]);
+    for (const rules of [raw, semantic, smart]) {
+      const added = find(compare(legacy, l1, rules), key);
+      expect(added.changedPaths).toHaveLength(2);expect(added.changedPaths).not.toContain('/value/maxSecurityLevel');
+      for (const changed of [l3, failed, empty]) expect(find(compare(l1, changed, rules), key).state).toBe('different');
+    }
+    expect(JSON.stringify([legacy, l1, l3, failed, empty])).toBe(before);
+  });
   it('编码器控制兼容旧JSON，区分未查询/不支持模式/错误，保留原能力和未知字段', () => {
     const key = 'hardware/codecs', old = { type: 'video/test', videoCapabilities: { available: true, widthPixels: { lower: 2, upper: 4096 } } };
     const report = (encoderCapabilities?: Json) => fixture([fixtureItem(key, [{ name: 'encoder', encoder: true, capabilities: [{ ...old, ...(encoderCapabilities === undefined ? {} : { encoderCapabilities }) }] }], { category: 'hardware' })]);

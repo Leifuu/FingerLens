@@ -285,6 +285,27 @@ public class CollectionChecks {
         JSONObject drm=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("hardware/drm/widevine")){drm=item;break;}}
         assertNotNull("应记录 Widevine 支持状态",drm);if("ok".equals(drm.getString("status"))){JSONObject value=drm.getJSONObject("value");assertFalse(value.toString().contains("deviceUniqueIdBase64"));if(value.optJSONObject("deviceUniqueId")!=null)assertFalse(value.getJSONObject("deviceUniqueId").optBoolean("rawExported",true));}
     }
+    @Test public void widevineSecurityLevelSeparatesPropertyAndRequestConstant()throws Exception{
+        try{HardwareCollector.drmSecurityLevelProperty(null);fail("缺失DRM实例不能猜安全级别");}catch(NullPointerException expected){}
+        ItemSink sink=new ItemSink(context,"widevine-level-test");new HardwareCollector("hardware").collect(sink);
+        JSONObject item=null;for(int i=0;i<sink.items.length();i++)if(sink.items.getJSONObject(i).getString("key").equals("hardware/drm/widevine"))item=sink.items.getJSONObject(i);
+        assertNotNull(item);assertEquals("ok",item.getString("status"));JSONObject value=new JSONObject(item.toString()).getJSONObject("value");
+        UUID uuid=UUID.fromString("edef8ba9-79d6-4ace-a3c8-27dcd51d21ed");assertEquals(android.media.MediaDrm.isCryptoSchemeSupported(uuid),value.getBoolean("supported"));
+        if(!value.getBoolean("supported")){assertFalse(value.has("securityLevelProperty"));return;}
+        if(Build.VERSION.SDK_INT>=28){assertEquals(android.media.MediaDrm.getMaxSecurityLevel(),value.getInt("maxSecurityLevel"));assertEquals("request-sentinel",value.getString("maxSecurityLevelKind"));}
+        else{assertTrue(value.isNull("maxSecurityLevel"));assertTrue(value.isNull("maxSecurityLevelKind"));}
+        JSONObject level=value.getJSONObject("securityLevelProperty");assertEquals("securityLevel",level.getString("property"));
+        android.media.MediaDrm drm=new android.media.MediaDrm(uuid);
+        try{
+            String expected;
+            try{expected=drm.getPropertyString("securityLevel");}
+            catch(Exception|LinkageError e){assertEquals(e instanceof SecurityException?"denied":"error",level.getString("status"));assertTrue(level.isNull("value"));assertEquals(e.getClass().getName(),level.getString("errorClass"));return;}
+            assertNotNull(expected);assertEquals("ok",level.getString("status"));assertEquals(expected,level.getString("value"));assertFalse(level.has("errorClass"));
+        }finally{drm.release();}
+        assertFalse(value.toString().contains("deviceUniqueIdBase64"));
+        if(value.optJSONObject("deviceUniqueId")!=null)assertFalse(value.getJSONObject("deviceUniqueId").optBoolean("rawExported",true));
+        Bundle evidence=new Bundle();evidence.putString("widevineSecurityLevelPropertyStatus",level.getString("status"));evidence.putString("widevineSecurityLevelPropertyValue",level.getString("value"));InstrumentationRegistry.getInstrumentation().sendStatus(0,evidence);
+    }
     @Test public void drmSchemesKeepCompleteHashAndPublicEnumeration()throws Exception{
         ArrayList<UUID> schemes=new ArrayList<>();for(int i=34;i>0;i--)schemes.add(new UUID(0,i));ArrayList<UUID> original=new ArrayList<>(schemes);
         JSONObject value=HardwareCollector.drmSchemeValues(schemes);assertEquals(original,schemes);

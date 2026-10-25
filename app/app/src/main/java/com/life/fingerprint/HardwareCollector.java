@@ -264,7 +264,9 @@ public final class HardwareCollector implements Collector {
                         "version",drm.getPropertyString(MediaDrm.PROPERTY_VERSION),
                         "description",drm.getPropertyString(MediaDrm.PROPERTY_DESCRIPTION),
                         "algorithms",drm.getPropertyString(MediaDrm.PROPERTY_ALGORITHMS),
-                        "maxSecurityLevel",Build.VERSION.SDK_INT>=28?MediaDrm.getMaxSecurityLevel():null);
+                        "maxSecurityLevel",Build.VERSION.SDK_INT>=28?MediaDrm.getMaxSecurityLevel():null,
+                        "maxSecurityLevelKind",Build.VERSION.SDK_INT>=28?"request-sentinel":null,
+                        "securityLevelProperty",drmSecurityLevelProperty(drm));
                 try{
                     byte[] unique=drm.getPropertyByteArray(MediaDrm.PROPERTY_DEVICE_UNIQUE_ID);
                     Json.put(value,"deviceUniqueId",unique==null?null:Json.obj("sha256",PackageInputCollector.sha(unique),"length",unique.length,"rawExported",false));
@@ -272,6 +274,17 @@ public final class HardwareCollector implements Collector {
                 return value;
             }finally{if(drm!=null)drm.release();}
         });
+    }
+    // 业务块：Widevine插件属性与请求用占位常量分开；读取失败不猜L1/L3，也不抹去原DRM元数据。
+    static JSONObject drmSecurityLevelProperty(MediaDrm drm){
+        Objects.requireNonNull(drm,"missing MediaDrm instance");
+        JSONObject value=Json.obj("property","securityLevel","status","error","value",null);
+        try{
+            String level=drm.getPropertyString("securityLevel");
+            if(level==null)throw new IllegalStateException("missing Widevine securityLevel property");
+            Json.put(value,"value",level);Json.put(value,"status","ok");
+        }catch(Exception|LinkageError e){Json.put(value,"status",e instanceof SecurityException?"denied":"error");Json.put(value,"errorClass",e.getClass().getName());}
+        return value;
     }
     // 业务块：只枚举平台支持方案，保留重复与未知 UUID；完整排序集合参与哈希，不打开 DRM 会话。
     static JSONObject drmSchemeValues(List<UUID> schemes)throws Exception{

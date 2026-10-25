@@ -273,6 +273,21 @@ describe('设备格式化展示边界', () => {
     expect(drm[0].rows.some(row => row.key.includes('deviceUniqueId.sha256'))).toBe(true);
     expect(integrity[0].title).toBe('Play Integrity 本地环境');
   });
+  it('Widevine请求常量以明确标签展示，插件级别原文和未知字段保留且旧JSON不补值', () => {
+    const key = 'hardware/drm/widevine', legacy = { supported: true, maxSecurityLevel: 6 };
+    const current = { ...legacy, maxSecurityLevelKind: 'request-sentinel', securityLevelProperty: { property: 'securityLevel', status: 'ok', value: 'L1', future: false } };
+    const before = JSON.stringify([legacy, current]);
+    const old = buildSections(item(key, 'hardware', legacy))[0].rows, rows = buildSections(item(key, 'hardware', current))[0].rows;
+    expect(old.find(row => row.key === 'maxSecurityLevel')).toMatchObject({ label: 'maxSecurityLevel（最大级别请求常量）', value: '6' });
+    expect(old.some(row => row.key.startsWith('securityLevelProperty'))).toBe(false);
+    expect(rows.find(row => row.key === 'securityLevelProperty.value')?.value).toBe('L1');expect(rows.find(row => row.key === 'securityLevelProperty.future')?.value).toBe('false');
+    expect(rows.findIndex(row => row.key === 'securityLevelProperty.value')).toBeLessThan(rows.findIndex(row => row.key === 'maxSecurityLevel'));
+    for (const value of [null, '', 'future-level']) {
+      const displayed = buildSections(item(key, 'hardware', { ...current, securityLevelProperty: { property: 'securityLevel', status: 'error', value } }))[0].rows;
+      expect(displayed.find(row => row.key === 'securityLevelProperty.value')?.value).toBe(value === null ? 'null' : value);
+    }
+    expect(JSON.stringify([legacy, current])).toBe(before);
+  });
   it('设备管理摘要保留当前 App 范围和限制项', () => {
     const sections = buildSections(item('security/device-management', 'security', { deviceOwnerForSelf: false, profileOwnerForSelf: false, managedProfile: false, userUnlocked: true, restrictions: { 'no_debugging_features': false } }));
     expect(sections[0].title).toBe('设备管理与用户环境');
