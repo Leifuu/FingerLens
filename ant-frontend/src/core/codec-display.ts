@@ -1,4 +1,5 @@
 import type { MergedDisplayRow } from './display-compare';
+import { codecEncoderDisplayRows, type CodecEncoderDisplayRow } from './codec-encoder-display';
 
 export interface CodecDisplayRow {
   key: string;
@@ -9,6 +10,7 @@ export interface CodecDisplayRow {
   softwareOnly?: MergedDisplayRow;
   vendor?: MergedDisplayRow;
   supportedTypes: MergedDisplayRow[];
+  encoderControls: CodecEncoderDisplayRow[];
   state: MergedDisplayRow['state'];
 }
 
@@ -34,6 +36,7 @@ export function codecDisplayRows(rows: MergedDisplayRow[]): CodecDisplayRow[] | 
     }
     result.push({ key, name, encoder, canonicalName: field('canonicalName'), hardwareAccelerated: field('hardwareAccelerated'), softwareOnly: field('softwareOnly'), vendor: field('vendor'),
       supportedTypes: fields.filter(row => /^\[\d+\]\.supportedTypes(?:\[\d+\])?$/.test(row.label)),
+      encoderControls: codecEncoderDisplayRows(fields, key),
       state: !left ? 'right-only' : !right ? 'left-only' : fields.some(row => row.state !== 'same') ? 'changed' : 'same' });
   }
   return result.length ? result : undefined;
