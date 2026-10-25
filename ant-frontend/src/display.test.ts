@@ -7,6 +7,18 @@ function item(key: string, category: string, value: Json): Item {
 }
 
 describe('设备格式化展示边界', () => {
+  it('TLS 参数分组保留顺序、重复、未知字段及空值，缺失列表不冒充空集合', () => {
+    const source = item('security/tls-parameters', 'security', { providerName: 'test', defaultProtocols: ['TLSv1.3', 'TLSv1.2', 'TLSv1.3', '', null], supportedCipherSuites: [], futureField: { flag: false }, futureList: ['future'] });
+    const before = JSON.stringify(source), groups = buildSections(source);
+    expect(groups[0].title).toBe('默认 TLS 上下文摘要');
+    expect(groups[0].rows.find(row => row.key === 'futureField.flag')?.value).toBe('false');
+    expect(groups.find(group => group.key === 'defaultProtocols')?.rows.map(row => row.value)).toEqual(['TLSv1.3', 'TLSv1.2', 'TLSv1.3', '', 'null']);
+    expect(groups.find(group => group.key === 'supportedCipherSuites')?.rows[0].value).toBe('[]');
+    expect(groups.some(group => group.key === 'supportedProtocols')).toBe(false);
+    expect(groups.find(group => group.key === 'futureList')?.rows[0].value).toBe('future');
+    expect(buildSections(item('security/tls-parameters', 'security', null))[0].rows[0].value).toBe('null');
+    expect(JSON.stringify(source)).toBe(before);
+  });
   it('只展示 getprop 输出，保留重复属性和空属性值', () => {
     const value = item('build/getprop', 'build', { argv: ['/system/bin/getprop'], stdout: '[a]: []\n[a]: [two]\n', stderr: 'not-device-output', exitCode: 0 });
     expect(buildSections(value)[0].rows.map(row => row.value)).toEqual(['', 'two']);

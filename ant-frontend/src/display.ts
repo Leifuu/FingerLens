@@ -441,6 +441,13 @@ export function buildSections(item?: Item): DisplaySection[] {
   if (item.key === 'security/trust-store') return trustStoreSections(value);
   if (item.key === 'attestation/tee' || item.key === 'attestation/plain' || item.key === 'attestation/strongbox') return attestationSections(item.key, value);
   if (item.key === 'hardware/usb') return usbSections(value);
+  if (item.key === 'security/tls-parameters') {
+    const titles: Record<string, string> = {
+      fields: '默认 TLS 上下文摘要', supportedProtocols: '支持的 TLS 协议', defaultProtocols: '默认启用的 TLS 协议',
+      supportedCipherSuites: '支持的密码套件', defaultCipherSuites: '默认启用的密码套件',
+    };
+    return genericSections(value).map(group => ({ ...group, title: Object.hasOwn(titles, group.key) ? titles[group.key] : group.title }));
+  }
   const riskSummary = riskSummarySections(item.key, value);
   if (riskSummary) return riskSummary;
   if (item.key === 'build/getprop' || item.source.api === '/system/bin/getprop' || item.category === 'build' && item.key.includes('property')) return buildProperties(value);

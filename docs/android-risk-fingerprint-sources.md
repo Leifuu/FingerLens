@@ -13,6 +13,8 @@
 
 ## Android 安全环境资料
 
+- [SSLContext](https://developer.android.com/reference/javax/net/ssl/SSLContext) 的 `getDefault`、`getSupportedSSLParameters` 和 `getDefaultSSLParameters`，以及 [SSLParameters](https://developer.android.com/reference/javax/net/ssl/SSLParameters) 的协议/密码套件查询（2026-10-26 核对 SDK37，均自 API9 可用）：新增 `security/tls-parameters`，记录当前进程默认上下文的协议名、提供者名，以及支持/默认启用的协议和密码套件四组列表。对照 [OpenJDK jdk-25-ga 的 SSLContext](https://github.com/openjdk/jdk/blob/jdk-25-ga/src/java.base/share/classes/javax/net/ssl/SSLContext.java) 和 [SSLContextSpi](https://github.com/openjdk/jdk/blob/jdk-25-ga/src/java.base/share/classes/javax/net/ssl/SSLContextSpi.java) 的参数语义；[Conscrypt 固定实现](https://github.com/google/conscrypt/blob/48ee08228358c2289f422dd80b333b5ff33a7267/common/src/main/java/org/conscrypt/OpenSSLContextImpl.java) 提供默认上下文与协议配置的实现参考，不假定设备运行该上游版本。每组明细最多256项，保存完整原序 JSON 数组 UTF-8 SHA-256、数量与截断状态，保留顺序、重复、空字符串和null；缺失列表或输入超过4096项/单名称超过1024字符由ItemSink明确记录失败。查询可能触发默认上下文的惰性初始化，不连接远端、不握手、不设置默认上下文或修改提供者。只代表当前 App 的默认 JSSE 环境，不等同 WebView、其它 App、自定义客户端或真实 ClientHello/JA3/JA4，也不是TLS连接安全性或设备真实性结论；旧 providers 条目与旧JSON保留。
+
 - [Android SELinux](https://source.android.com/docs/security/features/selinux)：说明 Android 运行时的 enforcing/permissive 策略状态与进程安全上下文。本工程新增 `security/selinux-summary`，只保存 enforcing 状态、上下文长度和 SHA-256，原始安全文件继续保留。
 
 ## 官方 Android 设备标识资料

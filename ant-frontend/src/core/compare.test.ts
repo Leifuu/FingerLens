@@ -6,6 +6,21 @@ const raw = { semantic: false, ignoreDynamic: false }, semantic = { semantic: tr
 const find = (rows: ReturnType<typeof compare>, key: string) => rows.find(x => x.key === key)!;
 
 describe('原始与语义比较', () => {
+  it('TLS 参数兼容旧JSON，默认/支持列表及截断外哈希独立参与比较', () => {
+    const key = 'security/tls-parameters';
+    const legacy = fixture([fixtureItem('security/providers', [{ name: 'test' }], { category: 'security' })]);
+    const current = fixture([...legacy.data.items, fixtureItem(key, { defaultProtocols: ['TLSv1.3', 'TLSv1.2'], supportedProtocols: ['TLSv1.2', 'TLSv1.3'], supportedCipherSuitesSha256: 'a', future: false }, { category: 'security' })]);
+    const changed = structuredClone(current);(changed.data.items[1].value as Record<string, unknown>).supportedCipherSuitesSha256 = 'b';
+    const reordered = structuredClone(current);(reordered.data.items[1].value as Record<string, unknown>).defaultProtocols = ['TLSv1.2', 'TLSv1.3'];
+    const before = JSON.stringify([legacy, current, changed, reordered]);
+    for (const rules of [raw, semantic, smart]) {
+      expect(find(compare(legacy, current, rules), key).state).toBe('right-only');
+      expect(find(compare(legacy, current, rules), 'security/providers').state).toBe('same');
+      expect(find(compare(current, changed, rules), key).changedPaths).toEqual(['/value/supportedCipherSuitesSha256']);
+      expect(find(compare(current, reordered, rules), key).state).toBe('different');
+    }
+    expect(JSON.stringify([legacy, current, changed, reordered])).toBe(before);
+  });
   it('国际化版本兼容旧JSON，保留完整版本字符串并独立记录失败状态', () => {
     const keys = ['environment/icu-version', 'environment/unicode-version', 'environment/tzdata-version'];
     const legacy = fixture([fixtureItem('environment/locale-summary', { timezoneId: 'Asia/Shanghai' }, { category: 'environment' })]);

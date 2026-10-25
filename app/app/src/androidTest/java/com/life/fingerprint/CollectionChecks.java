@@ -21,6 +21,24 @@ public class CollectionChecks {
     private Context context;
     private final ArrayList<CollectionController> controllers=new ArrayList<>();
     @Before public void setup(){context=InstrumentationRegistry.getInstrumentation().getTargetContext();}
+    @Test public void tlsParametersMatchDefaultContextAndKeepOrderedEvidence()throws Exception{
+        javax.net.ssl.SSLContext original=javax.net.ssl.SSLContext.getDefault();
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new SecurityCollector("security").collect(sink);
+        JSONObject item=null;boolean providers=false;for(int i=0;i<sink.items.length();i++){JSONObject entry=sink.items.getJSONObject(i);if(entry.getString("key").equals("security/tls-parameters"))item=entry;if(entry.getString("key").equals("security/providers"))providers=true;}
+        assertNotNull(item);assertTrue(providers);assertEquals("ok",item.getString("status"));assertSame(original,javax.net.ssl.SSLContext.getDefault());
+        JSONObject value=item.getJSONObject("value");assertEquals(original.getProvider().getName(),value.getString("providerName"));assertEquals(original.getProtocol(),value.getString("contextProtocol"));
+        javax.net.ssl.SSLParameters supported=original.getSupportedSSLParameters(),defaults=original.getDefaultSSLParameters();
+        String[] keys={"supportedProtocols","defaultProtocols","supportedCipherSuites","defaultCipherSuites"};String[][] lists={supported.getProtocols(),defaults.getProtocols(),supported.getCipherSuites(),defaults.getCipherSuites()};
+        for(int i=0;i<keys.length;i++){JSONArray all=new JSONArray(Arrays.asList(lists[i])),entries=value.getJSONArray(keys[i]);assertEquals(lists[i].length,value.getInt(keys[i]+"Count"));assertEquals(Math.min(256,lists[i].length),entries.length());assertEquals(lists[i].length>256,value.getBoolean(keys[i]+"Truncated"));for(int j=0;j<entries.length();j++)assertEquals(all.get(j),entries.get(j));assertEquals(PackageInputCollector.sha(all.toString().getBytes(StandardCharsets.UTF_8)),value.getString(keys[i]+"Sha256"));}
+        assertEquals(value.toString(),new JSONObject(value.toString()).toString());
+        String[] names=new String[258];Arrays.fill(names,"TLS_future");names[0]="";names[1]=null;String[] before=names.clone();
+        supported=new javax.net.ssl.SSLParameters(names,new String[]{"TLS_future","TLS_future"});defaults=new javax.net.ssl.SSLParameters(new String[0],new String[0]);
+        JSONObject bounded=SecurityCollector.tlsParameterValues("Default","test",supported,defaults);assertEquals("partial",bounded.getString("status"));assertEquals(258,bounded.getInt("supportedCipherSuitesCount"));assertEquals(256,bounded.getJSONArray("supportedCipherSuites").length());assertTrue(bounded.getBoolean("supportedCipherSuitesTruncated"));assertTrue(bounded.getJSONArray("supportedCipherSuites").isNull(1));assertEquals("",bounded.getJSONArray("supportedCipherSuites").getString(0));assertEquals(0,bounded.getInt("defaultProtocolsCount"));assertEquals(2,bounded.getJSONArray("supportedProtocols").length());assertArrayEquals(before,names);
+        names[257]="changed-beyond-limit";supported.setCipherSuites(names);JSONObject changed=SecurityCollector.tlsParameterValues("Default","test",supported,defaults);assertEquals(bounded.getJSONArray("supportedCipherSuites").toString(),changed.getJSONArray("supportedCipherSuites").toString());assertNotEquals(bounded.getString("supportedCipherSuitesSha256"),changed.getString("supportedCipherSuitesSha256"));
+        try{SecurityCollector.tlsParameterValues("Default","test",new javax.net.ssl.SSLParameters(),defaults);fail("缺失列表不能冒充空集合");}catch(IllegalArgumentException expected){}
+        try{SecurityCollector.tlsParameterValues("Default","test",new javax.net.ssl.SSLParameters(new String[4097],new String[0]),defaults);fail("必须拒绝超范围列表");}catch(IllegalArgumentException expected){}
+        try{SecurityCollector.tlsParameterValues("Default","test",new javax.net.ssl.SSLParameters(new String[]{String.join("",Collections.nCopies(1025,"x"))},new String[0]),defaults);fail("必须拒绝超长名称");}catch(IllegalArgumentException expected){}
+    }
     @After public void finish()throws Exception{for(CollectionController controller:controllers){controller.cancel();long end=SystemClock.elapsedRealtime()+3000;while(controller.running&&SystemClock.elapsedRealtime()<end)Thread.sleep(20);java.lang.reflect.Field f=CollectionController.class.getDeclaredField("control");f.setAccessible(true);((Handler)f.get(controller)).getLooper().quitSafely();}}
     @Test public void originalBytesAndTrueTruncation()throws Exception{
         File f=new File(context.getCacheDir(),"fingerprint-utf8-test.bin");byte[] content="中文\n  原始空白\u0000".getBytes(StandardCharsets.UTF_8);try(FileOutputStream out=new FileOutputStream(f)){out.write(content);}

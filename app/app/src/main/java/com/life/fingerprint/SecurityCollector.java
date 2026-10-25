@@ -49,8 +49,29 @@ public final class SecurityCollector implements Collector {
         s.read("security","security/buildSerial","Build 序列号（可能受限）","Build.getSerial",()->Build.VERSION.SDK_INT>=26?Build.getSerial():Build.SERIAL);
         s.read("security","security/providers","安全提供者","Security.getProviders",()->{JSONArray a=new JSONArray();for(Provider p:Security.getProviders()){JSONArray services=new JSONArray();for(Provider.Service v:p.getServices())services.put(Json.obj("type",v.getType(),"algorithm",v.getAlgorithm(),"className",v.getClassName()));a.put(Json.obj("name",p.getName(),"info",p.getInfo(),"version",p.getVersion(),"services",services));}return a;});
         s.read("security","security/providers-summary","安全提供者摘要","Security.getProviders",SecurityCollector::providerSummary);
+        s.read("security","security/tls-parameters","默认 TLS 上下文参数","SSLContext.getDefault / getSupportedSSLParameters / getDefaultSSLParameters",SecurityCollector::tlsParameters);
         s.read("security","security/trust-store","当前 App 可见 CA 信任库","KeyStore AndroidCAStore",()->{KeyStore store=KeyStore.getInstance("AndroidCAStore");store.load(null);JSONArray a=new JSONArray();Enumeration<String> names=store.aliases();int count=0;while(names.hasMoreElements()){String name=names.nextElement();if(++count>4096)throw new IllegalStateException("CA 数量超过 4096");Certificate cert=store.getCertificate(name);a.put(Json.obj("alias",name,"derBase64",cert==null?null:Base64.encodeToString(cert.getEncoded(),Base64.NO_WRAP),"sha256",cert==null?null:PackageInputCollector.sha(cert.getEncoded())));}return a;});
         s.read("security","security/trust-store-summary","CA 信任库摘要","KeyStore AndroidCAStore",SecurityCollector::trustStoreSummary);
+    }
+    // 业务块：只读当前进程默认 TLS 参数，不连接端点、不握手或修改默认上下文；保留列表顺序和重复项。
+    static JSONObject tlsParameters()throws Exception{
+        javax.net.ssl.SSLContext context=javax.net.ssl.SSLContext.getDefault();
+        return tlsParameterValues(context.getProtocol(),context.getProvider().getName(),context.getSupportedSSLParameters(),context.getDefaultSSLParameters());
+    }
+    static JSONObject tlsParameterValues(String protocol,String provider,javax.net.ssl.SSLParameters supported,javax.net.ssl.SSLParameters defaults)throws Exception{
+        if(supported==null||defaults==null)throw new IllegalArgumentException("TLS 参数缺失");
+        JSONObject out=Json.obj("available",true,"status","ok","contextProtocol",protocol,"providerName",provider,"entryLimit",256);
+        String[] keys={"supportedProtocols","defaultProtocols","supportedCipherSuites","defaultCipherSuites"};
+        String[][] lists={supported.getProtocols(),defaults.getProtocols(),supported.getCipherSuites(),defaults.getCipherSuites()};
+        for(int i=0;i<keys.length;i++){
+            String[] values=lists[i];if(values==null||values.length>4096)throw new IllegalArgumentException("TLS 列表缺失或超过 4096 项");
+            JSONArray all=new JSONArray(),entries=new JSONArray();
+            for(String value:values){if(value!=null&&value.length()>1024)throw new IllegalArgumentException("TLS 名称超过 1024 字符");all.put(Json.value(value));if(entries.length()<256)entries.put(Json.value(value));}
+            Json.put(out,keys[i],entries);Json.put(out,keys[i]+"Count",values.length);Json.put(out,keys[i]+"Truncated",values.length>256);
+            Json.put(out,keys[i]+"Sha256",PackageInputCollector.sha(all.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            if(values.length>256)Json.put(out,"status","partial");
+        }
+        return out;
     }
     // 业务块：固定检查 RootBeer 公开目录中的 su/BusyBox，只观察元数据，不读取正文或执行二进制。
     private static JSONObject rootPathSummary()throws Exception{

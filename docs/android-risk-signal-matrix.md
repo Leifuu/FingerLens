@@ -78,6 +78,8 @@
 
 ## 当前缺口与下一步候选
 
+- 已补充 `security/tls-parameters`：[SSLContext](https://developer.android.com/reference/javax/net/ssl/SSLContext)/[SSLParameters](https://developer.android.com/reference/javax/net/ssl/SSLParameters)（API9+）读取当前 App 默认上下文的提供者、协议名，以及支持/默认启用的协议与密码套件。四组列表各最多256项，完整原序列表哈希、数量和截断标志保留差异；缺失列表不伪装空集合。只读取本地参数，不连接或握手，不推导浏览器ClientHello、JA3/JA4或风险结论；原安全提供者及旧JSON保留，前端按四组展示。
+
 - 远程 Play Integrity verdict 需要服务端请求、nonce 和云端凭据；离线 APK 不应伪造该结果。
 - 供应商 SDK 的私有字段没有公开契约；后续只实现能由公开 Android API、稳定 JNI 或明确授权的本地证据复现的项目。
 - 已补充 `build/risk-properties-summary`，把 19 个启动验证、锁定状态、VBMeta 摘要、启动槽、动态分区、SELinux 启动状态、硬件 SKU/ABI、首次 API 级别以及 `ro.debuggable`、`ro.secure`、`ro.adb.secure` 等字段整理为固定摘要，并额外列出当前已观察与缺失的属性；原始 `build/native-property/*` 继续保留。
