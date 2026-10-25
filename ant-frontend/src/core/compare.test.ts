@@ -56,6 +56,18 @@ describe('原始与语义比较', () => {
     expect(service.ignored).toBeGreaterThan(0);
     expect(signal.ignored).toBeGreaterThan(0);
   });
+  it('智能过滤忽略 eUICC 可用内存变化，但保留能力字段', () => {
+    const a = fixture([fixtureItem('sim/euicc-summary', { enabled: true, availableMemoryBytes: 4096 }, { category: 'sim' })]);
+    const b = fixture([fixtureItem('sim/euicc-summary', { enabled: true, availableMemoryBytes: 2048 }, { category: 'sim' })]);
+    const same = find(compare(a, b, smart), 'sim/euicc-summary');
+    expect(same.state).toBe('same');
+    expect(same.changedPaths).toEqual([]);
+    expect(same.ignored).toBe(2);
+    b.data.items[0].value = { enabled: false, availableMemoryBytes: 2048 };
+    const changed = find(compare(a, b, smart), 'sim/euicc-summary');
+    expect(changed.state).toBe('different');
+    expect(changed.changedPaths).toEqual(['/value/enabled']);
+  });
   it('USB 摘要语义比较按厂商与产品 ID 集合排序', () => {
     const left = fixture([fixtureItem('hardware/usb-summary', { vendorIds: [1204, 18], productIds: [4660, 52] }, { category: 'hardware' })]);
     const right = fixture([fixtureItem('hardware/usb-summary', { vendorIds: [18, 1204], productIds: [52, 4660] }, { category: 'hardware' })]);

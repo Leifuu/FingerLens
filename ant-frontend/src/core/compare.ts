@@ -8,6 +8,7 @@ const transient = new Set(['pid', 'uid', 'startedAt', 'finishedAt', 'startTime',
 const transientByItem: Record<string, ReadonlySet<string>> = {
   'sim/service-summary': new Set(['serviceState', 'roaming', 'searching', 'nonTerrestrial', 'channelNumber', 'duplexMode', 'cellBandwidths', 'registrationCount', 'registeredCount', 'roamingCount', 'searchingCount', 'emergencyServiceCount', 'nonTerrestrialCount', 'domainCounts', 'transportCounts', 'accessNetworkTechnologyCounts']),
   'sim/signal-summary': new Set(['timestampMillis', 'signalLevel', 'cellCount', 'validCellCount', 'typeCounts', 'levelCounts', 'dbmMin', 'dbmMax', 'asuMin', 'asuMax']),
+  'sim/euicc-summary': new Set(['availableMemoryBytes']),
 };
 function isDynamicField(itemKey: string, field: string, path: string): boolean {
   if (transient.has(field)) return true;
