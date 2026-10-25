@@ -215,6 +215,11 @@ public class CollectionChecks {
         JSONObject summary=null,raw=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("network/connectivity-summary"))summary=item;if(item.getString("key").equals("network/connectivity"))raw=item;}
         assertNotNull("应生成网络集合摘要",summary);assertNotNull("应保留网络连接原始清单",raw);assertEquals("ok",summary.getString("status"));assertEquals("ok",raw.getString("status"));JSONObject value=summary.getJSONObject("value");assertTrue(value.has("networkCount"));assertTrue(value.has("activePresent"));assertTrue(value.has("capabilitiesAvailableCount"));assertTrue(value.has("transportCounts"));
     }
+    @Test public void privateDnsSummaryKeepsAddressesOutOfEvidence()throws Exception{
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new NetworkCollector("network").collect(sink);
+        JSONObject summary=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("network/private-dns-summary")){summary=item;break;}}
+        assertNotNull("应生成 Private DNS 摘要",summary);assertEquals("ok",summary.getString("status"));JSONObject value=summary.getJSONObject("value");assertTrue(value.has("activeNetworkPresent"));assertTrue(value.has("linkPropertiesAvailable"));assertTrue(value.has("privateDnsSupported"));assertTrue(value.has("dnsServerCount"));assertTrue(value.has("dnsIpv4Count"));assertTrue(value.has("dnsIpv6Count"));assertTrue(value.has("privateDnsServerNamePresent"));assertFalse(value.has("privateDnsServers"));assertFalse(value.has("privateDnsServerName"));
+    }
     @Test public void proxySummaryKeepsRawProxySeparate()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new NetworkCollector("network").collect(sink);
         JSONObject summary=null,raw=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("network/proxy-summary"))summary=item;if(item.getString("key").equals("network/proxy"))raw=item;}

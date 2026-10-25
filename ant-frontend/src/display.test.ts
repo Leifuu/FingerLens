@@ -268,6 +268,12 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].title).toBe('代理环境摘要');
     expect(sections[0].rows.map(row => row.key)).toEqual(['available', 'status', 'configured', 'hostPresent', 'hostLength', 'hostSha256', 'port', 'exclusionCount', 'pacFilePresent', 'pacScheme']);
   });
+  it('Private DNS 摘要不展开地址和名称原文', () => {
+    const sections = buildSections(item('network/private-dns-summary', 'network', { available: true, status: 'ok', activeNetworkPresent: true, linkPropertiesAvailable: true, privateDnsSupported: true, privateDnsActive: true, dnsServerCount: 2, dnsIpv4Count: 1, dnsIpv6Count: 1, privateDnsServerNamePresent: true, privateDnsServerNameLength: 14, privateDnsServerNameSha256: 'c'.repeat(64) }));
+    expect(sections[0].title).toBe('Private DNS 环境摘要');
+    expect(sections[0].rows.map(row => row.key)).toContain('dnsServerCount');
+    expect(sections[0].rows.map(row => row.key)).not.toContain('privateDnsServerName');
+  });
   it('锁屏与生物识别摘要只展示公开状态', () => {
     const sections = buildSections(item('security/lock-biometric', 'security', { keyguardSecure: true, keyguardLocked: false, deviceSecure: true, deviceLocked: false, fingerprintFeature: true, faceFeature: false, irisFeature: false, biometricStrongCode: 0, biometricStrongStatus: 'success', biometricWeakCode: 11, biometricWeakStatus: 'none_enrolled' }));
     expect(sections[0].title).toBe('锁屏与生物识别环境');

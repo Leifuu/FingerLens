@@ -80,6 +80,7 @@ public final class NetworkCollector implements Collector {
                     "capabilitiesRaw",cap.toString());
         });
         s.read("network","network/connectivity-summary","网络集合摘要","ConnectivityManager.getAllNetworks / NetworkCapabilities",()->connectivitySummary(c));
+        s.read("network","network/private-dns-summary","Private DNS 环境摘要","ConnectivityManager.getActiveNetwork / LinkProperties",()->privateDnsSummary(c));
         s.read("network","network/connectivity","连接与链路","ConnectivityManager.getAllNetworks",()->{JSONArray a=new JSONArray();Network active=c.getActiveNetwork();for(Network n:c.getAllNetworks()){NetworkCapabilities cap=c.getNetworkCapabilities(n);LinkProperties link=c.getLinkProperties(n);JSONObject o=Json.obj("handle",n.getNetworkHandle(),"active",n.equals(active),"capabilitiesRaw",cap==null?null:cap.toString());if(cap!=null){JSONArray transports=new JSONArray();for(int type=0;type<=10;type++)if(cap.hasTransport(type))transports.put(type);Json.put(o,"transports",transports);Json.put(o,"downstreamKbps",cap.getLinkDownstreamBandwidthKbps());Json.put(o,"upstreamKbps",cap.getLinkUpstreamBandwidthKbps());}if(link!=null){JSONArray addresses=new JSONArray(),dns=new JSONArray(),routes=new JSONArray();for(LinkAddress x:link.getLinkAddresses())addresses.put(Json.obj("address",x.getAddress().getHostAddress(),"prefixLength",x.getPrefixLength(),"flags",x.getFlags(),"scope",x.getScope()));for(InetAddress x:link.getDnsServers())dns.put(x.getHostAddress());for(RouteInfo x:link.getRoutes())routes.put(Json.obj("destination",x.getDestination().toString(),"gateway",x.getGateway()==null?null:x.getGateway().getHostAddress(),"interface",x.getInterface(),"default",x.isDefaultRoute()));Json.put(o,"link",Json.obj("interfaceName",link.getInterfaceName(),"domains",link.getDomains(),"mtu",Build.VERSION.SDK_INT>=29?link.getMtu():null,"addresses",addresses,"dns",dns,"routes",routes,"httpProxy",link.getHttpProxy()==null?null:link.getHttpProxy().toString(),"raw",link.toString()));}a.put(o);}return a;});
         s.read("network","network/interfaces","网络接口","NetworkInterface.getNetworkInterfaces",()->{JSONArray a=new JSONArray();Enumeration<NetworkInterface> all=NetworkInterface.getNetworkInterfaces();if(all!=null)while(all.hasMoreElements()){NetworkInterface n=all.nextElement();JSONArray addresses=new JSONArray();for(InterfaceAddress x:n.getInterfaceAddresses())addresses.put(Json.obj("address",x.getAddress().getHostAddress(),"prefixLength",x.getNetworkPrefixLength(),"broadcast",x.getBroadcast()==null?null:x.getBroadcast().getHostAddress()));byte[] mac=null;String error=null;try{mac=n.getHardwareAddress();}catch(Exception e){error=e.toString();}a.put(Json.obj("name",n.getName(),"displayName",n.getDisplayName(),"index",n.getIndex(),"up",n.isUp(),"loopback",n.isLoopback(),"virtual",n.isVirtual(),"pointToPoint",n.isPointToPoint(),"mtu",n.getMTU(),"hardwareAddressBase64",mac==null?null:android.util.Base64.encodeToString(mac,android.util.Base64.NO_WRAP),"hardwareAddressError",error,"addresses",addresses));}return a;});
         s.read("network","network/interface-summary","网络接口摘要","NetworkInterface.getNetworkInterfaces",()->interfaceSummary());
@@ -130,6 +131,23 @@ public final class NetworkCollector implements Collector {
         boolean pacPresent=pac!=null&&!pac.isEmpty();
         Json.put(value,"pacFilePresent",pacPresent);
         Json.put(value,"pacScheme",pacPresent&&proxy.getPacFileUrl()!=null?proxy.getPacFileUrl().getScheme():null);
+        return value;
+    }
+    // 业务块：Private DNS 摘要只保留活动链路状态、地址族计数和名称哈希，不导出 DNS 地址或名称原文。
+    private static JSONObject privateDnsSummary(ConnectivityManager manager)throws Exception{
+        JSONObject value=Json.obj("available",manager!=null,"status",manager==null?"unavailable":"no-active-network","activeNetworkPresent",false,"linkPropertiesAvailable",false,"privateDnsSupported",Build.VERSION.SDK_INT>=28,"privateDnsActive",null,"dnsServerCount",null,"dnsIpv4Count",null,"dnsIpv6Count",null,"privateDnsServerNamePresent",null,"privateDnsServerNameLength",null,"privateDnsServerNameSha256",null);
+        if(manager==null)return value;
+        Network active=manager.getActiveNetwork();
+        if(active==null)return value;
+        Json.put(value,"activeNetworkPresent",true);
+        LinkProperties link=manager.getLinkProperties(active);
+        if(link==null){Json.put(value,"status","link-properties-unavailable");return value;}
+        Json.put(value,"linkPropertiesAvailable",true);
+        List<InetAddress> servers=link.getDnsServers();int ipv4=0,ipv6=0;
+        if(servers!=null)for(InetAddress server:servers){if(server instanceof Inet4Address)ipv4++;else if(server instanceof Inet6Address)ipv6++;}
+        Json.put(value,"dnsServerCount",servers==null?0:servers.size());Json.put(value,"dnsIpv4Count",ipv4);Json.put(value,"dnsIpv6Count",ipv6);
+        if(Build.VERSION.SDK_INT<28){Json.put(value,"status","partial");return value;}
+        Json.put(value,"status","ok");Json.put(value,"privateDnsActive",link.isPrivateDnsActive());String name=link.getPrivateDnsServerName();boolean present=name!=null&&!name.isEmpty();Json.put(value,"privateDnsServerNamePresent",present);Json.put(value,"privateDnsServerNameLength",present?name.length():null);Json.put(value,"privateDnsServerNameSha256",present?PackageInputCollector.sha(name.getBytes(StandardCharsets.UTF_8)):null);
         return value;
     }
     // 业务块：公开蓝牙能力只保留计数与存在性；权限不足时返回结构化状态，不伪造已配对设备。
