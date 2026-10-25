@@ -66,6 +66,7 @@
 | Wi-Fi 环境 | [WifiManager.getConnectionInfo](https://developer.android.com/reference/android/net/wifi/WifiManager#getConnectionInfo())、[WifiInfo](https://developer.android.com/reference/android/net/wifi/WifiInfo) 与 [WifiManager.getScanResults](https://developer.android.com/reference/android/net/wifi/WifiManager#getScanResults()) 公开连接链路、Wi-Fi 标准、最大收发速率和 API 33+ MLO 摘要；扫描结果受位置/附近设备权限和系统策略影响。 | `network/wifi-summary`、`network/wifi-capabilities`、`network/wifi`、`network/wifi-cached-scan` | 已新增不含 SSID/BSSID/MLD MAC 原文的连接、频段和链路能力摘要；不主动扫描，权限不足时记录 `access=denied` 或 `scanAccess=denied`，原始条目保留实际状态。 |
 | 摄像头分数元数据 | [Rational](https://developer.android.com/reference/android/util/Rational) 与 AOSP 公开有限分数和 NaN/Infinity 的文本、分子与分母。 | `hardware/camera/*`；公共 `Json.value` | 以带类型的对象精确保留曝光步长、校准矩阵等分数，避免裸 `1/6` 使整个硬件检查点失效；不改变其它数值或旧 JSON 的导入，不采集图像帧。 |
 | 内存页与 CPU 时间节拍 | [Os.sysconf](https://developer.android.com/reference/android/system/Os#sysconf(int))、AOSP Bionic 的 _SC_PAGESIZE / _SC_CLK_TCK。 | `kernel/sysconf-summary` | 固定两项，保留 int64 原值和逐项状态；非正值/异常时摘要值为 null。页大小按字节展示，不推断 APK 的 16 KB 兼容性；时钟节拍不解释为 CPU 频率，旧条目不变。 |
+| SDK 扩展版本 | [SdkExtensions](https://developer.android.com/reference/android/os/ext/SdkExtensions) 公开扩展标识及版本，API 30 支持单项查询、API 31 支持集合枚举。 | `build/sdk-extensions` | API 30 仅查询 R，API 31+ 枚举公开集合；最多 32 项、完整集合 SHA-256，保留 0 及未知标识，明确查询范围。不据此替代安全补丁或完整性结论，旧 JSON 不变。 |
 
 ## 当前缺口与下一步候选
 

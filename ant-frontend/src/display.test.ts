@@ -514,6 +514,17 @@ describe('设备格式化展示边界', () => {
     expect(sections[1].rows.some(row => row.key.endsWith('.errno') && row.value === '13')).toBe(true);
     expect(JSON.stringify(value)).toBe(original);
   });
+  it('SDK 扩展保留版本 0、未知标识和明确枚举范围，原数据不变', () => {
+    const value = item('build/sdk-extensions', 'build', { available: true, status: 'ok', enumerationMode: 'all-reported-extensions', entries: [{ extensionId: 30, version: 0 }, { extensionId: 1000000, version: 18 }, { extensionId: 2000000, version: 1 }] });
+    const original = JSON.stringify(value), sections = buildSections(value);
+    expect(sections[0].title).toBe('SDK 扩展版本摘要');
+    expect(sections[0].rows.find(row => row.key === 'enumerationMode')?.value).toBe('系统公开的全部扩展');
+    expect(sections[1].rows.find(row => row.key === '[0].version')?.value).toBe('0');
+    expect(sections[1].rows.find(row => row.key === '[2].extensionId')?.value).toBe('2000000');
+    const scoped = buildSections(item('build/sdk-extensions', 'build', { enumerationMode: 'android-r-only' }));
+    expect(scoped[0].rows.find(row => row.key === 'enumerationMode')?.value).toBe('仅 Android R 扩展（API 30）');
+    expect(JSON.stringify(value)).toBe(original);
+  });
   it('系统运行参数展示 16 KiB 页大小，并保留不可用项与原始值', () => {
     const value = item('kernel/sysconf-summary', 'kernel', { available: true, status: 'partial', pageSizeBytes: { $type: 'int64', value: '16384' }, clockTicksPerSecond: null, entries: [{ name: '_SC_PAGESIZE', status: 'ok', rawValue: { $type: 'int64', value: '16384' }, errorClass: null }, { name: '_SC_CLK_TCK', status: 'unavailable', rawValue: { $type: 'int64', value: '-1' }, errorClass: null }] });
     const original = JSON.stringify(value), sections = buildSections(value);

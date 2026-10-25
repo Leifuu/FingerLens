@@ -51,6 +51,7 @@ public final class BuildSystemCollector implements Collector {
         s.ok("build","build/abi-summary","ABI 与运行时架构摘要","android-api","Build.SUPPORTED_ABIS / Process.is64Bit",abiSummary());
         s.ok("build","build/hardware-summary","硬件型号与 SoC 摘要","android-api","Build public hardware fields",hardwareSummary());
         s.ok("build","build/os-summary","Android 系统版本摘要","android-api","Build.VERSION",osSummary());
+        s.read("build","build/sdk-extensions","SDK 扩展版本摘要","SdkExtensions.getAllExtensionVersions / getExtensionVersion",BuildSystemCollector::sdkExtensions);
         s.read("build","build/module-summary","Mainline 系统模块摘要","PackageManager.getInstalledModules",()->moduleSummary(s.context));
         s.read("build","build/modules","Mainline 系统模块清单","PackageManager.getInstalledModules",()->moduleList(s.context));
         Commands.collect(s,"build","build/getprop","/system/bin/getprop");
@@ -72,6 +73,30 @@ public final class BuildSystemCollector implements Collector {
     // 业务块：整理公开系统版本与补丁环境；Build.VERSION 原始字段继续保留。
     private static JSONObject osSummary(){
         return Json.obj("available",true,"sdkInt",Build.VERSION.SDK_INT,"release",Build.VERSION.RELEASE,"codename",Build.VERSION.CODENAME,"incremental",Build.VERSION.INCREMENTAL,"securityPatch",Build.VERSION.SDK_INT>=23?Build.VERSION.SECURITY_PATCH:null,"baseOs",Build.VERSION.SDK_INT>=23?Build.VERSION.BASE_OS:null,"previewSdkInt",Build.VERSION.SDK_INT>=23?Build.VERSION.PREVIEW_SDK_INT:null,"firstApiLevel",Build.VERSION.SDK_INT>=24?firstApiLevel():null,"mediaPerformanceClass",Build.VERSION.SDK_INT>=31?Build.VERSION.MEDIA_PERFORMANCE_CLASS:null);
+    }
+    // 业务块：API 30 仅查询 R；API 31+ 读取公开扩展集合，不探测任意 ID，也不把版本 0 当作缺失。
+    private static JSONObject sdkExtensions(){
+        if(Build.VERSION.SDK_INT<30)return sdkExtensionsUnavailable("unsupported",null);
+        try{
+            boolean all=Build.VERSION.SDK_INT>=31;
+            Map<Integer,Integer> versions=all?android.os.ext.SdkExtensions.getAllExtensionVersions():Collections.singletonMap(30,android.os.ext.SdkExtensions.getExtensionVersion(30));
+            return sdkExtensionValues(versions,all);
+        }catch(SecurityException e){return sdkExtensionsUnavailable("denied",e.getClass().getName());}
+        catch(Exception|LinkageError e){return sdkExtensionsUnavailable("error",e.getClass().getName());}
+    }
+    static JSONObject sdkExtensionValues(Map<Integer,Integer> versions,boolean all)throws Exception{
+        TreeMap<Integer,Integer> sorted=new TreeMap<>(versions);JSONArray entries=new JSONArray();StringBuilder canonical=new StringBuilder();
+        for(Map.Entry<Integer,Integer> entry:sorted.entrySet()){
+            if(entry.getKey()<30||entry.getValue()==null||entry.getValue()<0)throw new IllegalArgumentException("非法 SDK 扩展版本");
+            canonical.append(entry.getKey()).append('=').append(entry.getValue()).append('\n');
+            if(entries.length()<32)entries.put(Json.obj("extensionId",entry.getKey(),"version",entry.getValue()));
+        }
+        return Json.obj("available",true,"status",sorted.size()>32?"partial":"ok","enumerationMode",all?"all-reported-extensions":"android-r-only",
+                "entryCount",sorted.size(),"returnedCount",entries.length(),"entryLimit",32,"entriesTruncated",sorted.size()>32,
+                "extensionSetSha256",PackageInputCollector.sha(canonical.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)),"entries",entries);
+    }
+    private static JSONObject sdkExtensionsUnavailable(String status,String error){
+        return Json.obj("available",false,"status",status,"enumerationMode",null,"entryCount",null,"returnedCount",0,"entryLimit",32,"entriesTruncated",null,"extensionSetSha256",null,"entries",new JSONArray(),"errorClass",error);
     }
     // 业务块：汇总公开 Mainline 模块名称和包名，限制展示规模并用集合哈希保留全量差异线索。
     private static JSONObject moduleSummary(Context context)throws Exception{

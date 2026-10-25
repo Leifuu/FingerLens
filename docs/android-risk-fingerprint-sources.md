@@ -81,6 +81,8 @@
 
 - [Os.sysconf](https://developer.android.com/reference/android/system/Os#sysconf(int)) 与 [AOSP Bionic sysconf.cpp](https://github.com/aosp-mirror/platform_bionic/blob/main/libc/bionic/sysconf.cpp)（2026-10-26 已核对源码和 SDK）：`_SC_PAGESIZE` 返回当前运行系统的内存页字节数，`_SC_CLK_TCK` 返回进程 CPU 时间计量的每秒节拍数。本工程新增 `kernel/sysconf-summary`，固定查询两项，以 int64 保留正值、原始返回值及逐项状态，非正返回值或异常对应摘要值为 null。时钟节拍不等于 CPU 频率或内核调度频率，运行页大小不代表 APK 的 ELF 对齐或 16 KB 兼容性；未改动原内核文件或旧 JSON。
 
+- [SdkExtensions](https://developer.android.com/reference/android/os/ext/SdkExtensions) 与 [AOSP 模块源码](https://android.googlesource.com/platform/packages/modules/SdkExtensions/+/refs/heads/main/java/android/os/ext/SdkExtensions.java)（2026-10-26 已核对源码与 SDK api-versions.xml）：`getExtensionVersion` 自 API 30 可用，`getAllExtensionVersions` 自 API 31 可用。新增 `build/sdk-extensions`，API 30 仅查询 R，API 31+ 读取系统公开的扩展标识与版本集合；按标识排序，最多保存 32 项，并对完整集合计算 SHA-256。0 是有效版本，不当作查询失败；扩展标识包含 AD_SERVICES 等非平台 API 级别，未知正标识原样保留。扩展版本用于说明 API 能力，不替代系统版本、安全补丁日期、Mainline 安装清单或远程完整性结论；旧 JSON 与 Build 条目保留。
+
 ## GitHub 上的公开 SDK/实现
 
 - [scottyab/rootbeer](https://github.com/scottyab/rootbeer)：README 列出 root 管理应用、危险应用、root cloaking、test-keys、危险属性、BusyBox、`su` 等检查，并明确说明这些规则有漏报和绕过限制。本工程只复用可观察证据（构建标记、属性、路径），不扫描或上传第三方应用清单作为结论。

@@ -285,6 +285,7 @@ function attestationSections(key: string, value: Json): DisplaySection[] {
 function riskSummarySections(key: string, value: Json): DisplaySection[] | undefined {
   if (!object(value)) return undefined;
   const definitions: Record<string, { title: string; order: string[]; arrays: string[] }> = {
+    'build/sdk-extensions': { title: 'SDK 扩展版本摘要', order: ['available', 'status', 'enumerationMode', 'entryCount', 'returnedCount', 'entryLimit', 'entriesTruncated', 'extensionSetSha256', 'errorClass'], arrays: ['entries'] },
     'kernel/sysconf-summary': { title: '内存页与时钟节拍摘要', order: ['available', 'status', 'scope', 'queryCount', 'knownCount', 'unknownCount', 'pageSizeBytes', 'clockTicksPerSecond'], arrays: ['entries'] },
     'build/risk-properties-summary': { title: '风控原生属性摘要', order: ['observedCount', 'knownCount', 'properties'], arrays: ['observedProperties', 'missingProperties'] },
     'build/abi-summary': { title: 'ABI 与运行时架构摘要', order: ['available', 'supportedAbiCount', 'supported32BitAbiCount', 'supported64BitAbiCount', 'primaryAbi', 'armAbiCount', 'x86AbiCount', 'riscvAbiCount', 'otherAbiCount', 'runtime64Bit'], arrays: [] },
@@ -392,6 +393,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
           : key === 'security/root-path-summary' && arrayKey === 'entries' ? '路径观察结果（固定 32 项，不执行）'
           : key === 'security/root-mount-summary' && arrayKey === 'entries' ? '系统路径挂载标志（固定 7 项，不写入）'
           : key === 'kernel/sysconf-summary' && arrayKey === 'entries' ? '系统调用原始结果（固定 2 项）'
+          : key === 'build/sdk-extensions' && arrayKey === 'entries' ? '扩展标识与版本（最多 32 项）'
           : key === 'storage/capacity-summary' && arrayKey === 'entries' ? '固定路径容量'
           : key === 'hardware/audio-summary'
             ? arrayKey === 'productNames' ? '音频设备名' : arrayKey === 'sampleRates' ? '采样率' : '编码格式'
@@ -411,8 +413,12 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     }
   }
   if (key === 'network/risk-signals' && typeof value.capabilitiesRaw === 'string') sections.push(section('capabilitiesRaw', '系统原始能力字符串', [row('value', value.capabilitiesRaw)], false));
-  if (key === 'security/root-path-summary' || key === 'security/root-mount-summary' || key === 'kernel/sysconf-summary') for (const group of sections) for (const entry of group.rows) {
+  if (key === 'security/root-path-summary' || key === 'security/root-mount-summary' || key === 'kernel/sysconf-summary' || key === 'build/sdk-extensions') for (const group of sections) for (const entry of group.rows) {
     if ((entry.key === 'status' || entry.key.endsWith('.status')) && Object.hasOwn(STATUS_LABELS, entry.value)) entry.value = STATUS_LABELS[entry.value];
+  }
+  if (key === 'build/sdk-extensions') for (const entry of sections[0].rows) if (entry.key === 'enumerationMode') {
+    if (entry.value === 'all-reported-extensions') entry.value = '系统公开的全部扩展';
+    else if (entry.value === 'android-r-only') entry.value = '仅 Android R 扩展（API 30）';
   }
   return sections.filter(item => item.rows.length);
 }
