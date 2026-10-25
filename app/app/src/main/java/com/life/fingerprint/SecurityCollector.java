@@ -32,6 +32,7 @@ public final class SecurityCollector implements Collector {
         s.read("security","security/summary","安全环境摘要","Debug / DevicePolicyManager / AppOpsManager / KeyguardManager",()->securitySummary(s.context));
         s.read("security","security/selinux-summary","SELinux 环境摘要","/sys/fs/selinux/enforce / /proc/self/attr/current",SecurityCollector::selinuxSummary);
         s.ok("security","security/self","应用安全上下文","android-api","Process / ApplicationInfo / Debug",Json.obj("uid",android.os.Process.myUid(),"pid",android.os.Process.myPid(),"debuggable",(s.context.getApplicationInfo().flags&ApplicationInfo.FLAG_DEBUGGABLE)!=0,"debuggerConnected",Debug.isDebuggerConnected(),"waitingForDebugger",Debug.waitingForDebugger()));
+        s.read("security","security/self-runtime","应用运行时可分析配置","ApplicationInfo public runtime flags",()->selfRuntimeSummary(s.context));
         s.read("security","security/self-integrity","当前 App 签名与安装环境","PackageManager.getPackageInfo / getInstallSourceInfo",()->selfIntegrity(s.context));
         s.read("security","security/device-management","设备管理与用户环境","DevicePolicyManager / UserManager",()->managementEnvironment(s.context));
         s.read("security","security/special-access","本 App 特殊访问状态","AppOpsManager / PackageManager / NotificationManager / Environment / Settings",()->specialAccess(s.context));
@@ -42,6 +43,20 @@ public final class SecurityCollector implements Collector {
         s.read("security","security/providers","安全提供者","Security.getProviders",()->{JSONArray a=new JSONArray();for(Provider p:Security.getProviders()){JSONArray services=new JSONArray();for(Provider.Service v:p.getServices())services.put(Json.obj("type",v.getType(),"algorithm",v.getAlgorithm(),"className",v.getClassName()));a.put(Json.obj("name",p.getName(),"info",p.getInfo(),"version",p.getVersion(),"services",services));}return a;});
         s.read("security","security/providers-summary","安全提供者摘要","Security.getProviders",SecurityCollector::providerSummary);
         s.read("security","security/trust-store","当前 App 可见 CA 信任库","KeyStore AndroidCAStore",()->{KeyStore store=KeyStore.getInstance("AndroidCAStore");store.load(null);JSONArray a=new JSONArray();Enumeration<String> names=store.aliases();int count=0;while(names.hasMoreElements()){String name=names.nextElement();if(++count>4096)throw new IllegalStateException("CA 数量超过 4096");Certificate cert=store.getCertificate(name);a.put(Json.obj("alias",name,"derBase64",cert==null?null:Base64.encodeToString(cert.getEncoded(),Base64.NO_WRAP),"sha256",cert==null?null:PackageInputCollector.sha(cert.getEncoded())));}return a;});
+    }
+    // 业务块：记录当前 App 的公开分析/内存加固配置，不执行调试、分析或内存修改操作。
+    private static JSONObject selfRuntimeSummary(Context context){
+        ApplicationInfo application=context.getApplicationInfo();
+        if(application==null)return Json.obj("available",false,"status","unavailable","profileableByShell",null,"profileable",null,"virtualPreload",null,"gwpAsanMode",null,"memtagMode",null,"nativeHeapZeroInitialized",null,"requestRawExternalStorageAccess",null,"attributionsUserVisible",null);
+        return Json.obj("available",true,"status","ok",
+                "profileableByShell",Build.VERSION.SDK_INT>=29?application.isProfileableByShell():null,
+                "profileable",Build.VERSION.SDK_INT>=31?application.isProfileable():null,
+                "virtualPreload",Build.VERSION.SDK_INT>=27?application.isVirtualPreload():null,
+                "gwpAsanMode",Build.VERSION.SDK_INT>=30?application.getGwpAsanMode():null,
+                "memtagMode",Build.VERSION.SDK_INT>=31?application.getMemtagMode():null,
+                "nativeHeapZeroInitialized",Build.VERSION.SDK_INT>=31?application.getNativeHeapZeroInitialized():null,
+                "requestRawExternalStorageAccess",Build.VERSION.SDK_INT>=31?application.getRequestRawExternalStorageAccess():null,
+                "attributionsUserVisible",Build.VERSION.SDK_INT>=31?application.areAttributionsUserVisible():null);
     }
     // 业务块：汇总安全边界状态，不展开证书、序列号、窗口内容或其它用户/包信息；原始 security/* 条目继续保留。
     private static JSONObject securitySummary(Context context){

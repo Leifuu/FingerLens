@@ -100,6 +100,11 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.map(row => row.key)).toContain('appOpsAllowedCount');
     expect(sections[0].rows.find(row => row.key === 'securityProviderCount')?.value).toBe('4');
   });
+  it('应用运行时摘要展示公开分析配置', () => {
+    const sections = buildSections(item('security/self-runtime', 'security', { available: true, status: 'ok', profileableByShell: false, profileable: false, virtualPreload: false, gwpAsanMode: 0, memtagMode: 0, nativeHeapZeroInitialized: 1, requestRawExternalStorageAccess: 0, attributionsUserVisible: true }));
+    expect(sections[0].title).toBe('应用运行时可分析配置');
+    expect(sections[0].rows.map(row => row.key)).toContain('profileableByShell');
+  });
   it('安全提供者摘要保留有界服务集合并单独展示提供者详情', () => {
     const sections = buildSections(item('security/providers-summary', 'security', {
       available: true, status: 'ok', providerCount: 2, serviceCount: 3, providerNamesTruncated: false,
