@@ -15,6 +15,12 @@ public final class Json {
     }
     public static Object value(Object v) {
         if (v == null) return JSONObject.NULL;
+        // 业务块：Rational 继承 Number，但分数文本不是 JSON 数字；保留精确分子、分母与特殊值。
+        if (v instanceof android.util.Rational) {
+            android.util.Rational rational = (android.util.Rational) v;
+            return obj("$type", "android.util.Rational", "value", rational.toString(),
+                    "numerator", rational.getNumerator(), "denominator", rational.getDenominator());
+        }
         if (v instanceof Long) return obj("$type", "int64", "value", String.valueOf(v));
         if (v instanceof Float || v instanceof Double) {
             double n = ((Number) v).doubleValue();
@@ -29,6 +35,7 @@ public final class Json {
         if (v == null || v == JSONObject.NULL) return "null";
         if (v instanceof Long) return "int64";
         if (v instanceof Boolean) return "boolean";
+        if (v instanceof android.util.Rational) return "object";
         if (v instanceof Number) return "number";
         if (v instanceof JSONArray || v.getClass().isArray() || v instanceof Collection) return "array";
         if (v instanceof JSONObject) return "object";

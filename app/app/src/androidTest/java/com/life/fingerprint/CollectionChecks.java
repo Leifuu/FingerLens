@@ -43,6 +43,18 @@ public class CollectionChecks {
         JSONObject summary=null;int rawCount=0;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);String key=item.getString("key");if(key.equals("display/summary"))summary=item;if(key.startsWith("display/")&&!key.equals("display/summary"))rawCount++;}
         assertNotNull("应生成显示能力摘要",summary);assertEquals("ok",summary.getString("status"));JSONObject value=summary.getJSONObject("value");assertEquals(value.getInt("count"),rawCount);assertTrue(value.has("validCount"));assertTrue(value.has("secureCount"));assertTrue(value.has("presentationCategoryCount"));assertTrue(value.has("hdrCount"));assertTrue(value.getJSONArray("widths").length()<=64);assertTrue(value.getJSONArray("heights").length()<=64);assertTrue(value.getJSONArray("densityDpi").length()<=64);assertTrue(value.getJSONArray("refreshRates").length()<=64);
     }
+    @Test public void rationalNumbersUseLosslessJsonObjects()throws Exception{
+        android.util.Rational[] values={new android.util.Rational(1,6),new android.util.Rational(-3,7),android.util.Rational.ZERO,android.util.Rational.NaN,android.util.Rational.POSITIVE_INFINITY,android.util.Rational.NEGATIVE_INFINITY};
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());
+        sink.ok("hardware","test/rational","分数","java","synthetic",values[0]);
+        sink.ok("hardware","test/rational-array","分数数组","java","synthetic",values);
+        sink.ok("hardware","test/rational-object","嵌套分数","java","synthetic",Json.obj("step",values[0],"values",Arrays.asList(values)));
+        JSONArray parsed=new JSONArray(sink.items.toString());assertEquals("object",parsed.getJSONObject(0).getString("dataType"));assertEquals("1/6",parsed.getJSONObject(0).getJSONObject("value").getString("value"));
+        JSONArray array=parsed.getJSONObject(1).getJSONArray("value");assertEquals(values.length,array.length());
+        for(int i=0;i<values.length;i++){JSONObject entry=array.getJSONObject(i);assertEquals("android.util.Rational",entry.getString("$type"));assertEquals(values[i].toString(),entry.getString("value"));assertEquals(values[i].getNumerator(),entry.getInt("numerator"));assertEquals(values[i].getDenominator(),entry.getInt("denominator"));}
+        JSONObject nested=parsed.getJSONObject(2).getJSONObject("value");assertEquals("1/6",nested.getJSONObject("step").getString("value"));assertEquals(array.toString(),nested.getJSONArray("values").toString());
+        File checkpoint=new File(context.getCacheDir(),"rational-checkpoint.json");ReportStore.write(checkpoint,sink.items.toString());assertEquals(parsed.toString(),new JSONArray(ReportStore.read(checkpoint)).toString());
+    }
     @Test public void binaryLongAndStatusBoundaries()throws Exception{
         Object binary=Json.bytes(android.util.Base64.encodeToString(new byte[]{(byte)255,0},android.util.Base64.NO_WRAP));assertTrue(binary instanceof JSONObject);assertEquals("base64",((JSONObject)binary).getString("$type"));
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());sink.ok("build","test/long","long","java","test",Long.MAX_VALUE);sink.read("build","test/null","null","test",()->null);sink.read("build","test/empty","empty","test",()->"");sink.read("build","test/denied","denied","test",()->{throw new SecurityException("合成拒绝");});sink.read("build","test/unsupported","unsupported","test",()->{throw new UnsupportedOperationException("合成不支持");});
@@ -188,6 +200,7 @@ public class CollectionChecks {
     }
     @Test public void cameraSummaryKeepsPerCameraEvidence()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new HardwareCollector("hardware").collect(sink);
+        File checkpoint=new File(context.getCacheDir(),"camera-checkpoint.json");ReportStore.write(checkpoint,sink.items.toString());assertEquals("完整硬件检查点必须可重新解析",sink.items.length(),new JSONArray(ReportStore.read(checkpoint)).length());
         JSONObject summary=null;int cameraItems=0;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);String key=item.getString("key");if(key.equals("hardware/camera-summary"))summary=item;if(key.startsWith("hardware/camera/")&&!key.equals("hardware/camera-summary"))cameraItems++;}
         assertNotNull("应生成摄像头能力摘要",summary);assertEquals("ok",summary.getString("status"));JSONObject value=summary.getJSONObject("value");assertTrue(value.has("count"));assertEquals(value.getInt("count"),cameraItems);assertTrue(value.getJSONArray("cameraIds").length()<=64);assertTrue(value.has("cameraIdsTruncated"));assertTrue(value.has("lensFacingCounts"));assertTrue(value.has("hardwareLevelCounts"));
     }
