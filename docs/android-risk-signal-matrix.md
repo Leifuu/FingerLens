@@ -78,6 +78,8 @@
 
 ## 当前缺口与下一步候选
 
+- TLS 参数已增加紧凑摘要：已知17字段合并为9行，完整字段折叠保留；完整列表哈希和未知元数据变化仍参与概览差异，旧结构回退原字段表。四组协议/密码套件原序清单、schema1.0和比较器不变。
+
 - 已补充 `security/tls-parameters`：[SSLContext](https://developer.android.com/reference/javax/net/ssl/SSLContext)/[SSLParameters](https://developer.android.com/reference/javax/net/ssl/SSLParameters)（API9+）读取当前 App 默认上下文的提供者、协议名，以及支持/默认启用的协议与密码套件。四组列表各最多256项，完整原序列表哈希、数量和截断标志保留差异；缺失列表不伪装空集合。只读取本地参数，不连接或握手，不推导浏览器ClientHello、JA3/JA4或风险结论；原安全提供者及旧JSON保留，前端按四组展示。
 
 - 远程 Play Integrity verdict 需要服务端请求、nonce 和云端凭据；离线 APK 不应伪造该结果。
