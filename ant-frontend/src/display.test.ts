@@ -261,6 +261,12 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.map(row => row.key)).toContain('activeModemCount');
     expect(sections[0].rows.map(row => row.key)).not.toContain('imei');
   });
+  it('电话注册摘要展示状态计数与有限信道能力', () => {
+    const sections = buildSections(item('sim/service-summary', 'sim', { available: true, status: 'ok', serviceState: 0, registrationCount: 2, registeredCount: 2, roamingCount: 0, searchingCount: 0, emergencyServiceCount: 0, cellBandwidths: [20, 100] }));
+    expect(sections[0].title).toBe('电话注册服务摘要');
+    expect(sections[0].rows.map(row => row.key)).toContain('registrationCount');
+    expect(sections.find(section => section.key === 'cellBandwidths')?.rows).toHaveLength(2);
+  });
   it('存储摘要展示存储卷拓扑与状态计数', () => {
     const sections = buildSections(item('storage/summary', 'storage', { available: true, volumeCount: 2, mountedCount: 2, primaryCount: 1, removableCount: 1, emulatedCount: 1, uuidPresentCount: 1, stateCounts: { mounted: 2 } }));
     expect(sections[0].title).toBe('存储卷环境摘要');
