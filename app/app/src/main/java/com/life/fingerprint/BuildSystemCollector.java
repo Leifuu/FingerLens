@@ -4,6 +4,7 @@ import android.os.*;
 import android.provider.Settings;
 import android.content.*;
 import android.content.res.Configuration;
+import android.content.pm.*;
 import android.app.ActivityManager;
 import android.app.usage.UsageStatsManager;
 import android.location.LocationManager;
@@ -50,6 +51,8 @@ public final class BuildSystemCollector implements Collector {
         s.ok("build","build/abi-summary","ABI 与运行时架构摘要","android-api","Build.SUPPORTED_ABIS / Process.is64Bit",abiSummary());
         s.ok("build","build/hardware-summary","硬件型号与 SoC 摘要","android-api","Build public hardware fields",hardwareSummary());
         s.ok("build","build/os-summary","Android 系统版本摘要","android-api","Build.VERSION",osSummary());
+        s.read("build","build/module-summary","Mainline 系统模块摘要","PackageManager.getInstalledModules",()->moduleSummary(s.context));
+        s.read("build","build/modules","Mainline 系统模块清单","PackageManager.getInstalledModules",()->moduleList(s.context));
         Commands.collect(s,"build","build/getprop","/system/bin/getprop");
     }
     // 业务块：把公开 ABI 列表压缩为架构族和位数计数；Build 原始字段继续保留。
@@ -70,6 +73,21 @@ public final class BuildSystemCollector implements Collector {
     private static JSONObject osSummary(){
         return Json.obj("available",true,"sdkInt",Build.VERSION.SDK_INT,"release",Build.VERSION.RELEASE,"codename",Build.VERSION.CODENAME,"incremental",Build.VERSION.INCREMENTAL,"securityPatch",Build.VERSION.SDK_INT>=23?Build.VERSION.SECURITY_PATCH:null,"baseOs",Build.VERSION.SDK_INT>=23?Build.VERSION.BASE_OS:null,"previewSdkInt",Build.VERSION.SDK_INT>=23?Build.VERSION.PREVIEW_SDK_INT:null,"firstApiLevel",Build.VERSION.SDK_INT>=24?firstApiLevel():null,"mediaPerformanceClass",Build.VERSION.SDK_INT>=31?Build.VERSION.MEDIA_PERFORMANCE_CLASS:null);
     }
+    // 业务块：汇总公开 Mainline 模块名称和包名，限制展示规模并用集合哈希保留全量差异线索。
+    private static JSONObject moduleSummary(Context context)throws Exception{
+        if(Build.VERSION.SDK_INT<29)return Json.obj("available",false,"status","unsupported","count",null,"hiddenCount",null,"namedCount",null,"packageNameCount",null,"moduleNames",new JSONArray(),"packageNames",new JSONArray(),"moduleNamesTruncated",null,"packageNamesTruncated",null,"moduleSetSha256",null);
+        try{
+            List<ModuleInfo> modules=installedModules(context);TreeSet<String> names=new TreeSet<>(),packages=new TreeSet<>();ArrayList<String> canonical=new ArrayList<>();int hidden=0;
+            for(ModuleInfo module:modules){if(module==null)continue;String name=module.getName()==null?"":module.getName().toString(),packageName=module.getPackageName()==null?"":module.getPackageName();if(module.isHidden())hidden++;if(!name.isEmpty())names.add(name);if(!packageName.isEmpty())packages.add(packageName);canonical.add(name+"\u0000"+packageName+"\u0000"+module.isHidden());}
+            Collections.sort(canonical);StringBuilder joined=new StringBuilder();for(String entry:canonical)joined.append(entry).append('\n');
+            return Json.obj("available",true,"status","ok","count",modules.size(),"hiddenCount",hidden,"namedCount",names.size(),"packageNameCount",packages.size(),"moduleNames",boundedStrings(names,256),"packageNames",boundedStrings(packages,256),"moduleNamesTruncated",names.size()>256,"packageNamesTruncated",packages.size()>256,"moduleSetSha256",PackageInputCollector.sha(joined.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        }catch(SecurityException e){return Json.obj("available",false,"status","denied","count",null,"hiddenCount",null,"namedCount",null,"packageNameCount",null,"moduleNames",new JSONArray(),"packageNames",new JSONArray(),"moduleNamesTruncated",null,"packageNamesTruncated",null,"moduleSetSha256",null);}catch(RuntimeException e){return Json.obj("available",false,"status","error","count",null,"hiddenCount",null,"namedCount",null,"packageNameCount",null,"moduleNames",new JSONArray(),"packageNames",new JSONArray(),"moduleNamesTruncated",null,"packageNamesTruncated",null,"moduleSetSha256",null,"error",e.getClass().getName());}
+    }
+    private static JSONObject moduleList(Context context)throws Exception{
+        List<ModuleInfo> modules=installedModules(context);JSONArray values=new JSONArray();int limit=Math.min(512,modules.size());for(int i=0;i<limit;i++){ModuleInfo module=modules.get(i);if(module==null)continue;values.put(Json.obj("name",module.getName()==null?null:module.getName().toString(),"packageName",module.getPackageName(),"hidden",module.isHidden()));}return Json.obj("count",modules.size(),"returnedCount",values.length(),"truncated",modules.size()>limit,"modules",values);
+    }
+    private static List<ModuleInfo> installedModules(Context context){if(Build.VERSION.SDK_INT<29)throw new UnsupportedOperationException("requires API 29");PackageManager manager=context.getPackageManager();if(manager==null)throw new IllegalStateException("PackageManager unavailable");return manager.getInstalledModules(PackageManager.MATCH_ALL);}
+    private static JSONArray boundedStrings(Collection<String> values,int limit){JSONArray out=new JSONArray();int count=0;for(String value:values){if(count++>=limit)break;out.put(value);}return out;}
     private static Integer firstApiLevel(){
         for(String name:new String[]{"DEVICE_INITIAL_SDK_INT","FIRST_API_LEVEL"})try{return Build.VERSION.class.getField(name).getInt(null);}catch(Exception ignored){}
         return null;

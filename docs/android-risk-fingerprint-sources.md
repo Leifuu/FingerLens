@@ -19,6 +19,7 @@
 
 - [Build](https://developer.android.com/reference/android/os/Build)：公开硬件、产品、指纹、ABI 等构建字段。
 - [Build.VERSION](https://developer.android.com/reference/android/os/Build.VERSION)：公开 API level、版本、代号、增量版本、安全补丁、首发 API 和 API 31+ 媒体性能等级。本工程新增 `build/os-summary`，同时保留 `build/Build.VERSION/*` 原始字段，低版本字段保持 `null`。
+- [PackageManager.getInstalledModules](https://developer.android.com/reference/android/content/pm/PackageManager#getInstalledModules(int)) 与 [ModuleInfo](https://developer.android.com/reference/android/content/pm/ModuleInfo)：API 29+ 公开 Mainline 模块名称、包名和隐藏标记。本工程新增 `build/module-summary` 与有界 `build/modules`，用全量集合 SHA-256 保留差异线索，不读取私有模块文件或未公开版本字段。
 - [Build.SUPPORTED_ABIS](https://developer.android.com/reference/android/os/Build#SUPPORTED_ABIS) 与 [Process.is64Bit](https://developer.android.com/reference/android/os/Process#is64Bit())：公开应用可见的 ABI 顺序、32/64 位 ABI 集合和当前进程运行时位数。本工程新增 `build/abi-summary`，只保留架构族计数、主 ABI 和位数摘要，原始 `Build` 字段继续兼容保留。
 - [Build](https://developer.android.com/reference/android/os/Build) 的硬件与 SoC 字段：公开制造商、品牌、型号、设备、产品、硬件、主板、构建指纹，以及 API 31+ 的 `SOC_MANUFACTURER`/`SOC_MODEL`。本工程新增 `build/hardware-summary`，构建指纹只保存长度和 SHA-256，避免在摘要中重复展开原始指纹；完整公开字段仍保留在 `build/Build/*`。
 - [Settings.Secure.ANDROID_ID](https://developer.android.com/reference/android/provider/Settings.Secure#ANDROID_ID)：系统设置中的应用可见标识，生命周期和作用域受 Android 版本、用户和签名影响。本工程新增 `environment/android-id-summary`，只保存作用域、存在性、长度和 SHA-256；原始值/状态条目继续保留，不宣称它是永久硬件 ID。

@@ -281,6 +281,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     'build/abi-summary': { title: 'ABI 与运行时架构摘要', order: ['available', 'supportedAbiCount', 'supported32BitAbiCount', 'supported64BitAbiCount', 'primaryAbi', 'armAbiCount', 'x86AbiCount', 'riscvAbiCount', 'otherAbiCount', 'runtime64Bit'], arrays: [] },
     'build/hardware-summary': { title: '硬件型号与 SoC 摘要', order: ['available', 'manufacturer', 'brand', 'model', 'device', 'product', 'hardware', 'board', 'fingerprintPresent', 'fingerprintLength', 'fingerprintSha256', 'socManufacturer', 'socModel'], arrays: [] },
     'build/os-summary': { title: 'Android 系统版本摘要', order: ['available', 'sdkInt', 'release', 'codename', 'incremental', 'securityPatch', 'baseOs', 'previewSdkInt', 'firstApiLevel', 'mediaPerformanceClass'], arrays: [] },
+    'build/module-summary': { title: 'Mainline 系统模块摘要', order: ['available', 'status', 'count', 'hiddenCount', 'namedCount', 'packageNameCount', 'moduleNamesTruncated', 'packageNamesTruncated', 'moduleSetSha256'], arrays: ['moduleNames', 'packageNames'] },
     'network/risk-signals': { title: '活动链路摘要', order: ['present', 'capabilitiesAvailable', 'networkHandle', 'capabilityStates', 'vpn', 'validated', 'captivePortal', 'notVpn', 'notMetered', 'notRoaming', 'notRestricted', 'trusted', 'foreground', 'metered', 'interfaceName', 'httpProxy'], arrays: ['transports'] },
     'network/connectivity-summary': { title: '网络集合摘要', order: ['available', 'access', 'networkCount', 'activePresent', 'activeIndex', 'activeNetworkHandle', 'capabilitiesAvailableCount', 'linkPropertiesAvailableCount', 'validatedCount', 'vpnCount', 'notMeteredCount', 'transportCounts'], arrays: [] },
     'network/private-dns-summary': { title: 'Private DNS 环境摘要', order: ['available', 'status', 'activeNetworkPresent', 'linkPropertiesAvailable', 'privateDnsSupported', 'privateDnsActive', 'dnsServerCount', 'dnsIpv4Count', 'dnsIpv6Count', 'privateDnsServerNamePresent', 'privateDnsServerNameLength', 'privateDnsServerNameSha256'], arrays: [] },
@@ -351,6 +352,8 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     if (Array.isArray(value[arrayKey])) {
       const title = key === 'build/risk-properties-summary'
         ? arrayKey === 'observedProperties' ? '已观察属性' : '当前缺失属性'
+        : key === 'build/module-summary'
+          ? arrayKey === 'moduleNames' ? '模块名称' : '模块包名'
         : key === 'environment/location'
           ? arrayKey === 'providers' ? '定位 provider' : 'GNSS 天线载波频率（MHz）'
           : key === 'sensors/summary' && arrayKey === 'vendors' ? '传感器厂商'

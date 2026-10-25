@@ -144,6 +144,13 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.map(row => row.key)).toEqual(['available', 'manufacturer', 'brand', 'model', 'device', 'product', 'hardware', 'board', 'fingerprintPresent', 'fingerprintLength', 'fingerprintSha256', 'socManufacturer', 'socModel']);
     expect(sections[0].rows.find(row => row.key === 'fingerprintSha256')?.value).toBe('a'.repeat(64));
   });
+  it('Mainline 模块摘要展示有界名称集合与集合哈希', () => {
+    const sections = buildSections(item('build/module-summary', 'build', { available: true, status: 'ok', count: 3, hiddenCount: 1, namedCount: 3, packageNameCount: 3, moduleNames: ['ART', 'Media', 'Permission'], packageNames: ['com.android.art', 'com.android.media', 'com.android.permission'], moduleNamesTruncated: false, packageNamesTruncated: false, moduleSetSha256: 'a'.repeat(64) }));
+    expect(sections[0].title).toBe('Mainline 系统模块摘要');
+    expect(sections[0].rows.map(row => row.key)).toEqual(['available', 'status', 'count', 'hiddenCount', 'namedCount', 'packageNameCount', 'moduleNamesTruncated', 'packageNamesTruncated', 'moduleSetSha256']);
+    expect(sections.find(section => section.key === 'moduleNames')?.title).toBe('模块名称');
+    expect(sections.find(section => section.key === 'packageNames')?.title).toBe('模块包名');
+  });
   it('Widevine 与 Play Integrity 摘要不展开成大段 JSON', () => {
     const drm = buildSections(item('hardware/drm/widevine', 'hardware', { supported: true, vendor: 'Google', deviceUniqueId: { sha256: 'a'.repeat(64), length: 32, rawExported: false } }));
     const integrity = buildSections(item('attestation/play-integrity-environment', 'attestation', { verdictAvailable: false, playServices: { present: true, versionName: '1' } }));

@@ -151,6 +151,11 @@ public class CollectionChecks {
         JSONObject summary=null,raw=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("build/os-summary"))summary=item;if(item.getString("key").equals("build/VERSION/SDK_INT"))raw=item;}
         assertNotNull("应生成 Android 系统版本摘要",summary);assertNotNull("应保留 Build.VERSION 原始字段",raw);assertEquals("ok",summary.getString("status"));JSONObject value=summary.getJSONObject("value");assertTrue(value.getBoolean("available"));assertEquals(Build.VERSION.SDK_INT,value.getInt("sdkInt"));assertTrue(value.has("release"));assertTrue(value.has("codename"));assertTrue(value.has("securityPatch"));assertFalse(summary.toString().contains("SDK_INT"));
     }
+    @Test public void moduleSummaryKeepsMainlineSetBounded()throws Exception{
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new BuildSystemCollector("build").collect(sink);
+        JSONObject summary=null,raw=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("build/module-summary"))summary=item;if(item.getString("key").equals("build/modules"))raw=item;}
+        assertNotNull("应生成 Mainline 模块摘要",summary);assertNotNull("应保留 Mainline 模块清单",raw);String status=summary.getString("status");assertTrue("模块读取状态应明确: "+status,status.equals("ok")||status.equals("unsupported")||status.equals("denied")||status.equals("error"));if(status.equals("ok")){JSONObject value=summary.getJSONObject("value");assertTrue(value.getBoolean("available"));assertTrue(value.getInt("count")>=0);assertTrue(value.getJSONArray("moduleNames").length()<=256);assertTrue(value.getJSONArray("packageNames").length()<=256);assertTrue(value.getString("moduleSetSha256").matches("[0-9a-f]{64}"));assertTrue(raw.getString("status").equals("ok"));assertTrue(raw.getJSONObject("value").getJSONArray("modules").length()<=512);}
+    }
     @Test public void widevineSignalNeverExportsRawUniqueId()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new HardwareCollector("hardware").collect(sink);
         JSONObject drm=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("hardware/drm/widevine")){drm=item;break;}}
