@@ -237,6 +237,40 @@ public class CollectionChecks {
         assertEquals(Math.min(32,sorted.size()),actual.getInt("returnedCount"));for(int i=0;i<Math.min(32,sorted.size());i++)assertEquals(sorted.get(i),actual.getJSONArray("schemeUuids").getString(i));
         assertFalse(actual.has("deviceUniqueId"));assertFalse(actual.has("sessionId"));
     }
+    @Test public void cameraConcurrencyKeepsMembershipBoundsAndPublicEvidence()throws Exception{
+        Set<Set<String>> groups=new LinkedHashSet<>();
+        for(int i=33;i>=0;i--)groups.add(new LinkedHashSet<>(Arrays.asList(String.format(Locale.ROOT,"camera%02d",i),"shared")));
+        String before=groups.toString();JSONObject value=HardwareCollector.cameraConcurrencyValues(groups);
+        assertEquals(before,groups.toString());assertEquals(34,value.getInt("combinationCount"));assertEquals(32,value.getInt("returnedCount"));assertTrue(value.getBoolean("truncated"));assertEquals("partial",value.getString("status"));
+        ArrayList<Set<String>> reverse=new ArrayList<>();for(Set<String> group:groups){ArrayList<String> ids=new ArrayList<>(group);Collections.reverse(ids);reverse.add(new LinkedHashSet<>(ids));}Collections.reverse(reverse);
+        assertEquals(value.toString(),HardwareCollector.cameraConcurrencyValues(new LinkedHashSet<>(reverse)).toString());
+        groups.remove(new LinkedHashSet<>(Arrays.asList("camera33","shared")));groups.add(new LinkedHashSet<>(Arrays.asList("camera99","shared")));
+        JSONObject outside=HardwareCollector.cameraConcurrencyValues(groups);assertEquals(value.getJSONArray("combinations").toString(),outside.getJSONArray("combinations").toString());assertNotEquals(value.getString("combinationSetSha256"),outside.getString("combinationSetSha256"));
+        Set<String> large=new LinkedHashSet<>();for(int i=0;i<17;i++)large.add(String.format(Locale.ROOT,"id%02d",i));
+        JSONObject limited=HardwareCollector.cameraConcurrencyValues(Collections.singleton(large));JSONObject entry=limited.getJSONArray("combinations").getJSONObject(0);
+        assertEquals(17,entry.getInt("cameraCount"));assertEquals(16,entry.getJSONArray("cameraIds").length());assertTrue(entry.getBoolean("idsTruncated"));assertTrue(limited.getBoolean("truncated"));
+        large.remove("id16");large.add("id99");JSONObject innerOutside=HardwareCollector.cameraConcurrencyValues(Collections.singleton(large));assertEquals(limited.getJSONArray("combinations").toString(),innerOutside.getJSONArray("combinations").toString());assertNotEquals(limited.getString("combinationSetSha256"),innerOutside.getString("combinationSetSha256"));
+        JSONObject pair=HardwareCollector.cameraConcurrencyValues(Collections.singleton(new HashSet<>(Arrays.asList("1","0"))));
+        assertEquals(PackageInputCollector.sha("[[\"0\",\"1\"]]".getBytes(StandardCharsets.UTF_8)),pair.getString("combinationSetSha256"));
+        JSONObject empty=HardwareCollector.cameraConcurrencyValues(Collections.emptySet());assertEquals(0,empty.getInt("combinationCount"));assertEquals("ok",empty.getString("status"));assertFalse(empty.getBoolean("truncated"));
+        assertEquals(1,HardwareCollector.cameraConcurrencyValues(Collections.singleton(Collections.emptySet())).getInt("combinationCount"));
+        try{HardwareCollector.cameraConcurrencyValues(null);fail("缺失集合不能冒充空集合");}catch(IllegalArgumentException expected){}
+        try{HardwareCollector.cameraConcurrencyValues(Collections.singleton(null));fail("不能静默丢弃缺失组合");}catch(IllegalArgumentException expected){}
+        try{HardwareCollector.cameraConcurrencyValues(Collections.singleton(Collections.singleton(null)));fail("不能静默丢弃缺失ID");}catch(IllegalArgumentException expected){}
+        if(Build.VERSION.SDK_INT>=30){
+            Context missing=new ContextWrapper(context){@Override public Object getSystemService(String name){return Context.CAMERA_SERVICE.equals(name)?null:super.getSystemService(name);}};
+            JSONObject absent=HardwareCollector.cameraConcurrencySummary(missing);assertFalse(absent.getBoolean("available"));assertEquals("unavailable",absent.getString("status"));assertTrue(absent.isNull("combinationCount"));assertTrue(absent.isNull("combinations"));assertTrue(absent.isNull("combinationSetSha256"));
+        }
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new HardwareCollector("hardware").collect(sink);
+        JSONObject actual=null;boolean old=false;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("hardware/camera-concurrency"))actual=item;if(item.getString("key").equals("hardware/camera-summary"))old=true;}
+        assertNotNull(actual);assertTrue("原摄像头摘要必须保留",old);
+        if(Build.VERSION.SDK_INT<30){assertEquals("unsupported",actual.getString("status"));return;}
+        assertEquals("ok",actual.getString("status"));
+        android.hardware.camera2.CameraManager manager=context.getSystemService(android.hardware.camera2.CameraManager.class);
+        JSONObject observed=new JSONObject(actual.toString()).getJSONObject("value");Set<Set<String>> platform=manager.getConcurrentCameraIds();
+        assertEquals(platform.size(),observed.getInt("combinationCount"));assertEquals(HardwareCollector.cameraConcurrencyValues(platform).toString(),observed.toString());
+        for(int i=0;i<observed.getJSONArray("combinations").length();i++){JSONObject group=observed.getJSONArray("combinations").getJSONObject(i);if(!group.getBoolean("idsTruncated")){Set<String> ids=new HashSet<>();JSONArray list=group.getJSONArray("cameraIds");for(int j=0;j<list.length();j++)ids.add(list.getString(j));assertTrue(platform.contains(ids));}}
+    }
     @Test public void usbEvidenceUsesPublicDescriptorsOnly()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new HardwareCollector("hardware").collect(sink);
         JSONObject usb=null,summary=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("hardware/usb"))usb=item;if(item.getString("key").equals("hardware/usb-summary"))summary=item;}

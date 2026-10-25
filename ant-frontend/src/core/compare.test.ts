@@ -6,6 +6,24 @@ const raw = { semantic: false, ignoreDynamic: false }, semantic = { semantic: tr
 const find = (rows: ReturnType<typeof compare>, key: string) => rows.find(x => x.key === key)!;
 
 describe('原始与语义比较', () => {
+  it('旧摄像头 JSON 保留新组合单侧状态，截断外组合变化与空集合区别参与所有比较模式', () => {
+    const key = 'hardware/camera-concurrency';
+    const legacy = fixture([fixtureItem('hardware/camera-summary', { count: 2 }, { category: 'hardware' })]);
+    const current = fixture([...legacy.data.items, fixtureItem(key, { combinationCount: 34, combinations: [{ cameraIds: ['0', '1'] }], combinationSetSha256: 'full-a' }, { category: 'hardware' })]);
+    const outside = structuredClone(current);
+    outside.data.items[1].value = { combinationCount: 34, combinations: [{ cameraIds: ['0', '1'] }], combinationSetSha256: 'full-b' };
+    const empty = fixture([fixtureItem(key, { combinationCount: 0, combinations: [] }, { category: 'hardware' })]);
+    const missing = fixture([fixtureItem(key, { combinationCount: null, combinations: null }, { category: 'hardware' })]);
+    const before = JSON.stringify([legacy, current, outside]);
+    for (const rules of [raw, semantic, smart]) {
+      const rows = compare(legacy, current, rules);
+      expect(find(rows, 'hardware/camera-summary').state).toBe('same');
+      expect(find(rows, key).state).toBe('right-only');
+      expect(find(compare(current, outside, rules), key).changedPaths).toEqual(['/value/combinationSetSha256']);
+      expect(find(compare(empty, missing, rules), key).state).toBe('different');
+    }
+    expect(JSON.stringify([legacy, current, outside])).toBe(before);
+  });
   it('旧 DRM JSON 保留新清单单侧状态，截断外方案变化仍参与比较', () => {
     const legacy = fixture([fixtureItem('hardware/drm/widevine', { supported: true }, { category: 'hardware' })]);
     const current = fixture([...legacy.data.items, fixtureItem('hardware/drm-schemes', { schemeUuids: ['uuid'], schemeListSha256: 'full-a' }, { category: 'hardware' })]);

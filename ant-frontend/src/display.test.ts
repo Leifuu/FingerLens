@@ -209,6 +209,21 @@ describe('设备格式化展示边界', () => {
     expect(sections.find(section => section.key === 'schemeUuids')?.rows.map(row => row.value)).toEqual([uuid, uuid]);
     expect(JSON.stringify(value)).toBe(original);
   });
+  it('摄像头并发组合保留成员、未知字段及空集合与服务缺失的区别', () => {
+    const value = item('hardware/camera-concurrency', 'hardware', { available: true, status: 'ok', combinationCount: 1, combinationSetSha256: 'a'.repeat(64), combinations: [{ cameraCount: 2, cameraIds: ['camera-X', '0'], idsTruncated: false }], futureField: null });
+    const before = JSON.stringify(value), sections = buildSections(value);
+    expect(sections[0].title).toBe('摄像头并发组合摘要');
+    expect(sections[0].rows.find(row => row.key === 'futureField')?.value).toBe('null');
+    expect(sections[1].title).toBe('当前连接摄像头的并发组合（最多 32 组，每组 16 个 ID）');
+    expect(sections[1].rows.filter(row => row.key.includes('cameraIds')).map(row => row.value)).toEqual(['camera-X', '0']);
+    const empty = buildSections(item(value.key, 'hardware', { combinationCount: 0, combinations: [] }));
+    const missing = buildSections(item(value.key, 'hardware', { available: false, status: 'unavailable', combinationCount: null, combinations: null }));
+    expect(empty[1].rows[0].value).toBe('[]');
+    expect(missing).toHaveLength(1);
+    expect(missing[0].rows.find(row => row.key === 'combinationCount')?.value).toBe('null');
+    expect(missing[0].rows.find(row => row.key === 'combinations')?.value).toBe('null');
+    expect(JSON.stringify(value)).toBe(before);
+  });
   it('Widevine 与 Play Integrity 摘要不展开成大段 JSON', () => {
     const drm = buildSections(item('hardware/drm/widevine', 'hardware', { supported: true, vendor: 'Google', deviceUniqueId: { sha256: 'a'.repeat(64), length: 32, rawExported: false } }));
     const integrity = buildSections(item('attestation/play-integrity-environment', 'attestation', { verdictAvailable: false, playServices: { present: true, versionName: '1' } }));

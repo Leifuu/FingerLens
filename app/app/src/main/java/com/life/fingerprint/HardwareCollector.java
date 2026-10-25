@@ -28,6 +28,7 @@ public final class HardwareCollector implements Collector {
         usb(s);
         nfc(s);
         drm(s);
+        s.read("hardware","hardware/camera-concurrency","摄像头并发组合摘要","CameraManager.getConcurrentCameraIds",()->cameraConcurrencySummary(s.context));
         CameraManager cameras=s.context.getSystemService(CameraManager.class);
         if(cameras==null)s.ok("hardware","hardware/camera-summary","摄像头能力摘要","CameraManager","CameraManager unavailable",Json.obj("available",false,"count",0,"cameraIds",new JSONArray()));
         else {String[] cameraIds=cameras.getCameraIdList();for(String id:cameraIds)s.read("hardware","hardware/camera/"+id,"摄像头 "+id,"CameraManager.getCameraCharacteristics",()->{CameraCharacteristics c=cameras.getCameraCharacteristics(id);JSONObject o=Json.obj("id",id);for(CameraCharacteristics.Key<?> k:c.getKeys()){try{Json.put(o,k.getName(),cameraValue(c.get(k)));}catch(Exception e){Json.put(o,k.getName(),Json.obj("error",e.getClass().getName(),"message",e.getMessage()));}}return o;});s.read("hardware","hardware/camera-summary","摄像头能力摘要","CameraManager.getCameraCharacteristics",()->cameraSummary(cameras,cameraIds));}
@@ -191,6 +192,37 @@ public final class HardwareCollector implements Collector {
         return Json.obj("available",true,"status",values.size()>32?"partial":"ok","scope","platform-supported-crypto-schemes",
                 "schemeCount",values.size(),"returnedCount",returned.length(),"schemeLimit",32,"truncated",values.size()>32,
                 "schemeListSha256",PackageInputCollector.sha(complete.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)),"schemeUuids",returned);
+    }
+    // 业务块：只查询当前连接摄像头的并发组合，不打开设备；服务缺失不能冒充有效空集合。
+    static JSONObject cameraConcurrencySummary(Context context)throws Exception{
+        if(Build.VERSION.SDK_INT<30)throw new UnsupportedOperationException("requires API 30");
+        CameraManager manager=context.getSystemService(CameraManager.class);
+        if(manager==null)return Json.obj("available",false,"status","unavailable","scope","currently-connected-camera-combinations",
+                "combinationCount",null,"returnedCount",null,"combinationLimit",32,"cameraIdsPerCombinationLimit",16,
+                "truncated",null,"combinationSetSha256",null,"combinations",null);
+        return cameraConcurrencyValues(manager.getConcurrentCameraIds());
+    }
+    // 业务块：内外两层集合排序后哈希，截断外变化仍参与比较，保留原始ID及集合成员关系。
+    static JSONObject cameraConcurrencyValues(Set<Set<String>> combinations)throws Exception{
+        if(combinations==null)throw new IllegalArgumentException("missing camera combinations");
+        ArrayList<JSONArray> sorted=new ArrayList<>();
+        for(Set<String> combination:combinations){
+            if(combination==null)throw new IllegalArgumentException("null camera combination");
+            ArrayList<String> ids=new ArrayList<>();
+            for(String id:combination){if(id==null)throw new IllegalArgumentException("null camera id");ids.add(id);}
+            Collections.sort(ids);sorted.add(new JSONArray(ids));
+        }
+        sorted.sort(Comparator.comparing(JSONArray::toString));
+        JSONArray complete=new JSONArray(sorted),entries=new JSONArray();boolean truncated=sorted.size()>32;
+        for(int i=0;i<Math.min(32,sorted.size());i++){
+            JSONArray ids=sorted.get(i),returned=new JSONArray();
+            for(int j=0;j<Math.min(16,ids.length());j++)returned.put(ids.getString(j));
+            boolean idsTruncated=ids.length()>16;truncated|=idsTruncated;
+            entries.put(Json.obj("cameraCount",ids.length(),"cameraIds",returned,"idsTruncated",idsTruncated));
+        }
+        return Json.obj("available",true,"status",truncated?"partial":"ok","scope","currently-connected-camera-combinations",
+                "combinationCount",sorted.size(),"returnedCount",entries.length(),"combinationLimit",32,"cameraIdsPerCombinationLimit",16,
+                "truncated",truncated,"combinationSetSha256",PackageInputCollector.sha(complete.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)),"combinations",entries);
     }
     private Object cameraValue(Object value){
         if(value==null)return null;
