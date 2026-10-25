@@ -596,6 +596,15 @@ describe('设备格式化展示边界', () => {
     expect(sections[1].rows.find(row => row.key === '[0].futureField')?.value).toBe('kept');
     expect(JSON.stringify(value)).toBe(original);
   });
+  it('国际化版本按原始文本展示，保留尾部零、未知格式、空字符串与null', () => {
+    for (const key of ['environment/icu-version', 'environment/unicode-version', 'environment/tzdata-version']) {
+      for (const value of ['75.1.0.0', 'future-version+data', '', null]) {
+        const source = item(key, 'environment', value), before = JSON.stringify(source);
+        expect(buildSections(source)[0].rows[0].value).toBe(value === null ? 'null' : value);
+        expect(JSON.stringify(source)).toBe(before);
+      }
+    }
+  });
   it('资源语言区分 App 与系统范围，保留原始标签和空值', () => {
     const value = item('environment/resource-locales', 'environment', { available: true, status: 'partial', appAssetLocaleCount: 257, appAssetLocaleTags: [null, '', 'iw', 'zh_CN', 'future-tag'], systemAssetLocaleTags: ['en-US'], futureField: 0 });
     const original = JSON.stringify(value), sections = buildSections(value);

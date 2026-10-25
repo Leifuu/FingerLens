@@ -6,6 +6,23 @@ const raw = { semantic: false, ignoreDynamic: false }, semantic = { semantic: tr
 const find = (rows: ReturnType<typeof compare>, key: string) => rows.find(x => x.key === key)!;
 
 describe('原始与语义比较', () => {
+  it('国际化版本兼容旧JSON，保留完整版本字符串并独立记录失败状态', () => {
+    const keys = ['environment/icu-version', 'environment/unicode-version', 'environment/tzdata-version'];
+    const legacy = fixture([fixtureItem('environment/locale-summary', { timezoneId: 'Asia/Shanghai' }, { category: 'environment' })]);
+    const current = fixture([...legacy.data.items, ...keys.map((key, i) => fixtureItem(key, ['75.1.0.0', '15.1.0.0', '2024a'][i], { category: 'environment' }))]);
+    const changed = structuredClone(current);changed.data.items[1].value = '75.1';
+    const failed = structuredClone(current);failed.data.items[3].status = 'error';failed.data.items[3].value = null;
+    const before = JSON.stringify([legacy, current, changed, failed]);
+    for (const rules of [raw, semantic, smart]) {
+      const rows = compare(legacy, current, rules);
+      expect(find(rows, 'environment/locale-summary').state).toBe('same');
+      for (const key of keys) expect(find(rows, key).state).toBe('right-only');
+      expect(find(compare(current, changed, rules), keys[0]).changedPaths).toEqual(['/value']);
+      expect(find(compare(current, failed, rules), keys[2]).state).toBe('status');
+      expect(find(compare(current, failed, rules), keys[0]).state).toBe('same');
+    }
+    expect(JSON.stringify([legacy, current, changed, failed])).toBe(before);
+  });
   it('编解码MIME特性保持旧JSON缺项、未知与false及必须启用标志的差异', () => {
     const key = 'hardware/codecs';
     const old = { name: 'codec', encoder: false, capabilities: [{ type: 'video/test', profileLevels: [] }] };

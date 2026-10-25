@@ -246,6 +246,10 @@ public final class BuildSystemCollector implements Collector {
     private void environment(ItemSink s){
         s.read("environment","environment/locales","语言与区域","Configuration / LocaleList / TimeZone",()->{Configuration c=s.context.getResources().getConfiguration();TimeZone z=TimeZone.getDefault();return Json.obj("locales",c.getLocales().toLanguageTags(),"timezoneId",z.getID(),"timezoneDisplayName",z.getDisplayName(),"rawOffset",z.getRawOffset(),"daylightSavings",z.getDSTSavings(),"configuration",c.toString(),"fontScale",c.fontScale,"densityDpi",c.densityDpi,"uiMode",c.uiMode,"keyboard",c.keyboard,"navigation",c.navigation,"touchscreen",c.touchscreen);});
         s.read("environment","environment/locale-summary","语言与时区摘要","Configuration / DateFormat / LocaleManager",()->localeSummary(s.context));
+        // 业务块：固定读取平台国际化版本；每项独立记录异常，不规范化或猜测缺失版本。
+        s.read("environment","environment/icu-version","ICU 运行库版本","android.icu.util.VersionInfo.ICU_VERSION",()->android.icu.util.VersionInfo.ICU_VERSION.toString());
+        s.read("environment","environment/unicode-version","Unicode 数据版本","android.icu.lang.UCharacter.getUnicodeVersion",()->android.icu.lang.UCharacter.getUnicodeVersion().toString());
+        s.read("environment","environment/tzdata-version","ICU 时区数据版本","android.icu.util.TimeZone.getTZDataVersion",android.icu.util.TimeZone::getTZDataVersion);
         s.read("environment","environment/resource-locales","资源语言集合摘要","AssetManager.getLocales / Resources.getSystem",()->resourceLocaleValues(s.context.getAssets().getLocales(),android.content.res.Resources.getSystem().getAssets().getLocales()));
         s.read("environment","environment/system-fonts","系统字体集合摘要","SystemFonts.getAvailableFonts / Font metadata",BuildSystemCollector::systemFonts);
         s.read("environment","environment/android-id-summary","Android ID 摘要","Settings.Secure.ANDROID_ID",()->androidIdSummary(s.context));

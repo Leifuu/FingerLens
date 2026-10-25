@@ -584,6 +584,18 @@ public class CollectionChecks {
         JSONObject settings=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("environment/system-settings")){settings=item;break;}}
         assertNotNull("应记录显示与动画设置摘要",settings);assertEquals("ok",settings.getString("status"));JSONObject value=settings.getJSONObject("value");assertTrue(value.has("available"));assertTrue(value.has("status"));JSONObject values=value.getJSONObject("settings");for(String key:new String[]{"screen_brightness","screen_brightness_mode","screen_off_timeout","accelerometer_rotation","user_rotation","window_animation_scale","transition_animation_scale","animator_duration_scale"})assertTrue(values.has(key));
     }
+    @Test public void internationalizationVersionsKeepRawStringsAndLocaleEvidence()throws Exception{
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new BuildSystemCollector("environment").collect(sink);
+        Map<String,JSONObject> items=new HashMap<>();for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);items.put(item.getString("key"),item);}
+        assertTrue("原语言摘要必须保留",items.containsKey("environment/locale-summary"));assertTrue("原语言配置必须保留",items.containsKey("environment/locales"));
+        String[] keys={"environment/icu-version","environment/unicode-version","environment/tzdata-version"};
+        String[] expected={android.icu.util.VersionInfo.ICU_VERSION.toString(),android.icu.lang.UCharacter.getUnicodeVersion().toString(),android.icu.util.TimeZone.getTZDataVersion()};
+        JSONArray parsed=new JSONArray(sink.items.toString());
+        for(int i=0;i<keys.length;i++){
+            JSONObject item=items.get(keys[i]);assertNotNull(item);assertEquals("ok",item.getString("status"));assertEquals("string",item.getString("dataType"));assertEquals(expected[i],item.getString("value"));assertFalse(item.getString("value").isEmpty());
+            boolean found=false;for(int j=0;j<parsed.length();j++)if(parsed.getJSONObject(j).getString("key").equals(keys[i])){assertEquals(expected[i],parsed.getJSONObject(j).getString("value"));found=true;}assertTrue(found);
+        }
+    }
     @Test public void localeSummaryKeepsRawLocaleEvidenceSeparate()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new BuildSystemCollector("environment").collect(sink);
         JSONObject summary=null,raw=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("environment/locale-summary"))summary=item;if(item.getString("key").equals("environment/locales"))raw=item;}
