@@ -301,6 +301,11 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].title).toBe('系统时钟摘要');
     expect(sections[0].rows.map(row => row.key)).toEqual(['elapsedRealtimeMillis', 'uptimeMillis', 'wallClockMillis', 'bootTimeMillis', 'sleepMillis']);
   });
+  it('Android ID 摘要只展示作用域与哈希', () => {
+    const sections = buildSections(item('environment/android-id-summary', 'environment', { available: true, status: 'ok', scope: 'app_signing_key_user_device', androidIdPresent: true, androidIdLength: 16, androidIdSha256: 'b'.repeat(64) }));
+    expect(sections[0].title).toBe('Android ID 摘要');
+    expect(sections[0].rows.map(row => row.key)).toEqual(['available', 'status', 'scope', 'androidIdPresent', 'androidIdLength', 'androidIdSha256']);
+  });
   it('图形摘要展示渲染器并限制 Vulkan 扩展列表', () => {
     const sections = buildSections(item('hardware/graphics-summary', 'hardware', { available: true, eglInitialized: true, eglError: 12288, eglVendor: 'Android', eglVersion: '1.5', glVendor: 'ARM', glRenderer: 'Mali', glVersion: 'OpenGL ES 3.2', eglExtensionsLength: 796, eglExtensionCount: 20, glExtensionsLength: 2910, glExtensionCount: 100, vulkanLibraryLoaded: true, vulkanExtensionResult: 0, vulkanExtensionCount: 10, vulkanExtensionNames: ['VK_KHR_surface'], vulkanExtensionNamesTruncated: false }));
     expect(sections[0].title).toBe('图形能力摘要');

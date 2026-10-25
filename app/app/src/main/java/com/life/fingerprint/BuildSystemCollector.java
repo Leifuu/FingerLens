@@ -147,6 +147,7 @@ public final class BuildSystemCollector implements Collector {
     private void environment(ItemSink s){
         s.read("environment","environment/locales","语言与区域","Configuration / LocaleList / TimeZone",()->{Configuration c=s.context.getResources().getConfiguration();TimeZone z=TimeZone.getDefault();return Json.obj("locales",c.getLocales().toLanguageTags(),"timezoneId",z.getID(),"timezoneDisplayName",z.getDisplayName(),"rawOffset",z.getRawOffset(),"daylightSavings",z.getDSTSavings(),"configuration",c.toString(),"fontScale",c.fontScale,"densityDpi",c.densityDpi,"uiMode",c.uiMode,"keyboard",c.keyboard,"navigation",c.navigation,"touchscreen",c.touchscreen);});
         s.read("environment","environment/locale-summary","语言与时区摘要","Configuration / DateFormat / LocaleManager",()->localeSummary(s.context));
+        s.read("environment","environment/android-id-summary","Android ID 摘要","Settings.Secure.ANDROID_ID",()->androidIdSummary(s.context));
         s.ok("environment","environment/clocks","单次时钟快照","android-api","SystemClock",Json.obj("elapsedRealtime",SystemClock.elapsedRealtime(),"uptimeMillis",SystemClock.uptimeMillis(),"wallClockMillis",System.currentTimeMillis()));
         s.ok("environment","environment/clock-summary","系统时钟摘要","android-api","SystemClock",clockSummary());
         s.read("environment","environment/risk-settings","系统风控相关设置摘要","Settings.Global / Settings.Secure",()->riskSettings(s.context));
@@ -189,6 +190,13 @@ public final class BuildSystemCollector implements Collector {
         });
         ActivityManager.MemoryInfo memory=new ActivityManager.MemoryInfo();((ActivityManager)s.context.getSystemService(Context.ACTIVITY_SERVICE)).getMemoryInfo(memory);
         s.ok("environment","environment/memory","内存快照","android-api","ActivityManager.getMemoryInfo",Json.obj("totalMem",memory.totalMem,"availMem",memory.availMem,"threshold",memory.threshold,"lowMemory",memory.lowMemory,"runtimeProcessors",Runtime.getRuntime().availableProcessors()));
+    }
+    // 业务块：只保存 Android ID 的作用域、存在性、长度和 SHA-256，不在摘要重复导出原始标识。
+    private static JSONObject androidIdSummary(Context context)throws Exception{
+        String value=Settings.Secure.getString(context.getContentResolver(),Settings.Secure.ANDROID_ID);
+        String scope=Build.VERSION.SDK_INT>=26?"app_signing_key_user_device":"user_device";
+        if(value==null||value.isEmpty())return Json.obj("available",true,"status","empty","scope",scope,"androidIdPresent",false,"androidIdLength",null,"androidIdSha256",null);
+        return Json.obj("available",true,"status","ok","scope",scope,"androidIdPresent",true,"androidIdLength",value.length(),"androidIdSha256",PackageInputCollector.sha(value.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
     }
     private static JSONObject clockSummary(){
         long elapsedRealtime=SystemClock.elapsedRealtime();long uptimeMillis=SystemClock.uptimeMillis();long wallClockMillis=System.currentTimeMillis();
