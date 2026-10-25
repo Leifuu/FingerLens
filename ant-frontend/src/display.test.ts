@@ -514,6 +514,17 @@ describe('设备格式化展示边界', () => {
     expect(sections[1].rows.some(row => row.key.endsWith('.errno') && row.value === '13')).toBe(true);
     expect(JSON.stringify(value)).toBe(original);
   });
+  it('系统运行参数展示 16 KiB 页大小，并保留不可用项与原始值', () => {
+    const value = item('kernel/sysconf-summary', 'kernel', { available: true, status: 'partial', pageSizeBytes: { $type: 'int64', value: '16384' }, clockTicksPerSecond: null, entries: [{ name: '_SC_PAGESIZE', status: 'ok', rawValue: { $type: 'int64', value: '16384' }, errorClass: null }, { name: '_SC_CLK_TCK', status: 'unavailable', rawValue: { $type: 'int64', value: '-1' }, errorClass: null }] });
+    const original = JSON.stringify(value), sections = buildSections(value);
+    expect(sections[0].title).toBe('内存页与时钟节拍摘要');
+    expect(sections[0].rows.find(row => row.key === 'pageSizeBytes')?.value).toBe('16 KiB（16384 B）');
+    expect(sections[0].rows.find(row => row.key === 'clockTicksPerSecond')?.value).toBe('null');
+    expect(sections[1].title).toBe('系统调用原始结果（固定 2 项）');
+    expect(sections[1].rows.find(row => row.key === '[1].status')?.value).toBe('接口不可用');
+    expect(sections[1].rows.find(row => row.key === '[1].rawValue')?.value).toBe('-1');
+    expect(JSON.stringify(value)).toBe(original);
+  });
   it('Root 挂载标志摘要保留未知值和 errno，原始数据不变', () => {
     const value = item('security/root-mount-summary', 'security', { available: true, status: 'partial', pathChecks: 2, pathLimit: 7, readOnlyCount: 1, missingCount: 1, writeProbeAttempted: false, entries: [{ path: '/system', status: 'ok', errno: 0, readOnly: true, noSuid: false, noDev: false, noExec: false }, { path: '/sbin', status: 'missing', errno: 2, readOnly: null, noSuid: null, noDev: null, noExec: null }] });
     const original = JSON.stringify(value), sections = buildSections(value);

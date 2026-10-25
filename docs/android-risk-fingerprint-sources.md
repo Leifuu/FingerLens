@@ -79,6 +79,8 @@
 - [PackageManager.getInstalledPackages](https://developer.android.com/reference/android/content/pm/PackageManager#getInstalledPackages(int))：公开当前 App 按包可见性策略可见的应用版本、组件、权限和应用标志。本工程的 `packages/summary` 还统计涉及包数、权限授予标志和最多 256 个唯一权限名，同时保留 `packages/*` 原始条目。
 - Play Integrity 的本地依赖摘要位于 `attestation/play-integrity-environment`，仅记录 Google Play services 与 Play 商店的存在、版本、安装来源和签名 SHA-256；`verdictAvailable=false`，不把本地包状态冒充远程完整性结论。
 
+- [Os.sysconf](https://developer.android.com/reference/android/system/Os#sysconf(int)) 与 [AOSP Bionic sysconf.cpp](https://github.com/aosp-mirror/platform_bionic/blob/main/libc/bionic/sysconf.cpp)（2026-10-26 已核对源码和 SDK）：`_SC_PAGESIZE` 返回当前运行系统的内存页字节数，`_SC_CLK_TCK` 返回进程 CPU 时间计量的每秒节拍数。本工程新增 `kernel/sysconf-summary`，固定查询两项，以 int64 保留正值、原始返回值及逐项状态，非正返回值或异常对应摘要值为 null。时钟节拍不等于 CPU 频率或内核调度频率，运行页大小不代表 APK 的 ELF 对齐或 16 KB 兼容性；未改动原内核文件或旧 JSON。
+
 ## GitHub 上的公开 SDK/实现
 
 - [scottyab/rootbeer](https://github.com/scottyab/rootbeer)：README 列出 root 管理应用、危险应用、root cloaking、test-keys、危险属性、BusyBox、`su` 等检查，并明确说明这些规则有漏报和绕过限制。本工程只复用可观察证据（构建标记、属性、路径），不扫描或上传第三方应用清单作为结论。

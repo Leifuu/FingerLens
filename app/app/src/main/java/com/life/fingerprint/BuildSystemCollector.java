@@ -108,6 +108,7 @@ public final class BuildSystemCollector implements Collector {
     }
     private void kernel(ItemSink s)throws Exception {
         s.ok("kernel","kernel/uname","内核 uname","jni","uname",new JSONObject(NativeProbe.kernel()));
+        s.read("kernel","kernel/sysconf-summary","内存页与时钟节拍摘要","Os.sysconf(_SC_PAGESIZE / _SC_CLK_TCK)",BuildSystemCollector::sysconfSummary);
         for(String p:new String[]{"/proc/version","/proc/cpuinfo","/proc/meminfo","/proc/self/status","/proc/self/maps","/proc/self/mountinfo","/proc/self/mounts","/proc/self/cgroup","/proc/self/limits","/proc/self/sched","/proc/self/attr/current","/proc/1/cgroup","/proc/uptime","/proc/sys/kernel/random/boot_id","/proc/sys/kernel/osrelease","/sys/devices/system/cpu/present","/sys/devices/system/cpu/online"})s.file("kernel","kernel/file"+p,p);
         s.read("kernel","kernel/process-status-summary","当前进程状态摘要","/proc/self/status",BuildSystemCollector::processStatusSummary);
         s.read("kernel","kernel/maps-summary","当前进程内存映射摘要","/proc/self/maps",BuildSystemCollector::mapsSummary);
@@ -115,6 +116,20 @@ public final class BuildSystemCollector implements Collector {
         s.read("kernel","kernel/cgroup-summary","Cgroup 环境摘要","/proc/self/cgroup",BuildSystemCollector::cgroupSummary);
         s.read("kernel","kernel/cpu-summary","CPU 拓扑与频率摘要","/sys/devices/system/cpu",BuildSystemCollector::cpuSummary);
         File[] cpus=new File("/sys/devices/system/cpu").listFiles();if(cpus!=null)for(File cpu:cpus)if(cpu.getName().matches("cpu[0-9]{1,4}"))for(String suffix:new String[]{"cpufreq/cpuinfo_max_freq","cpufreq/cpuinfo_min_freq","cpufreq/scaling_cur_freq","cpufreq/scaling_governor","topology/core_id","topology/physical_package_id"})s.file("kernel","kernel/cpu/"+cpu.getName()+"/"+suffix,new File(cpu,suffix).getPath());
+    }
+    // 业务块：只查询两个要求正数的运行参数，保留原始返回值与逐项状态，不推断 APK 页大小兼容性。
+    private static JSONObject sysconfSummary(){
+        String[] fields={"pageSizeBytes","clockTicksPerSecond"},names={"_SC_PAGESIZE","_SC_CLK_TCK"};
+        int[] selectors={android.system.OsConstants._SC_PAGESIZE,android.system.OsConstants._SC_CLK_TCK};
+        JSONObject summary=Json.obj("scope","current-app-runtime","queryCount",selectors.length);JSONArray entries=new JSONArray();int known=0;
+        for(int i=0;i<selectors.length;i++){
+            Long raw=null,value=null;String status="ok",error=null;
+            try{raw=android.system.Os.sysconf(selectors[i]);if(raw>0){value=raw;known++;}else status="unavailable";}
+            catch(SecurityException e){status="denied";error=e.getClass().getName();}
+            catch(Exception e){status="error";error=e.getClass().getName();}
+            Json.put(summary,fields[i],value);entries.put(Json.obj("name",names[i],"status",status,"rawValue",raw,"errorClass",error));
+        }
+        Json.put(summary,"available",known>0);Json.put(summary,"status",known==selectors.length?"ok":known>0?"partial":"unavailable");Json.put(summary,"knownCount",known);Json.put(summary,"unknownCount",selectors.length-known);Json.put(summary,"entries",entries);return summary;
     }
     // 业务块：从公开 proc 状态中提取有限的调试/隔离线索，不复制进程状态原文。
     private static JSONObject processStatusSummary()throws Exception{

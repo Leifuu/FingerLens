@@ -65,6 +65,7 @@
 | 蓝牙 LE 能力 | [BluetoothAdapter](https://developer.android.com/reference/android/bluetooth/BluetoothAdapter) 的公开 LE API 提供 2M/Coded PHY、扩展广播和最大广播数据长度能力。 | `network/bluetooth-capabilities` | 已新增能力快照；API 低于 26、蓝牙适配器缺失或权限拒绝时保留 `null`/状态，不读取设备地址、名称或广播内容。 |
 | Wi-Fi 环境 | [WifiManager.getConnectionInfo](https://developer.android.com/reference/android/net/wifi/WifiManager#getConnectionInfo())、[WifiInfo](https://developer.android.com/reference/android/net/wifi/WifiInfo) 与 [WifiManager.getScanResults](https://developer.android.com/reference/android/net/wifi/WifiManager#getScanResults()) 公开连接链路、Wi-Fi 标准、最大收发速率和 API 33+ MLO 摘要；扫描结果受位置/附近设备权限和系统策略影响。 | `network/wifi-summary`、`network/wifi-capabilities`、`network/wifi`、`network/wifi-cached-scan` | 已新增不含 SSID/BSSID/MLD MAC 原文的连接、频段和链路能力摘要；不主动扫描，权限不足时记录 `access=denied` 或 `scanAccess=denied`，原始条目保留实际状态。 |
 | 摄像头分数元数据 | [Rational](https://developer.android.com/reference/android/util/Rational) 与 AOSP 公开有限分数和 NaN/Infinity 的文本、分子与分母。 | `hardware/camera/*`；公共 `Json.value` | 以带类型的对象精确保留曝光步长、校准矩阵等分数，避免裸 `1/6` 使整个硬件检查点失效；不改变其它数值或旧 JSON 的导入，不采集图像帧。 |
+| 内存页与 CPU 时间节拍 | [Os.sysconf](https://developer.android.com/reference/android/system/Os#sysconf(int))、AOSP Bionic 的 _SC_PAGESIZE / _SC_CLK_TCK。 | `kernel/sysconf-summary` | 固定两项，保留 int64 原值和逐项状态；非正值/异常时摘要值为 null。页大小按字节展示，不推断 APK 的 16 KB 兼容性；时钟节拍不解释为 CPU 频率，旧条目不变。 |
 
 ## 当前缺口与下一步候选
 

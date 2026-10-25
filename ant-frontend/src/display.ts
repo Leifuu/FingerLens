@@ -285,6 +285,7 @@ function attestationSections(key: string, value: Json): DisplaySection[] {
 function riskSummarySections(key: string, value: Json): DisplaySection[] | undefined {
   if (!object(value)) return undefined;
   const definitions: Record<string, { title: string; order: string[]; arrays: string[] }> = {
+    'kernel/sysconf-summary': { title: '内存页与时钟节拍摘要', order: ['available', 'status', 'scope', 'queryCount', 'knownCount', 'unknownCount', 'pageSizeBytes', 'clockTicksPerSecond'], arrays: ['entries'] },
     'build/risk-properties-summary': { title: '风控原生属性摘要', order: ['observedCount', 'knownCount', 'properties'], arrays: ['observedProperties', 'missingProperties'] },
     'build/abi-summary': { title: 'ABI 与运行时架构摘要', order: ['available', 'supportedAbiCount', 'supported32BitAbiCount', 'supported64BitAbiCount', 'primaryAbi', 'armAbiCount', 'x86AbiCount', 'riscvAbiCount', 'otherAbiCount', 'runtime64Bit'], arrays: [] },
     'build/hardware-summary': { title: '硬件型号与 SoC 摘要', order: ['available', 'manufacturer', 'brand', 'model', 'device', 'product', 'hardware', 'board', 'fingerprintPresent', 'fingerprintLength', 'fingerprintSha256', 'socManufacturer', 'socModel'], arrays: [] },
@@ -390,6 +391,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
           : key === 'security/self-permissions' && arrayKey === 'permissions' ? '声明权限（最多 256 项）'
           : key === 'security/root-path-summary' && arrayKey === 'entries' ? '路径观察结果（固定 32 项，不执行）'
           : key === 'security/root-mount-summary' && arrayKey === 'entries' ? '系统路径挂载标志（固定 7 项，不写入）'
+          : key === 'kernel/sysconf-summary' && arrayKey === 'entries' ? '系统调用原始结果（固定 2 项）'
           : key === 'storage/capacity-summary' && arrayKey === 'entries' ? '固定路径容量'
           : key === 'hardware/audio-summary'
             ? arrayKey === 'productNames' ? '音频设备名' : arrayKey === 'sampleRates' ? '采样率' : '编码格式'
@@ -409,7 +411,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     }
   }
   if (key === 'network/risk-signals' && typeof value.capabilitiesRaw === 'string') sections.push(section('capabilitiesRaw', '系统原始能力字符串', [row('value', value.capabilitiesRaw)], false));
-  if (key === 'security/root-path-summary' || key === 'security/root-mount-summary') for (const group of sections) for (const entry of group.rows) {
+  if (key === 'security/root-path-summary' || key === 'security/root-mount-summary' || key === 'kernel/sysconf-summary') for (const group of sections) for (const entry of group.rows) {
     if ((entry.key === 'status' || entry.key.endsWith('.status')) && Object.hasOwn(STATUS_LABELS, entry.value)) entry.value = STATUS_LABELS[entry.value];
   }
   return sections.filter(item => item.rows.length);
