@@ -109,6 +109,14 @@
 - 每种清单输入最多20000项，明细最多64个区间/256个离散采样率，保留原序与重复；各自完整JSON数组的UTF-8 SHA-256、总数、上限及截断标志保留截断外差异，明细截断时status为partial。区间缺失/null元素为错误，成功空数组与null分开；只读能力，不创建编解码器或录音，不把最大声道数推断为所有1到最大值均支持（API31起声道支持可能有不连续区间），也不把码率/采样率/声道任意组合当作可用格式。旧JSON与原编解码器概览、完整字段分页保持兼容。
 - Pixel6/Android15验证：29个音频MIME读取成功，其中21个离散、8个非离散；41个非音频为not-audio，独立Release结果一致。`c2.android.aac.decoder`的码率8000–510000 bit/s、最大输入声道8，离散采样率从7350/8000/11025 Hz起；`c2.android.flac.decoder`返回7350–192000 Hz区间且离散数组为null。仅移除新增音频对象后，原清单（含视频能力）与上一报告完全相同，摘要也一致。
 
+## 音频输入声道的精确区间
+
+- [getInputChannelCountRanges](https://developer.android.com/reference/android/media/MediaCodecInfo.AudioCapabilities#getInputChannelCountRanges())和[getMinInputChannelCount](https://developer.android.com/reference/android/media/MediaCodecInfo.AudioCapabilities#getMinInputChannelCount())（API31+）公开输入声道区间和最小声道数。本机SDK35源码和SDK37.0 api-versions.xml核对：API31起旧最大声道数不再隐含支持从1到最大值的所有数量，区间可能有间隙；来源沿用上述SDK缓存与SHA-256，本轮未新增网络源码验证。
+- 新增`audioCapabilities.inputChannelSupport`：保存公开最小值及原序`ranges[].lower/upper`，保留重复，不补齐间隙；输入最多20000区间、明细最多64项，记录总数/返回数/上限/截断及完整JSON数组UTF-8 SHA-256，截断外变化仍可识别。API31以下为unsupported且区间/最小值/截断标志为null；异常为denied/error，仅影响此对象，缺失/null区间不是空集合。
+- 旧`maxInputChannelCount`、采样率和码率继续保留，旧JSON缺新增对象仍可比较，深层差异沿用编解码器概览和完整字段分页。不创建编解码实例或枚举声道组合，不把声道区间当作扬声器/麦克风数量、实际播放性能或任意格式组合支持。
+- Pixel6/Android15真机测试：29个音频MIME的最小值、原序区间、数量和完整哈希逐项与公开API一致，这台设备均为单段区间；多段间隙、重复和64项截断外变化由合成测试覆盖，不能据此声称真机存在多段区间。API31以下及其它厂商的权限/服务异常尚未在对应环境实测。
+- 独立Release正式报告同样29项成功、41项非音频；例如`c2.android.aac.decoder`和`c2.android.flac.decoder`均为最小1、区间`[1,8]`。仅移除新增`inputChannelSupport`后，原编解码清单与上一音频报告完全相同，摘要亦一致；新旧gzip报告的导入、原文字段和完整分页检查通过。
+
 ## 视频编解码器的公开范围
 
 - [CodecCapabilities.getVideoCapabilities](https://developer.android.com/reference/android/media/MediaCodecInfo.CodecCapabilities#getVideoCapabilities())和[VideoCapabilities](https://developer.android.com/reference/android/media/MediaCodecInfo.VideoCapabilities)公开视频码率、帧率、宽高范围和宽高对齐要求。本轮以本机Android SDK35公开源码及SDK37.0的api-versions.xml核对：相关六项getter和视频能力类自API21可用，本工程minSdk24无需新版本门槛；远程源码下载超时，未声称核对本轮网络上的源码版本。

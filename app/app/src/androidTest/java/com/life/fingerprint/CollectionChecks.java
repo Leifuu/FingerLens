@@ -371,6 +371,32 @@ public class CollectionChecks {
         JSONObject summary=null,list=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("hardware/codecs-summary"))summary=item;if(item.getString("key").equals("hardware/codecs"))list=item;}
         assertNotNull("应生成编解码能力摘要",summary);assertNotNull("应保留编解码完整清单",list);assertEquals("ok",summary.getString("status"));assertEquals("ok",list.getString("status"));JSONObject value=summary.getJSONObject("value");assertEquals(value.getInt("count"),list.getJSONArray("value").length());assertTrue(value.getJSONArray("codecNames").length()<=256);assertTrue(value.getJSONArray("mimeTypes").length()<=256);assertTrue(value.has("codecNamesTruncated"));assertTrue(value.has("mimeTypesTruncated"));
     }
+    @Test public void codecInputChannelsMatchPublicRanges()throws Exception{
+        try{HardwareCollector.codecInputChannels(null);fail("缺失音频能力不能伪装不支持");}catch(NullPointerException expected){}
+        ItemSink sink=new ItemSink(context,"input-channel-test");new HardwareCollector("hardware").collect(sink);
+        JSONObject item=null;for(int i=0;i<sink.items.length();i++)if(sink.items.getJSONObject(i).getString("key").equals("hardware/codecs"))item=sink.items.getJSONObject(i);
+        assertNotNull(item);assertEquals("ok",item.getString("status"));JSONArray codecs=item.getJSONArray("value");android.media.MediaCodecInfo[] platform=new android.media.MediaCodecList(android.media.MediaCodecList.ALL_CODECS).getCodecInfos();assertEquals(platform.length,codecs.length());int checked=0,nonContiguous=0;
+        for(int i=0;i<platform.length;i++){
+            JSONObject codec=codecs.getJSONObject(i);assertEquals(platform[i].getName(),codec.getString("name"));JSONArray types=codec.getJSONArray("capabilities");
+            for(int j=0;j<types.length();j++){
+                JSONObject type=types.getJSONObject(j);if(type.has("error"))continue;JSONObject base=type.getJSONObject("audioCapabilities");if(!base.getBoolean("available"))continue;
+                JSONObject value=new JSONObject(base.toString()).getJSONObject("inputChannelSupport");checked++;
+                if(Build.VERSION.SDK_INT<31){assertEquals("unsupported",value.getString("status"));assertTrue(value.isNull("minInputChannelCount"));assertTrue(value.isNull("ranges"));assertTrue(value.isNull("truncated"));continue;}
+                android.media.MediaCodecInfo.AudioCapabilities audio=platform[i].getCapabilitiesForType(type.getString("type")).getAudioCapabilities();android.util.Range<Integer>[] ranges=audio.getInputChannelCountRanges();JSONArray all=new JSONArray();for(android.util.Range<Integer> range:ranges)all.put(Json.obj("lower",range.getLower(),"upper",range.getUpper()));
+                assertTrue(value.getBoolean("available"));assertEquals("ok",value.getString("status"));assertEquals(audio.getMinInputChannelCount(),value.getInt("minInputChannelCount"));assertEquals(ranges.length,value.getInt("rangeCount"));assertEquals(ranges.length,value.getInt("returnedCount"));assertEquals(64,value.getInt("rangeLimit"));assertFalse(value.getBoolean("truncated"));assertEquals(all.toString(),value.getJSONArray("ranges").toString());assertEquals(PackageInputCollector.sha(all.toString().getBytes(StandardCharsets.UTF_8)),value.getString("rangesSha256"));assertEquals(audio.getMaxInputChannelCount(),base.getInt("maxInputChannelCount"));if(ranges.length>1)nonContiguous++;
+            }
+        }
+        assertTrue(checked>0);Bundle evidence=new Bundle();evidence.putString("audioChannelMimeCount",String.valueOf(checked));evidence.putString("multipleChannelRangeMimeCount",String.valueOf(nonContiguous));InstrumentationRegistry.getInstrumentation().sendStatus(0,evidence);
+    }
+    @Test public void codecInputChannelRangesKeepGapsAndFullHash()throws Exception{
+        android.util.Range<Integer>[] ranges=new android.util.Range[]{new android.util.Range<>(2,2),new android.util.Range<>(6,8),new android.util.Range<>(6,8)};String before=Arrays.toString(ranges);
+        JSONObject value=HardwareCollector.codecInputChannelValues(2,ranges);assertEquals(before,Arrays.toString(ranges));assertEquals(2,value.getInt("minInputChannelCount"));assertEquals(3,value.getInt("rangeCount"));assertEquals(2,value.getJSONArray("ranges").getJSONObject(0).getInt("upper"));assertEquals(6,value.getJSONArray("ranges").getJSONObject(1).getInt("lower"));assertEquals(value.getJSONArray("ranges").getJSONObject(1).toString(),value.getJSONArray("ranges").getJSONObject(2).toString());
+        android.util.Range<Integer>[] large=new android.util.Range[70];Arrays.fill(large,new android.util.Range<>(2,2));JSONObject limited=HardwareCollector.codecInputChannelValues(2,large);assertEquals("partial",limited.getString("status"));assertTrue(limited.getBoolean("truncated"));assertEquals(70,limited.getInt("rangeCount"));assertEquals(64,limited.getInt("returnedCount"));large[69]=new android.util.Range<>(6,8);JSONObject changed=HardwareCollector.codecInputChannelValues(2,large);assertEquals(limited.getJSONArray("ranges").toString(),changed.getJSONArray("ranges").toString());assertNotEquals(limited.getString("rangesSha256"),changed.getString("rangesSha256"));
+        JSONObject empty=HardwareCollector.codecInputChannelValues(0,new android.util.Range[0]);assertEquals("ok",empty.getString("status"));assertEquals(0,empty.getInt("rangeCount"));assertEquals("[]",empty.getJSONArray("ranges").toString());
+        try{HardwareCollector.codecInputChannelValues(2,null);fail("缺失区间不能当空集合");}catch(IllegalArgumentException expected){}
+        try{HardwareCollector.codecInputChannelValues(2,new android.util.Range[]{null});fail("null区间不能静默丢失");}catch(NullPointerException expected){}
+        try{HardwareCollector.codecInputChannelValues(2,new android.util.Range[20001]);fail("输入不能越界");}catch(IllegalArgumentException expected){}
+    }
     @Test public void codecAudioRangesMatchPublicCapabilities()throws Exception{
         try{HardwareCollector.codecAudioCapabilities(null);fail("缺失能力不能冒充非音频");}catch(NullPointerException expected){}
         ItemSink sink=new ItemSink(context,"audio-capabilities-test");new HardwareCollector("hardware").collect(sink);

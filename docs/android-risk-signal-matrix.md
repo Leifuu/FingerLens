@@ -85,6 +85,8 @@
 - `hardware/codecs[*].capabilities[*].audioCapabilities`使用API21+公开AudioCapabilities读取码率范围、最大输入声道数、采样率区间与离散采样率。区分not-audio、查询错误、连续/混合区间的null离散数组和成功空数组；不创建编解码器或录音，最大声道数不代表所有中间声道数均支持。
 - 区间/离散数组各最多20000输入，明细上限64/256，完整原序JSON数组SHA-256覆盖截断外变化；原清单、视频能力、功能标志及旧JSON保留，深层差异沿用编解码器概览和完整字段分页。本轮来源为本机公开SDK源码及API版本表，详见[来源说明](android-risk-fingerprint-sources.md#音频编解码器的公开范围)。
 
+- `audioCapabilities.inputChannelSupport`补充API31+精确输入声道区间和最小值，保留间隙/重复、完整原序哈希及64项明细上限；旧最大声道数不变，API31以下明确unsupported，失败不抹去采样率/码率。旧JSON缺项兼容，不推导扬声器数量或任意音频格式组合；详见[声道来源](android-risk-fingerprint-sources.md#音频输入声道的精确区间)。
+
 ## 视频编解码能力范围补充
 
 - `hardware/codecs[*].capabilities[*].videoCapabilities`通过API21+公开VideoCapabilities固定读取码率/帧率/宽高的整数范围及宽高像素对齐要求；非视频MIME与读取失败分开，失败只影响新增对象。原Profile、颜色格式、功能标志及清单顺序保留，旧JSON可正常比较。

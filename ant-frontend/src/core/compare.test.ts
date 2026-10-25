@@ -7,6 +7,20 @@ const raw = { semantic: false, ignoreDynamic: false }, semantic = { semantic: tr
 const find = (rows: ReturnType<typeof compare>, key: string) => rows.find(x => x.key === key)!;
 
 describe('原始与语义比较', () => {
+  it('精确声道区间兼容旧音频JSON，不填充间隙，区分不支持/空集合/哈希变化', () => {
+    const key = 'hardware/codecs', audio = { available: true, status: 'ok', maxInputChannelCount: 8 };
+    const report = (value: Json) => fixture([fixtureItem(key, [{ name: 'codec', encoder: false, capabilities: [{ type: 'audio/test', audioCapabilities: value }] }], { category: 'hardware' })]);
+    const legacy = report(audio), ranges = { available: true, status: 'ok', minInputChannelCount: 2, ranges: [{ lower: 2, upper: 2 }, { lower: 6, upper: 8 }], rangesSha256: 'a' };
+    const current = report({ ...audio, inputChannelSupport: ranges }), hash = report({ ...audio, inputChannelSupport: { ...ranges, rangesSha256: 'b' } });
+    const unsupported = report({ ...audio, inputChannelSupport: { available: false, status: 'unsupported', minInputChannelCount: null, ranges: null } });
+    const empty = report({ ...audio, inputChannelSupport: { ...ranges, ranges: [] } });
+    const before = JSON.stringify([legacy, current, hash, unsupported, empty]);
+    for (const rules of [raw, semantic, smart]) {
+      expect(find(compare(legacy, current, rules), key).changedPaths).toEqual(['/value/0/capabilities/0/audioCapabilities/inputChannelSupport']);
+      for (const changed of [hash, unsupported, empty]) expect(find(compare(current, changed, rules), key).state).toBe('different');
+    }
+    expect(JSON.stringify([legacy, current, hash, unsupported, empty])).toBe(before);
+  });
   it('音频MIME能力兼容旧JSON，连续/离散采样率和截断外哈希变化保持区别', () => {
     const key = 'hardware/codecs', old = { name: 'codec', encoder: false, capabilities: [{ type: 'audio/test', profileLevels: [] }] };
     const legacy = fixture([fixtureItem(key, [old], { category: 'hardware' })]);

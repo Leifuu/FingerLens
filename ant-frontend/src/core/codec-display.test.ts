@@ -16,6 +16,14 @@ function grouped(left: Json[] | undefined, right?: Json[]) {
 }
 
 describe('编解码器概览', () => {
+  it('声道区间保留间隙和重复，区间/哈希/未来字段变化影响整行差异', () => {
+    const support = { available: true, status: 'ok', minInputChannelCount: 2, ranges: [{ lower: 2, upper: 2 }, { lower: 6, upper: 8 }, { lower: 6, upper: 8 }], rangesSha256: 'a' };
+    const codec = (inputChannelSupport: Json) => ({ name: 'codec', encoder: false, capabilities: [{ type: 'audio/test', audioCapabilities: { maxInputChannelCount: 8, inputChannelSupport } }] });
+    expect(grouped([codec(support)], [codec(support)])![0].state).toBe('same');
+    for (const changed of [{ ...support, rangesSha256: 'b' }, { ...support, minInputChannelCount: 1 }, { ...support, ranges: [{ lower: 2, upper: 8 }] }, { ...support, future: false }]) {
+      expect(grouped([codec(support)], [codec(changed)])![0].state).toBe('changed');
+    }
+  });
   it('音频区间、null采样率和完整集合哈希变化参与概览差异', () => {
     const audio = { available: true, status: 'ok', sampleRateMode: 'ranges', sampleRatesHz: null, sampleRateRangesHz: [{ lower: 8000, upper: 48000 }], sampleRateRangesSha256: 'a', maxInputChannelCount: 2 };
     const codec = (audioCapabilities: Json) => ({ name: 'codec', encoder: false, capabilities: [{ type: 'audio/test', audioCapabilities }] });

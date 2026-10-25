@@ -88,7 +88,8 @@ public final class HardwareCollector implements Collector {
                 "sampleRateMode",null,"sampleRatesHz",null,"sampleRateRangesHz",null);
         try{
             MediaCodecInfo.AudioCapabilities audio=capabilities.getAudioCapabilities();if(audio==null)return missing;
-            return codecAudioValues(audio.getBitrateRange(),audio.getMaxInputChannelCount(),audio.getSupportedSampleRateRanges(),audio.getSupportedSampleRates());
+            JSONObject value=codecAudioValues(audio.getBitrateRange(),audio.getMaxInputChannelCount(),audio.getSupportedSampleRateRanges(),audio.getSupportedSampleRates());
+            Json.put(value,"inputChannelSupport",codecInputChannels(audio));return value;
         }catch(Exception|LinkageError e){Json.put(missing,"status",e instanceof SecurityException?"denied":"error");Json.put(missing,"errorClass",e.getClass().getName());return missing;}
     }
     static JSONObject codecAudioValues(Range<Integer> bitrate,int maxChannels,Range<Integer>[] ranges,int[] rates)throws Exception{
@@ -102,6 +103,22 @@ public final class HardwareCollector implements Collector {
                 "sampleRatesHz",rates==null?null:Arrays.copyOf(rates,Math.min(256,rates.length)),"sampleRateCount",rates==null?null:rates.length,
                 "sampleRateLimit",256,"sampleRatesTruncated",rates==null?null:rates.length>256,
                 "sampleRatesSha256",allRates==null?null:PackageInputCollector.sha(allRates.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+    }
+    // 业务块：API31+读取精确声道区间，不从最大声道数补出中间值；失败不抹去原音频能力。
+    static JSONObject codecInputChannels(MediaCodecInfo.AudioCapabilities audio){
+        Objects.requireNonNull(audio,"missing audio capabilities");
+        JSONObject missing=Json.obj("available",false,"status","unsupported","minInputChannelCount",null,"rangeCount",null,
+                "returnedCount",0,"rangeLimit",64,"truncated",null,"rangesSha256",null,"ranges",null);
+        if(Build.VERSION.SDK_INT<31)return missing;
+        try{return codecInputChannelValues(audio.getMinInputChannelCount(),audio.getInputChannelCountRanges());}
+        catch(Exception|LinkageError e){Json.put(missing,"status",e instanceof SecurityException?"denied":"error");Json.put(missing,"errorClass",e.getClass().getName());return missing;}
+    }
+    static JSONObject codecInputChannelValues(int minimum,Range<Integer>[] ranges)throws Exception{
+        if(ranges==null||ranges.length>20000)throw new IllegalArgumentException("声道区间缺失或超过20000项");
+        JSONArray all=new JSONArray(),entries=new JSONArray();for(Range<Integer> range:ranges){JSONObject value=codecRange(range);all.put(value);if(entries.length()<64)entries.put(value);}
+        return Json.obj("available",true,"status",ranges.length>64?"partial":"ok","minInputChannelCount",minimum,
+                "rangeCount",ranges.length,"returnedCount",entries.length(),"rangeLimit",64,"truncated",ranges.length>64,
+                "rangesSha256",PackageInputCollector.sha(all.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)),"ranges",entries);
     }
     private static JSONObject codecRange(Range<Integer> range){Objects.requireNonNull(range,"missing codec capability range");return Json.obj("lower",range.getLower(),"upper",range.getUpper());}
     // 业务块：只提取摄像头能力元数据，异常按设备计数并保留原始 hardware/camera/* 条目。
