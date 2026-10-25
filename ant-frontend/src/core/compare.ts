@@ -19,7 +19,7 @@ function project(v: Json, rules: Rules, counter: { n: number }, key: string, pat
   if (Array.isArray(v)) {
     const result = v.map(x => project(x, rules, counter, key, path + '[]'));
     // 只对已知集合应用排序；重复项保留，不按业务键覆盖。
-    const isSet = key === 'sensors/list' || /^(input\/|display\/|packages\/|network\/)/.test(key) && /(?:motionRanges|supportedModes|signatures|requestedPermissions|activities|receivers|services|providers|interfaces|addresses|dns|routes|pairedDevices|capabilities)$/.test(path);
+    const isSet = key === 'sensors/list' || key === 'hardware/usb-summary' && /(?:vendorIds|productIds)$/.test(path) || /^(input\/|display\/|packages\/|network\/)/.test(key) && /(?:motionRanges|supportedModes|signatures|requestedPermissions|activities|receivers|services|providers|interfaces|addresses|dns|routes|pairedDevices|capabilities)$/.test(path);
     return rules.semantic && isSet ? result.sort((a, b) => canonical(a).localeCompare(canonical(b))) : result;
   }
   if (object(v)) {
