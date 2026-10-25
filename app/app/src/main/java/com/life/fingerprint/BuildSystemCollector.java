@@ -514,6 +514,7 @@ public final class BuildSystemCollector implements Collector {
                 "packageQueryStatus","unavailable","selectionVersionMatches",null,"versionName",null,"versionCode",null,
                 "applicationInfoAvailable",false,"enabled",null,"systemApp",null,"updatedSystemApp",null,"targetSdkVersion",null,"minSdkVersion",null,
                 "firstInstallTime",null,"lastUpdateTime",null,"signatureCount",null,"signatureLimit",16,"signaturesTruncated",null,"signingCertificateSha256",new JSONArray(),"installer",null,"installerQueryStatus","unavailable");
+        putWebViewSigningHistory(out,null);
         try{
             PackageInfo observed=pm.getPackageInfo(selected.packageName,Build.VERSION.SDK_INT>=28?PackageManager.GET_SIGNING_CERTIFICATES:PackageManager.GET_SIGNATURES);
             long version=Build.VERSION.SDK_INT>=28?observed.getLongVersionCode():(long)observed.versionCode;
@@ -523,6 +524,7 @@ public final class BuildSystemCollector implements Collector {
             if(app!=null){Json.put(out,"applicationInfoAvailable",true);Json.put(out,"enabled",app.enabled);Json.put(out,"systemApp",(app.flags&ApplicationInfo.FLAG_SYSTEM)!=0);Json.put(out,"updatedSystemApp",(app.flags&ApplicationInfo.FLAG_UPDATED_SYSTEM_APP)!=0);Json.put(out,"targetSdkVersion",app.targetSdkVersion);Json.put(out,"minSdkVersion",app.minSdkVersion);}
             android.content.pm.Signature[] signatures=Build.VERSION.SDK_INT>=28&&observed.signingInfo!=null?observed.signingInfo.getApkContentsSigners():observed.signatures;
             if(signatures!=null){Json.put(out,"signingCertificateSha256",webViewSignerHashes(signatures));Json.put(out,"signatureCount",signatures.length);Json.put(out,"signaturesTruncated",signatures.length>16);}
+            putWebViewSigningHistory(out,observed);
         }catch(PackageManager.NameNotFoundException e){Json.put(out,"packageQueryStatus","not-found-or-not-visible");}
         catch(SecurityException e){Json.put(out,"packageQueryStatus","denied");}
         catch(Exception e){Json.put(out,"packageQueryStatus","error");}
@@ -530,7 +532,33 @@ public final class BuildSystemCollector implements Collector {
         catch(PackageManager.NameNotFoundException|IllegalArgumentException e){Json.put(out,"installerQueryStatus","not-found-or-not-visible");}
         catch(SecurityException e){Json.put(out,"installerQueryStatus","denied");}
         catch(Exception e){Json.put(out,"installerQueryStatus","error");}
+        if(Build.VERSION.SDK_INT>=28&&!out.optString("packageQueryStatus").equals("allowed"))Json.put(out,"signingHistoryStatus",out.optString("packageQueryStatus"));
         return out;
+    }
+    // 业务块：保留平台验证的签名轮换顺序；只导出证书哈希，多签名不冒充空历史。
+    static void putWebViewSigningHistory(JSONObject out,PackageInfo observed){
+        Json.put(out,"signingHistoryStatus",Build.VERSION.SDK_INT<28?"unsupported":"unavailable");
+        Json.put(out,"hasMultipleSigners",null);Json.put(out,"hasPastSigningCertificates",null);
+        Json.put(out,"signingHistoryCount",null);Json.put(out,"signingHistoryLimit",16);Json.put(out,"signingHistoryTruncated",null);
+        Json.put(out,"signingHistorySha256",null);Json.put(out,"signingCertificateHistorySha256",new JSONArray());
+        if(Build.VERSION.SDK_INT<28||observed==null||observed.signingInfo==null)return;
+        try{
+            boolean multiple=observed.signingInfo.hasMultipleSigners();
+            Json.put(out,"hasMultipleSigners",multiple);Json.put(out,"hasPastSigningCertificates",observed.signingInfo.hasPastSigningCertificates());
+            if(multiple){Json.put(out,"signingHistoryStatus","multiple-signers");return;}
+            android.content.pm.Signature[] history=observed.signingInfo.getSigningCertificateHistory();
+            if(history==null)return;
+            JSONArray hashes=new JSONArray();StringBuilder canonical=new StringBuilder();
+            for(int i=0;i<history.length;i++){
+                if(history[i]==null)throw new IllegalArgumentException("null signing certificate");
+                String hash=PackageInputCollector.sha(history[i].toByteArray());canonical.append(hash).append('\n');
+                if(i<16)hashes.put(hash);
+            }
+            String chainHash=PackageInputCollector.sha(canonical.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            Json.put(out,"signingHistoryStatus",history.length>16?"partial":"ok");Json.put(out,"signingHistoryCount",history.length);
+            Json.put(out,"signingHistoryTruncated",history.length>16);Json.put(out,"signingHistorySha256",chainHash);Json.put(out,"signingCertificateHistorySha256",hashes);
+        }catch(SecurityException e){Json.put(out,"signingHistoryStatus","denied");}
+        catch(Exception e){Json.put(out,"signingHistoryStatus","error");}
     }
     static JSONArray webViewSignerHashes(android.content.pm.Signature[] signatures)throws Exception{
         JSONArray hashes=new JSONArray();for(int i=0;i<Math.min(16,signatures.length);i++)hashes.put(PackageInputCollector.sha(signatures[i].toByteArray()));return hashes;

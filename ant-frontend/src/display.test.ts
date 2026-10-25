@@ -237,6 +237,23 @@ describe('设备格式化展示边界', () => {
       expect(rows[0].value).toBe(status);
     }
   });
+  it('WebView 签名轮换历史保留顺序、重复哈希和未知状态，兼容旧摘要', () => {
+    const value = item('environment/webview-package-summary', 'environment', { hasMultipleSigners: false, hasPastSigningCertificates: true, signingHistoryStatus: 'partial', signingHistoryCount: 18, signingHistoryLimit: 16, signingHistoryTruncated: true, signingHistorySha256: 'c'.repeat(64), signingCertificateSha256: ['b'.repeat(64)], signingCertificateHistorySha256: ['a'.repeat(64), 'a'.repeat(64), 'b'.repeat(64)] });
+    const original = JSON.stringify(value);
+    const sections = buildSections(value);
+    expect(sections[0].rows.find(row => row.key === 'signingHistoryCount')?.value).toBe('18');
+    expect(sections[0].rows.find(row => row.key === 'signingHistorySha256')?.value).toBe('c'.repeat(64));
+    const history = sections.find(section => section.key === 'signingCertificateHistorySha256');
+    expect(history?.title).toBe('提供方签名轮换历史 SHA-256（平台顺序，最多 16 项）');
+    expect(history?.rows.map(row => row.value)).toEqual(['a'.repeat(64), 'a'.repeat(64), 'b'.repeat(64)]);
+    expect(JSON.stringify(value)).toBe(original);
+    const multiple = buildSections(item(value.key, 'environment', { signingHistoryStatus: 'multiple-signers', signingHistoryCount: null, signingHistoryTruncated: null }));
+    expect(multiple[0].rows.find(row => row.key === 'signingHistoryStatus')?.value).toBe('多签名，不适用单签名轮换历史');
+    expect(multiple[0].rows.find(row => row.key === 'signingHistoryCount')?.value).toBe('null');
+    const legacy = buildSections(item(value.key, 'environment', { signatureCount: 1, signingCertificateSha256: ['b'.repeat(64)] }));
+    expect(legacy.some(section => section.key === 'signingCertificateHistorySha256')).toBe(false);
+    expect(legacy[0].rows.some(row => row.key === 'signingHistoryCount')).toBe(false);
+  });
   it('USB 设备详情按数量与接口摘要展示', () => {
     const value = item('hardware/usb', 'hardware', { count: 1, devices: [{ deviceName: '/dev/bus/usb/001/002', vendorId: 18, productId: 52, interfaces: [{ id: 0, endpointCount: 2 }] }] });
     const sections = buildSections(value);

@@ -312,6 +312,55 @@ public class CollectionChecks {
         assertNotNull("应记录 WebView 提供方条目",provider);assertTrue(provider.getString("status").equals("ok")||provider.getString("status").equals("unsupported"));
         if("ok".equals(provider.getString("status"))&&!provider.isNull("value")){JSONObject value=provider.getJSONObject("value");assertTrue(value.getString("packageName").length()>0);assertTrue(value.has("signatures"));}
     }
+    @Test public void webViewSigningHistoryKeepsRotationOrderAndUnknownStates()throws Exception{
+        JSONObject absent=new JSONObject();BuildSystemCollector.putWebViewSigningHistory(absent,null);
+        assertEquals(Build.VERSION.SDK_INT<28?"unsupported":"unavailable",absent.getString("signingHistoryStatus"));
+        assertTrue(absent.isNull("hasMultipleSigners"));assertTrue(absent.isNull("signingHistoryCount"));assertTrue(absent.isNull("signingHistorySha256"));
+        if(Build.VERSION.SDK_INT>=28){
+            android.content.pm.PackageInfo unknown=new android.content.pm.PackageInfo();unknown.signingInfo=new android.content.pm.SigningInfo();
+            JSONObject missing=new JSONObject();BuildSystemCollector.putWebViewSigningHistory(missing,unknown);
+            assertEquals("unavailable",missing.getString("signingHistoryStatus"));assertTrue(missing.isNull("signingHistoryCount"));
+        }
+        if(Build.VERSION.SDK_INT>=35){
+            android.content.pm.Signature[] history=new android.content.pm.Signature[18];for(int i=0;i<history.length;i++)history[i]=new android.content.pm.Signature(new byte[]{(byte)i});history[1]=history[0];
+            android.content.pm.PackageInfo synthetic=new android.content.pm.PackageInfo();
+            synthetic.signingInfo=new android.content.pm.SigningInfo(3,Collections.singletonList(history[17]),null,Arrays.asList(history));
+            JSONObject value=new JSONObject();BuildSystemCollector.putWebViewSigningHistory(value,synthetic);
+            assertEquals("partial",value.getString("signingHistoryStatus"));assertFalse(value.getBoolean("hasMultipleSigners"));assertTrue(value.getBoolean("hasPastSigningCertificates"));
+            assertEquals(18,value.getInt("signingHistoryCount"));assertEquals(16,value.getInt("signingHistoryLimit"));assertTrue(value.getBoolean("signingHistoryTruncated"));
+            JSONArray hashes=value.getJSONArray("signingCertificateHistorySha256");assertEquals(16,hashes.length());
+            StringBuilder canonical=new StringBuilder();for(android.content.pm.Signature signature:history)canonical.append(PackageInputCollector.sha(signature.toByteArray())).append('\n');
+            assertEquals(PackageInputCollector.sha(canonical.toString().getBytes(StandardCharsets.UTF_8)),value.getString("signingHistorySha256"));
+            assertEquals(hashes.getString(0),hashes.getString(1));assertEquals(PackageInputCollector.sha(new byte[]{15}),hashes.getString(15));
+            android.content.pm.Signature[] changed=history.clone();changed[17]=new android.content.pm.Signature(new byte[]{99});
+            synthetic.signingInfo=new android.content.pm.SigningInfo(3,Collections.singletonList(changed[17]),null,Arrays.asList(changed));
+            JSONObject outside=new JSONObject();BuildSystemCollector.putWebViewSigningHistory(outside,synthetic);
+            assertEquals(hashes.toString(),outside.getJSONArray("signingCertificateHistorySha256").toString());assertNotEquals(value.getString("signingHistorySha256"),outside.getString("signingHistorySha256"));
+            List<android.content.pm.Signature> reversed=new ArrayList<>(Arrays.asList(history));Collections.reverse(reversed);
+            synthetic.signingInfo=new android.content.pm.SigningInfo(3,Collections.singletonList(history[0]),null,reversed);
+            JSONObject reordered=new JSONObject();BuildSystemCollector.putWebViewSigningHistory(reordered,synthetic);
+            assertNotEquals(value.getString("signingHistorySha256"),reordered.getString("signingHistorySha256"));assertEquals(PackageInputCollector.sha(new byte[]{17}),reordered.getJSONArray("signingCertificateHistorySha256").getString(0));
+            synthetic.signingInfo=new android.content.pm.SigningInfo(3,Arrays.asList(history[0],history[2]),null,null);
+            JSONObject multiple=new JSONObject();BuildSystemCollector.putWebViewSigningHistory(multiple,synthetic);
+            assertEquals("multiple-signers",multiple.getString("signingHistoryStatus"));assertTrue(multiple.getBoolean("hasMultipleSigners"));assertTrue(multiple.isNull("signingHistoryCount"));assertTrue(multiple.isNull("signingHistoryTruncated"));assertTrue(multiple.isNull("signingHistorySha256"));
+            synthetic.signingInfo=new android.content.pm.SigningInfo(3,Collections.singletonList(history[0]),null,null);
+            JSONObject single=new JSONObject();BuildSystemCollector.putWebViewSigningHistory(single,synthetic);
+            assertEquals("ok",single.getString("signingHistoryStatus"));assertFalse(single.getBoolean("hasPastSigningCertificates"));assertEquals(1,single.getInt("signingHistoryCount"));assertFalse(single.getBoolean("signingHistoryTruncated"));
+        }
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new BuildSystemCollector("environment").collect(sink);
+        JSONObject summary=null;for(int i=0;i<sink.items.length();i++)if(sink.items.getJSONObject(i).getString("key").equals("environment/webview-package-summary"))summary=sink.items.getJSONObject(i);
+        assertNotNull(summary);assertEquals("ok",summary.getString("status"));JSONObject value=summary.getJSONObject("value");
+        if(!value.getBoolean("available"))return;
+        assertTrue(value.has("signingHistoryStatus"));assertTrue(value.has("signingCertificateSha256"));assertTrue(value.has("installerQueryStatus"));
+        if(Build.VERSION.SDK_INT>=28&&value.getString("packageQueryStatus").equals("allowed")){
+            android.content.pm.SigningInfo info=context.getPackageManager().getPackageInfo(value.getString("packageName"),android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES).signingInfo;
+            if(info!=null){assertEquals(info.hasMultipleSigners(),value.getBoolean("hasMultipleSigners"));assertEquals(info.hasPastSigningCertificates(),value.getBoolean("hasPastSigningCertificates"));
+                android.content.pm.Signature[] history=info.getSigningCertificateHistory();
+                if(history!=null){assertEquals(history.length,value.getInt("signingHistoryCount"));assertEquals(Math.min(16,history.length),value.getJSONArray("signingCertificateHistorySha256").length());for(int i=0;i<Math.min(16,history.length);i++)assertEquals(PackageInputCollector.sha(history[i].toByteArray()),value.getJSONArray("signingCertificateHistorySha256").getString(i));}
+            }
+        }
+        assertFalse(value.toString().contains("derBase64"));
+    }
     @Test public void webViewPackageSummaryKeepsScopedAndBoundedEvidence()throws Exception{
         android.content.pm.Signature[] synthetic=new android.content.pm.Signature[18];for(int i=0;i<synthetic.length;i++)synthetic[i]=new android.content.pm.Signature(new byte[]{(byte)i});
         JSONArray hashes=BuildSystemCollector.webViewSignerHashes(synthetic);assertEquals(16,hashes.length());assertEquals(PackageInputCollector.sha(new byte[]{0}),hashes.getString(0));assertEquals(PackageInputCollector.sha(new byte[]{15}),hashes.getString(15));

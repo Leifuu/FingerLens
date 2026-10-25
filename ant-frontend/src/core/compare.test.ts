@@ -6,6 +6,21 @@ const raw = { semantic: false, ignoreDynamic: false }, semantic = { semantic: tr
 const find = (rows: ReturnType<typeof compare>, key: string) => rows.find(x => x.key === key)!;
 
 describe('原始与语义比较', () => {
+  it('WebView 签名轮换顺序和截断外历史哈希参与所有模式比较，旧 JSON 缺项保留差异', () => {
+    const key = 'environment/webview-package-summary';
+    const old = fixture([fixtureItem(key, { signatureCount: 1 }, { category: 'environment' })]);
+    const left = fixture([fixtureItem(key, { signatureCount: 1, signingCertificateHistorySha256: ['a', 'b'], signingHistorySha256: 'full-a' }, { category: 'environment' })]);
+    const reversed = structuredClone(left);
+    reversed.data.items[0].value = { signatureCount: 1, signingCertificateHistorySha256: ['b', 'a'], signingHistorySha256: 'full-a' };
+    const outside = structuredClone(left);
+    outside.data.items[0].value = { signatureCount: 1, signingCertificateHistorySha256: ['a', 'b'], signingHistorySha256: 'full-b' };
+    for (const rules of [raw, semantic, smart]) {
+      expect(find(compare(left, reversed, rules), key).state).toBe('different');
+      expect(find(compare(left, outside, rules), key).changedPaths).toEqual(['/value/signingHistorySha256']);
+      expect(find(compare(old, left, rules), key).changedPaths).toContain('/value/signingCertificateHistorySha256');
+      expect(find(compare(old, old, rules), key).state).toBe('same');
+    }
+  });
   it('新锁屏未知值与旧 false 保持差异，各种比较模式不将其合并', () => {
     const fields = ['keyguardSecure', 'keyguardLocked', 'deviceSecure', 'deviceLocked'];
     for (const key of ['security/summary', 'security/lock-biometric']) {

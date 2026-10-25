@@ -50,6 +50,7 @@ const STATUS_LABELS: Record<string, string> = {
   security_update_required: '需要安全更新', error: '读取异常', skipped: '未执行', truncated: '已截断', ok: '成功',
   present: '已观察到', missing: '路径不存在', unresolved: '路径未解析', partial: '部分可观察',
   'not-found-or-not-visible': '未找到或当前 App 不可见',
+  'multiple-signers': '多签名，不适用单签名轮换历史',
 };
 
 const APP_OP_MODE_LABELS: Record<number, string> = {
@@ -362,7 +363,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     'sensors/summary': { title: '传感器能力摘要', order: ['count', 'wakeUpCount', 'dynamicCount', 'directChannelCount', 'vendorsTruncated', 'typeCounts'], arrays: ['vendors'] },
     'environment/webview-user-agent': { title: 'WebView 默认 User-Agent', order: ['userAgent', 'length'], arrays: [] },
     'environment/webview-provider': { title: 'WebView 提供方环境', order: ['packageName', 'versionName', 'versionCode'], arrays: ['signatures'] },
-    'environment/webview-package-summary': { title: 'WebView 提供方安装环境摘要', order: ['available', 'status', 'packageName', 'selectedVersionName', 'selectedVersionCode', 'packageQueryStatus', 'selectionVersionMatches', 'versionName', 'versionCode', 'applicationInfoAvailable', 'enabled', 'systemApp', 'updatedSystemApp', 'targetSdkVersion', 'minSdkVersion', 'firstInstallTime', 'lastUpdateTime', 'signatureCount', 'signatureLimit', 'signaturesTruncated', 'installer', 'installerQueryStatus'], arrays: ['signingCertificateSha256'] },
+    'environment/webview-package-summary': { title: 'WebView 提供方安装环境摘要', order: ['available', 'status', 'packageName', 'selectedVersionName', 'selectedVersionCode', 'packageQueryStatus', 'selectionVersionMatches', 'versionName', 'versionCode', 'applicationInfoAvailable', 'enabled', 'systemApp', 'updatedSystemApp', 'targetSdkVersion', 'minSdkVersion', 'firstInstallTime', 'lastUpdateTime', 'signatureCount', 'signatureLimit', 'signaturesTruncated', 'hasMultipleSigners', 'hasPastSigningCertificates', 'signingHistoryStatus', 'signingHistoryCount', 'signingHistoryLimit', 'signingHistoryTruncated', 'signingHistorySha256', 'installer', 'installerQueryStatus'], arrays: ['signingCertificateSha256', 'signingCertificateHistorySha256'] },
     'environment/power-thermal': { title: '电源与热状态', order: ['powerSaveMode', 'interactive', 'ignoresBatteryOptimizations', 'batteryOptimizationQueryStatus', 'deviceIdleMode', 'lightDeviceIdleMode', 'locationPowerSaveMode', 'thermalStatus', 'thermalHeadroom'], arrays: [] },
     'hardware/usb': { title: 'USB 设备公开清单', order: ['count'], arrays: ['devices'] },
   };
@@ -390,7 +391,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
             ? arrayKey === 'signingCertificateSha256' ? '当前签名 SHA-256' : '签名历史 SHA-256'
           : key === 'environment/process-exits' && arrayKey === 'entries' ? '最近退出条目'
           : key === 'environment/webview-provider' && arrayKey === 'signatures' ? '提供方签名 SHA-256'
-          : key === 'environment/webview-package-summary' && arrayKey === 'signingCertificateSha256' ? '提供方当前签名 SHA-256（最多 16 项）'
+          : key === 'environment/webview-package-summary' ? arrayKey === 'signingCertificateSha256' ? '提供方当前签名 SHA-256（最多 16 项）' : '提供方签名轮换历史 SHA-256（平台顺序，最多 16 项）'
           : key === 'security/providers-summary' && arrayKey === 'providers' ? '安全提供者'
           : key === 'security/providers-summary' && arrayKey === 'serviceNames' ? '服务名（最多 512 项）'
           : key === 'security/self-permissions' && arrayKey === 'permissions' ? '声明权限（最多 256 项）'
