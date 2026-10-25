@@ -17,6 +17,33 @@ function text(value: Json): string {
   return JSON.stringify(value, null, 2);
 }
 
+const BYTE_UNITS = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB'];
+
+function byteText(key: string, value: Json): string | undefined {
+  const field = key.split('.').pop() || key;
+  if (!field.endsWith('Bytes')) return undefined;
+  const raw = typeof value === 'number' && Number.isInteger(value)
+    ? String(value)
+    : object(value) && value.$type === 'int64' && typeof value.value === 'string'
+      ? value.value
+      : typeof value === 'string' && /^-?\d+$/.test(value)
+        ? value
+        : undefined;
+  if (raw === undefined) return undefined;
+  const bytes = BigInt(raw);
+  if (bytes < 1024n) return `${raw} B`;
+  let unit = 0;
+  let divisor = 1n;
+  while (bytes / divisor >= 1024n && unit < BYTE_UNITS.length - 1) {
+    divisor *= 1024n;
+    unit += 1;
+  }
+  const whole = bytes / divisor;
+  const hundredths = (bytes % divisor * 100n) / divisor;
+  const fraction = hundredths === 0n ? '' : `.${hundredths.toString().padStart(2, '0').replace(/0+$/, '')}`;
+  return `${whole}${fraction} ${BYTE_UNITS[unit]}（${raw} B）`;
+}
+
 const STATUS_LABELS: Record<string, string> = {
   allowed: '已授权', denied: '受限/未授权', unsupported: '系统不支持', unavailable: '接口不可用',
   success: '可用', none_enrolled: '未录入', no_hardware: '无硬件', hardware_unavailable: '硬件暂不可用',
@@ -29,6 +56,8 @@ const APP_OP_MODE_LABELS: Record<number, string> = {
 
 function displayText(key: string, value: Json): string {
   const field = key.split('.').pop() || key;
+  const bytes = byteText(key, value);
+  if (bytes !== undefined) return bytes;
   if (typeof value === 'number' && field === 'mode' && key.startsWith('appOps.')) return APP_OP_MODE_LABELS[value] || `模式 ${value}`;
   if (typeof value === 'string' && (field === 'access' || field.endsWith('Access') || field.endsWith('Status'))) {
     return STATUS_LABELS[value] || (value.startsWith('error_') ? `异常（${value.slice(6)}）` : value);
