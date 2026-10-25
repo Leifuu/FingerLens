@@ -53,7 +53,7 @@ public final class BuildSystemCollector implements Collector {
         s.ok("build","build/os-summary","Android 系统版本摘要","android-api","Build.VERSION",osSummary());
         s.read("build","build/sdk-extensions","SDK 扩展版本摘要","SdkExtensions.getAllExtensionVersions / getExtensionVersion",BuildSystemCollector::sdkExtensions);
         s.read("build","build/module-summary","Mainline 系统模块摘要","PackageManager.getInstalledModules",()->moduleSummary(s.context));
-        s.read("build","build/modules","Mainline 系统模块清单","PackageManager.getInstalledModules",()->moduleList(s.context));
+        s.read("build","build/modules","Mainline 系统模块清单","PackageManager.getInstalledModules / getPackageInfo(MATCH_APEX)",()->moduleList(s.context));
         Commands.collect(s,"build","build/getprop","/system/bin/getprop");
     }
     // 业务块：把公开 ABI 列表压缩为架构族和位数计数；Build 原始字段继续保留。
@@ -109,7 +109,23 @@ public final class BuildSystemCollector implements Collector {
         }catch(SecurityException e){return Json.obj("available",false,"status","denied","count",null,"hiddenCount",null,"namedCount",null,"packageNameCount",null,"moduleNames",new JSONArray(),"packageNames",new JSONArray(),"moduleNamesTruncated",null,"packageNamesTruncated",null,"moduleSetSha256",null);}catch(RuntimeException e){return Json.obj("available",false,"status","error","count",null,"hiddenCount",null,"namedCount",null,"packageNameCount",null,"moduleNames",new JSONArray(),"packageNames",new JSONArray(),"moduleNamesTruncated",null,"packageNamesTruncated",null,"moduleSetSha256",null,"error",e.getClass().getName());}
     }
     private static JSONObject moduleList(Context context)throws Exception{
-        List<ModuleInfo> modules=installedModules(context);JSONArray values=new JSONArray();int limit=Math.min(512,modules.size());for(int i=0;i<limit;i++){ModuleInfo module=modules.get(i);if(module==null)continue;values.put(Json.obj("name",module.getName()==null?null:module.getName().toString(),"packageName",module.getPackageName(),"hidden",module.isHidden()));}return Json.obj("count",modules.size(),"returnedCount",values.length(),"truncated",modules.size()>limit,"modules",values);
+        List<ModuleInfo> modules=installedModules(context);PackageManager manager=context.getPackageManager();Map<String,JSONObject> versions=new HashMap<>();JSONArray values=new JSONArray();int limit=Math.min(512,modules.size());
+        for(int i=0;i<limit;i++){ModuleInfo module=modules.get(i);if(module==null)continue;values.put(Json.obj("name",module.getName()==null?null:module.getName().toString(),"packageName",module.getPackageName(),"hidden",module.isHidden(),"packageVersion",versions.computeIfAbsent(module.getPackageName(),name->modulePackageVersion(manager,name))));}
+        return Json.obj("count",modules.size(),"returnedCount",values.length(),"truncated",modules.size()>limit,"modules",values);
+    }
+    // 业务块：仅查询模块清单关联包，包含当前已安装 APEX；单包失败不抹去模块元数据或猜测版本。
+    static JSONObject modulePackageVersion(PackageManager manager,String packageName){
+        JSONObject out=Json.obj("status","unavailable","versionName",null,"versionCode",null,"isApex",null,"errorClass",null);
+        if(Build.VERSION.SDK_INT<29){Json.put(out,"status","unsupported");return out;}
+        if(packageName==null||packageName.isEmpty()){Json.put(out,"status","missing-package-name");return out;}
+        if(manager==null)return out;
+        try{
+            PackageInfo info=manager.getPackageInfo(packageName,PackageManager.MATCH_APEX);if(info==null)return out;
+            Json.put(out,"status","ok");Json.put(out,"versionName",info.versionName);Json.put(out,"versionCode",info.getLongVersionCode());Json.put(out,"isApex",info.isApex);
+        }catch(PackageManager.NameNotFoundException e){Json.put(out,"status","not-found-or-not-visible");Json.put(out,"errorClass",e.getClass().getName());}
+        catch(SecurityException e){Json.put(out,"status","denied");Json.put(out,"errorClass",e.getClass().getName());}
+        catch(RuntimeException|LinkageError e){Json.put(out,"status","error");Json.put(out,"errorClass",e.getClass().getName());}
+        return out;
     }
     private static List<ModuleInfo> installedModules(Context context){if(Build.VERSION.SDK_INT<29)throw new UnsupportedOperationException("requires API 29");PackageManager manager=context.getPackageManager();if(manager==null)throw new IllegalStateException("PackageManager unavailable");return manager.getInstalledModules(PackageManager.MATCH_ALL);}
     private static JSONArray boundedStrings(Collection<String> values,int limit){JSONArray out=new JSONArray();int count=0;for(String value:values){if(count++>=limit)break;out.put(value);}return out;}

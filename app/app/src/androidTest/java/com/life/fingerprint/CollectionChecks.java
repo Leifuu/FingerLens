@@ -21,6 +21,25 @@ public class CollectionChecks {
     private Context context;
     private final ArrayList<CollectionController> controllers=new ArrayList<>();
     @Before public void setup(){context=InstrumentationRegistry.getInstrumentation().getTargetContext();}
+    @Test public void moduleVersionsMatchVisiblePackagesAndKeepFailuresSeparate()throws Exception{
+        android.content.pm.PackageManager manager=context.getPackageManager();
+        if(Build.VERSION.SDK_INT<29){assertEquals("unsupported",BuildSystemCollector.modulePackageVersion(manager,context.getPackageName()).getString("status"));return;}
+        assertEquals("missing-package-name",BuildSystemCollector.modulePackageVersion(manager,null).getString("status"));assertEquals("missing-package-name",BuildSystemCollector.modulePackageVersion(manager,"").getString("status"));assertEquals("unavailable",BuildSystemCollector.modulePackageVersion(null,context.getPackageName()).getString("status"));
+        JSONObject missing=BuildSystemCollector.modulePackageVersion(manager,context.getPackageName()+".fingerlens_missing_module");assertEquals("not-found-or-not-visible",missing.getString("status"));assertTrue(missing.isNull("versionCode"));assertTrue(missing.isNull("versionName"));assertTrue(missing.isNull("isApex"));
+        android.content.pm.PackageInfo self=manager.getPackageInfo(context.getPackageName(),android.content.pm.PackageManager.MATCH_APEX);JSONObject own=BuildSystemCollector.modulePackageVersion(manager,context.getPackageName());assertEquals("ok",own.getString("status"));assertEquals(String.valueOf(self.getLongVersionCode()),own.getJSONObject("versionCode").getString("value"));assertEquals(self.isApex,own.getBoolean("isApex"));
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new BuildSystemCollector("build").collect(sink);JSONObject raw=null;boolean summary=false;
+        for(int i=0;i<sink.items.length();i++){JSONObject entry=sink.items.getJSONObject(i);if(entry.getString("key").equals("build/modules"))raw=entry;if(entry.getString("key").equals("build/module-summary"))summary=true;}
+        assertNotNull(raw);assertTrue(summary);assertEquals("ok",raw.getString("status"));JSONObject value=raw.getJSONObject("value");JSONArray entries=value.getJSONArray("modules");assertTrue(entries.length()<=512);assertEquals(entries.length(),value.getInt("returnedCount"));
+        List<android.content.pm.ModuleInfo> expected=manager.getInstalledModules(android.content.pm.PackageManager.MATCH_ALL);assertEquals(expected.size(),value.getInt("count"));int index=0;
+        for(int i=0;i<Math.min(512,expected.size());i++){
+            android.content.pm.ModuleInfo module=expected.get(i);if(module==null)continue;JSONObject entry=entries.getJSONObject(index++),version=entry.getJSONObject("packageVersion");assertEquals(module.getPackageName()==null?JSONObject.NULL:module.getPackageName(),entry.get("packageName"));assertEquals(module.isHidden(),entry.getBoolean("hidden"));assertEquals(module.getName()==null?JSONObject.NULL:module.getName().toString(),entry.get("name"));
+            if(module.getPackageName()==null||module.getPackageName().isEmpty()){assertEquals("missing-package-name",version.getString("status"));assertTrue(version.isNull("versionCode"));continue;}
+            try{android.content.pm.PackageInfo info=manager.getPackageInfo(module.getPackageName(),android.content.pm.PackageManager.MATCH_APEX);assertEquals("ok",version.getString("status"));assertEquals(info.versionName==null?JSONObject.NULL:info.versionName,version.get("versionName"));assertEquals("int64",version.getJSONObject("versionCode").getString("$type"));assertEquals(String.valueOf(info.getLongVersionCode()),version.getJSONObject("versionCode").getString("value"));assertEquals(info.isApex,version.getBoolean("isApex"));}
+            catch(android.content.pm.PackageManager.NameNotFoundException e){assertEquals("not-found-or-not-visible",version.getString("status"));assertTrue(version.isNull("versionCode"));assertTrue(version.isNull("isApex"));}
+            catch(SecurityException e){assertEquals("denied",version.getString("status"));assertTrue(version.isNull("versionCode"));}
+        }
+        assertEquals(entries.toString(),new JSONArray(entries.toString()).toString());
+    }
     @Test public void tlsParametersMatchDefaultContextAndKeepOrderedEvidence()throws Exception{
         javax.net.ssl.SSLContext original=javax.net.ssl.SSLContext.getDefault();
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new SecurityCollector("security").collect(sink);

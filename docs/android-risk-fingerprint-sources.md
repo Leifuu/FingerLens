@@ -95,6 +95,13 @@
 
 - [SdkExtensions](https://developer.android.com/reference/android/os/ext/SdkExtensions) 与 [AOSP 模块源码](https://android.googlesource.com/platform/packages/modules/SdkExtensions/+/refs/heads/main/java/android/os/ext/SdkExtensions.java)（2026-10-26 已核对源码与 SDK api-versions.xml）：`getExtensionVersion` 自 API 30 可用，`getAllExtensionVersions` 自 API 31 可用。新增 `build/sdk-extensions`，API 30 仅查询 R，API 31+ 读取系统公开的扩展标识与版本集合；按标识排序，最多保存 32 项，并对完整集合计算 SHA-256。0 是有效版本，不当作查询失败；扩展标识包含 AD_SERVICES 等非平台 API 级别，未知正标识原样保留。扩展版本用于说明 API 能力，不替代系统版本、安全补丁日期、Mainline 安装清单或远程完整性结论；旧 JSON 与 Build 条目保留。
 
+## Mainline 关联包版本
+
+- [PackageManager.MATCH_APEX](https://developer.android.com/reference/android/content/pm/PackageManager#MATCH_APEX)、[PackageInfo.getLongVersionCode](https://developer.android.com/reference/android/content/pm/PackageInfo#getLongVersionCode()) 与 [PackageInfo.isApex](https://developer.android.com/reference/android/content/pm/PackageInfo#isApex)（2026-10-26 核对 SDK37：MATCH_APEX/isApex自API29、long版本号自API28）：对照[AOSP固定实现](https://github.com/aosp-mirror/platform_frameworks_base/blob/1cdfff555f4a21f71ccc978290e2e212e2f8b168/core/java/android/content/pm/PackageManager.java)的公开契约，MATCH_APEX包含当前已安装、已激活的APEX，不代表下次重启才激活的staged文件；long版本号组合主/次32位，不得转为JavaScript浮点数。
+- `build/modules.modules[*]` 新增 `packageVersion`：仅查询getInstalledModules返回的关联包名，沿用512个模块明细上限，同名关联包复用一次查询。保存status、versionName、int64 versionCode、isApex及可选异常类型；不可见/未找到、缺包名、权限拒绝、服务不可用或其它错误保留明确状态与null，不猜版本或APEX属性。它是关联包的版本证据，不覆盖模块name/packageName/hidden，也不推导每个内部组件的版本、安全补丁或风险结论。原module-summary及其元数据集合哈希不包含版本，版本差异在完整build/modules中比较；旧JSON缺新增对象仍正常导入。
+
+- 真机边界（Pixel6/Android15，2026-10-26）：ModuleInfo中的41个配置包名仅6个关联包查询成功，35个返回未找到或不可见；例如配置为`com.google.android.art`，ADB的已安装APEX清单显示`com.android.art`。这证明配置名称与安装包名可以不同，不能仅替换名称前缀建立模块关联，也不能把查询失败当作APEX未安装。该ADB观察未写入App采集结果；实际APEX清单应另用公开包枚举查询验证。
+
 ## CLDR 区域数据版本
 
 - [LocaleData.getCLDRVersion](https://developer.android.com/reference/android/icu/util/LocaleData#getCLDRVersion())（2026-10-26 核对 SDK37.0，自 API28 公开）：读取当前平台 ICU 使用的 CLDR 数据版本，与 ICU 运行库、Unicode 数据及 ICU 时区数据版本分别记录。[ICU 官方固定实现](https://github.com/unicode-org/icu/blob/ad110a2381f1b75bfb875fb0b672b7c38dce4e4b/icu4j/main/core/src/main/java/com/ibm/icu/util/LocaleData.java) 从 supplementalData 的 cldrVersion 资源取得版本，不能按 ICU 版本号或上游发布版本推测设备值。

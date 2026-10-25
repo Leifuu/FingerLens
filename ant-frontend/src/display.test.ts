@@ -7,6 +7,20 @@ function item(key: string, category: string, value: Json): Item {
 }
 
 describe('设备格式化展示边界', () => {
+  it('模块关联包版本保留int64精度、未知字段和不可见状态，不改旧模块元数据', () => {
+    const source = item('build/modules', 'build', { count: 2, modules: [
+      { name: 'same', packageName: 'module.test', hidden: true, packageVersion: { status: 'ok', versionName: '', versionCode: { $type: 'int64', value: '9223372036854775807' }, isApex: true, future: { flag: false } } },
+      { name: 'same', packageName: 'module.missing', hidden: false, packageVersion: { status: 'not-found-or-not-visible', versionName: null, versionCode: null, isApex: null } },
+    ] });
+    const before = JSON.stringify(source), rows = buildSections(source).find(group => group.key === 'modules')!.rows;
+    expect(rows.find(row => row.key === '[0].packageVersion.versionCode')?.value).toBe('9223372036854775807');
+    expect(rows.find(row => row.key === '[0].packageVersion.versionName')?.value).toBe('');
+    expect(rows.find(row => row.key === '[0].packageVersion.future.flag')?.value).toBe('false');
+    expect(rows.find(row => row.key === '[1].packageVersion.status')?.value).toBe('not-found-or-not-visible');
+    expect(rows.find(row => row.key === '[1].packageVersion.versionCode')?.value).toBe('null');
+    expect(rows.filter(row => row.key.endsWith('.name')).map(row => row.value)).toEqual(['same', 'same']);
+    expect(JSON.stringify(source)).toBe(before);
+  });
   it('TLS 参数分组保留顺序、重复、未知字段及空值，缺失列表不冒充空集合', () => {
     const source = item('security/tls-parameters', 'security', { providerName: 'test', defaultProtocols: ['TLSv1.3', 'TLSv1.2', 'TLSv1.3', '', null], supportedCipherSuites: [], futureField: { flag: false }, futureList: ['future'] });
     const before = JSON.stringify(source), groups = buildSections(source);

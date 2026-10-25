@@ -6,6 +6,18 @@ const raw = { semantic: false, ignoreDynamic: false }, semantic = { semantic: tr
 const find = (rows: ReturnType<typeof compare>, key: string) => rows.find(x => x.key === key)!;
 
 describe('原始与语义比较', () => {
+  it('旧Mainline JSON保留模块元数据，关联包版本缺项与64位版本变化参与比较', () => {
+    const key = 'build/modules', module = { name: 'test', packageName: 'module.test', hidden: true };
+    const legacy = fixture([fixtureItem(key, { modules: [module] }, { category: 'build' })]);
+    const withVersion = (value: string) => fixture([fixtureItem(key, { modules: [{ ...module, packageVersion: { status: 'ok', versionCode: { $type: 'int64', value }, versionName: null, isApex: true } }] }, { category: 'build' })]);
+    const current = withVersion('9007199254740992'), changed = withVersion('9007199254740993');
+    const before = JSON.stringify([legacy, current, changed]);
+    for (const rules of [raw, semantic, smart]) {
+      expect(find(compare(legacy, current, rules), key).changedPaths).toEqual(['/value/modules/0/packageVersion']);
+      expect(find(compare(current, changed, rules), key).state).toBe('different');
+    }
+    expect(JSON.stringify([legacy, current, changed])).toBe(before);
+  });
   it('CLDR 新条目兼容旧国际化JSON，API28以下不支持区别于成功值', () => {
     const key = 'environment/cldr-version';
     const legacy = fixture([fixtureItem('environment/icu-version', '75.1.0.0', { category: 'environment' })]);
