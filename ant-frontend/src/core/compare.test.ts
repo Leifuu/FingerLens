@@ -40,6 +40,22 @@ describe('原始与语义比较', () => {
     expect(row.changedPaths).toEqual(['/value/totalMemBytes']);
     expect(row.ignored).toBe(8);
   });
+  it('智能过滤忽略电话注册与信号动态摘要字段', () => {
+    const a = fixture([
+      fixtureItem('sim/service-summary', { serviceState: 0, registrationCount: 2, registeredCount: 2, domainCounts: { '1': 2 }, manualSelection: false }, { category: 'sim' }),
+      fixtureItem('sim/signal-summary', { timestampMillis: '100', signalLevel: 2, dbmMin: -110, dbmMax: -80, levelCounts: { '2': 1 }, typeCounts: { Lte: 1 }, available: true }, { category: 'sim' }),
+    ]);
+    const b = fixture([
+      fixtureItem('sim/service-summary', { serviceState: 1, registrationCount: 0, registeredCount: 0, domainCounts: {}, manualSelection: false }, { category: 'sim' }),
+      fixtureItem('sim/signal-summary', { timestampMillis: '200', signalLevel: 4, dbmMin: -70, dbmMax: -50, levelCounts: { '4': 1 }, typeCounts: { Nr: 1 }, available: true }, { category: 'sim' }),
+    ]);
+    const service = find(compare(a, b, smart), 'sim/service-summary');
+    const signal = find(compare(a, b, smart), 'sim/signal-summary');
+    expect(service.state).toBe('same');
+    expect(signal.state).toBe('same');
+    expect(service.ignored).toBeGreaterThan(0);
+    expect(signal.ignored).toBeGreaterThan(0);
+  });
   it('同一对象键顺序不产生差异，字段缺失区别于 null', () => { const a = fixture([fixtureItem('object', { x: 1, y: null })]); const b = fixture([fixtureItem('object', { y: null, x: 1 })]); expect(find(compare(a, b, raw), 'object').state).toBe('same'); b.data.items[0].value = { x: 1 }; expect(find(compare(a, b, raw), 'object').changedPaths).toContain('/value/y'); });
   it('提示 API、签名、授权、配置与非完整结果差异', () => { const a = fixture(), b = fixture(); b.data.app.androidSdk = 35; b.data.permissions.camera = true; b.data.config.changed = true; b.data.state = 'partial'; expect(conditions(a, b)).toHaveLength(4); });
   it('恶意内容保持文本，格式化不改原值', () => { const text = '{"x":"<script>globalThis.pwned=true</script>"}'; expect(formattedText(text)).toContain('\n'); expect(rawText(text)).toBe(text); expect((globalThis as Record<string, unknown>).pwned).toBeUndefined(); });

@@ -5,8 +5,13 @@ function object(v: Json | undefined): v is Record<string, Json> { return v !== n
 function canonical(v: Json): string { if (Array.isArray(v)) return `[${v.map(canonical).join(',')}]`; if (object(v)) return `{${Object.keys(v).sort().map(k => `${JSON.stringify(k)}:${canonical(v[k])}`).join(',')}}`; return JSON.stringify(v); }
 // 智能过滤只忽略采集进程、运行时和启动时间会自然变化的字段，稳定设备字段仍参与比较。
 const transient = new Set(['pid', 'uid', 'startedAt', 'finishedAt', 'startTime', 'startTimeMillis', 'processStartTime', 'processStartTimeMillis', 'runTime', 'runtime', 'runningTime', 'elapsedRealtime', 'uptimeMillis', 'wallClockMillis', 'elapsedRealtimeMillis', 'bootTimeMillis', 'sleepMillis', 'tracerPid', 'state', 'threadCount', 'firstInstallTime', 'lastUpdateTime', 'challengeBase64', 'signatureBase64', 'publicKeyBase64', 'certificateChainBase64', 'timestamp', 'powerSaveMode', 'interactive', 'deviceIdleMode', 'lightDeviceIdleMode', 'locationPowerSaveMode', 'thermalStatus', 'thermalHeadroom', 'availMemBytes', 'runtimeTotalMemoryBytes', 'runtimeFreeMemoryBytes', 'heapUsedBytes']);
+const transientByItem: Record<string, ReadonlySet<string>> = {
+  'sim/service-summary': new Set(['serviceState', 'roaming', 'searching', 'nonTerrestrial', 'channelNumber', 'duplexMode', 'cellBandwidths', 'registrationCount', 'registeredCount', 'roamingCount', 'searchingCount', 'emergencyServiceCount', 'nonTerrestrialCount', 'domainCounts', 'transportCounts', 'accessNetworkTechnologyCounts']),
+  'sim/signal-summary': new Set(['timestampMillis', 'signalLevel', 'cellCount', 'validCellCount', 'typeCounts', 'levelCounts', 'dbmMin', 'dbmMax', 'asuMin', 'asuMax']),
+};
 function isDynamicField(itemKey: string, field: string, path: string): boolean {
   if (transient.has(field)) return true;
+  if (transientByItem[itemKey]?.has(field)) return true;
   // 应用清单的旧/新对象都可能把 UID 放在 application.uid；按路径兼容两种表示。
   return itemKey.startsWith('packages/') && (field === 'application.uid' || path.endsWith('.application.uid'));
 }
