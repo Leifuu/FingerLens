@@ -349,6 +349,34 @@ public class CollectionChecks {
         JSONObject lock=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("security/lock-biometric")){lock=item;break;}}
         assertNotNull("应记录锁屏与生物识别环境",lock);assertEquals("ok",lock.getString("status"));JSONObject value=lock.getJSONObject("value");assertTrue(value.has("keyguardSecure"));assertTrue(value.has("deviceLocked"));assertTrue(value.has("fingerprintFeature"));assertTrue(value.has("biometricStrongCode"));assertTrue(value.has("biometricStrongStatus"));assertTrue(value.has("biometricWeakCode"));assertTrue(value.has("biometricWeakStatus"));assertTrue(value.has("deviceCredentialCode"));assertTrue(value.has("deviceCredentialStatus"));assertFalse(value.has("biometricTemplate"));
     }
+    @Test public void missingKeyguardKeepsUnknownSeparateFromFalse()throws Exception{
+        Context missingKeyguard=new ContextWrapper(context){
+            @Override public Object getSystemService(String name){
+                if(Context.KEYGUARD_SERVICE.equals(name))return null;
+                return super.getSystemService(name);
+            }
+        };
+        assertNull(missingKeyguard.getSystemService(KeyguardManager.class));
+        assertNotNull("正常测试设备应提供锁屏服务",context.getSystemService(KeyguardManager.class));
+        for(Context source:new Context[]{missingKeyguard,context}){
+            ItemSink sink=new ItemSink(source,UUID.randomUUID().toString());new SecurityCollector("security").collect(sink);
+            JSONObject exported=new JSONObject(Json.obj("items",sink.items).toString());int checked=0;
+            for(int i=0;i<exported.getJSONArray("items").length();i++){
+                JSONObject item=exported.getJSONArray("items").getJSONObject(i);String key=item.getString("key");
+                if(!key.equals("security/summary")&&!key.equals("security/lock-biometric"))continue;
+                checked++;assertEquals("其它公开状态仍应正常采集", "ok",item.getString("status"));JSONObject value=item.getJSONObject("value");
+                for(String field:new String[]{"keyguardSecure","keyguardLocked","deviceSecure","deviceLocked"}){
+                    assertTrue(key+" 应保留 "+field,value.has(field));
+                    if(source==missingKeyguard)assertTrue(key+" 缺失锁屏服务时 "+field+" 必须为 null，不能为 false",value.isNull(field));
+                    else assertTrue(key+" 正常服务的 "+field+" 应为 boolean",value.get(field) instanceof Boolean);
+                }
+                assertTrue(value.get("fingerprintFeature") instanceof Boolean);
+                if(key.equals("security/lock-biometric"))assertTrue(value.has("biometricStrongStatus"));
+                else assertTrue(value.has("securityProviderCount"));
+            }
+            assertEquals("两个锁屏采集路径均须覆盖",2,checked);
+        }
+    }
     @Test public void accessibilityEvidenceUsesServiceMetadataOnly()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new SecurityCollector("security").collect(sink);
         JSONObject accessibility=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("security/accessibility")){accessibility=item;break;}}

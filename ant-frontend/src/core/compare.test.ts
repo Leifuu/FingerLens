@@ -6,6 +6,21 @@ const raw = { semantic: false, ignoreDynamic: false }, semantic = { semantic: tr
 const find = (rows: ReturnType<typeof compare>, key: string) => rows.find(x => x.key === key)!;
 
 describe('原始与语义比较', () => {
+  it('新锁屏未知值与旧 false 保持差异，各种比较模式不将其合并', () => {
+    const fields = ['keyguardSecure', 'keyguardLocked', 'deviceSecure', 'deviceLocked'];
+    for (const key of ['security/summary', 'security/lock-biometric']) {
+      const old = fixture([fixtureItem(key, Object.fromEntries(fields.map(field => [field, false])), { category: 'security' })]);
+      const current = fixture([fixtureItem(key, Object.fromEntries(fields.map(field => [field, null])), { category: 'security' })]);
+      const before = JSON.stringify([old, current]);
+      for (const rules of [raw, semantic, smart]) {
+        const row = find(compare(old, current, rules), key);
+        expect(row.state).toBe('different');
+        expect(row.changedPaths).toEqual(fields.map(field => `/value/${field}`));
+        expect(find(compare(old, old, rules), key).state).toBe('same');
+      }
+      expect(JSON.stringify([old, current])).toBe(before);
+    }
+  });
   it('覆盖相同、单侧、状态不同、类型不同与不可比较', () => { const a = fixture([fixtureItem('same'), fixtureItem('left'), fixtureItem('status'), fixtureItem('type', 1), fixtureItem('denied', null, { status: 'denied' })]); const b = fixture([fixtureItem('same'), fixtureItem('right'), fixtureItem('status', null, { status: 'denied' }), fixtureItem('type', '1'), fixtureItem('denied', null, { status: 'denied' })]); const rows = compare(a, b, raw); expect(find(rows, 'same').state).toBe('same'); expect(find(rows, 'left').state).toBe('left-only'); expect(find(rows, 'right').state).toBe('right-only'); expect(find(rows, 'status').state).toBe('status'); expect(find(rows, 'type').state).toBe('different'); expect(find(rows, 'denied').state).toBe('incomparable'); });
   it('默认保留数组顺序，已知集合语义排序', () => { const a = fixture([fixtureItem('sensors/list', [{ name: 'a' }, { name: 'b' }], { category: 'sensors' })]); const b = fixture([fixtureItem('sensors/list', [{ name: 'b' }, { name: 'a' }], { category: 'sensors' })]); expect(find(compare(a, b, raw), 'sensors/list').state).toBe('different'); expect(find(compare(a, b, semantic), 'sensors/list').state).toBe('same'); });
   it('目录按路径对齐并保留重复项，不覆盖', () => { const a = fixture([fixtureItem('directories/chunk/00000', [{ path: '/a' }, { path: '/a' }, { path: '/b' }], { category: 'directories' })]); const b = fixture([fixtureItem('directories/chunk/00001', [{ path: '/b' }, { path: '/a' }], { category: 'directories' })]); const rows = compare(a, b, semantic).filter(x => x.category === 'directories'); expect(rows).toHaveLength(3); expect(rows.filter(x => x.state === 'left-only')).toHaveLength(1); });

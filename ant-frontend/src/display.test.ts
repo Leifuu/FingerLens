@@ -107,6 +107,21 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.map(row => row.key)).toContain('appOpsAllowedCount');
     expect(sections[0].rows.find(row => row.key === 'securityProviderCount')?.value).toBe('4');
   });
+  it('两个锁屏摘要区分未知 null、旧版 false 和缺项且不修改输入', () => {
+    const fields = ['keyguardSecure', 'keyguardLocked', 'deviceSecure', 'deviceLocked'];
+    for (const key of ['security/summary', 'security/lock-biometric']) {
+      for (const state of [null, false, true]) {
+        const value = item(key, 'security', { ...Object.fromEntries(fields.map(field => [field, state])), fingerprintFeature: false });
+        const original = JSON.stringify(value);
+        const rows = buildSections(value)[0].rows;
+        for (const field of fields) expect(rows.find(row => row.key === field)?.value).toBe(String(state));
+        expect(rows.find(row => row.key === 'fingerprintFeature')?.value).toBe('false');
+        expect(JSON.stringify(value)).toBe(original);
+      }
+      const rows = buildSections(item(key, 'security', { fingerprintFeature: false }))[0].rows;
+      expect(rows.some(row => fields.includes(row.key))).toBe(false);
+    }
+  });
   it('进程身份摘要展示 UID 分类与沙箱边界', () => {
     const sections = buildSections(item('security/process-identity-summary', 'security', { available: true, status: 'ok', uid: 10500, isApplicationUid: true, isIsolatedUid: false, isSdkSandboxUid: false, isIsolatedProcess: false, isSdkSandboxProcess: false, packageName: 'com.example', processName: 'com.example' }));
     expect(sections[0].title).toBe('当前进程身份与沙箱摘要');

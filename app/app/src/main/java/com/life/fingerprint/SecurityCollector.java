@@ -156,13 +156,13 @@ public final class SecurityCollector implements Collector {
         if(providers!=null)for(android.content.pm.ProviderInfo component:providers){if(component==null)continue;if(component.enabled)enabled++;if(component.exported)exported++;if(component.directBootAware)directBoot++;if(component.readPermission!=null&&!component.readPermission.isEmpty()){permissionFields++;providerRead++;}if(component.writePermission!=null&&!component.writePermission.isEmpty()){permissionFields++;providerWrite++;}}
         return Json.obj("available",true,"status","ok","activityCount",activityCount,"receiverCount",receiverCount,"serviceCount",serviceCount,"providerCount",providerCount,"componentCount",activityCount+receiverCount+serviceCount+providerCount,"enabledCount",enabled,"exportedCount",exported,"permissionFieldCount",permissionFields,"directBootAwareCount",directBoot,"isolatedServiceCount",isolated,"foregroundServiceTypeCount",foregroundTypes,"providerReadPermissionCount",providerRead,"providerWritePermissionCount",providerWrite);
     }
-    // 业务块：汇总安全边界状态，不展开证书、序列号、窗口内容或其它用户/包信息；原始 security/* 条目继续保留。
+    // 业务块：汇总安全边界状态；锁屏服务缺失保留 null，原始 security/* 条目继续保留。
     private static JSONObject securitySummary(Context context){
         ApplicationInfo application=context.getApplicationInfo();DevicePolicyManager policy=context.getSystemService(DevicePolicyManager.class);UserManager users=context.getSystemService(UserManager.class);AppOpsManager ops=context.getSystemService(AppOpsManager.class);KeyguardManager keyguard=context.getSystemService(KeyguardManager.class);PackageManager packages=context.getPackageManager();
         String packageName=context.getPackageName();String[] appOpNames=checkedAppOps();int appOpsAllowed=0;for(String name:appOpNames)if(ops!=null&&ops.checkOpNoThrow(name,android.os.Process.myUid(),packageName)==AppOpsManager.MODE_ALLOWED)appOpsAllowed++;
         int accessibilityCount=0;try{AccessibilityManager accessibility=context.getSystemService(AccessibilityManager.class);List<AccessibilityServiceInfo> services=accessibility==null?null:accessibility.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK);accessibilityCount=services==null?0:services.size();}catch(Exception ignored){}
         int providerCount=Security.getProviders()==null?0:Security.getProviders().length;
-        return Json.obj("selfDebuggable",application!=null&&(application.flags&ApplicationInfo.FLAG_DEBUGGABLE)!=0,"debuggerConnected",Debug.isDebuggerConnected(),"waitingForDebugger",Debug.waitingForDebugger(),"deviceOwnerForSelf",policy!=null&&policy.isDeviceOwnerApp(packageName),"profileOwnerForSelf",policy!=null&&policy.isProfileOwnerApp(packageName),"managedProfile",Build.VERSION.SDK_INT>=30&&users!=null&&users.isManagedProfile(),"userUnlocked",Build.VERSION.SDK_INT<24||users==null||users.isUserUnlocked(),"specialAccessAvailable",ops!=null,"appOpsCheckedCount",ops==null?0:appOpNames.length,"appOpsAllowedCount",appOpsAllowed,"canDrawOverlays",Settings.canDrawOverlays(context),"keyguardSecure",keyguard!=null&&keyguard.isKeyguardSecure(),"keyguardLocked",keyguard!=null&&keyguard.isKeyguardLocked(),"deviceSecure",Build.VERSION.SDK_INT<23||keyguard!=null&&keyguard.isDeviceSecure(),"deviceLocked",Build.VERSION.SDK_INT<23||keyguard!=null&&keyguard.isDeviceLocked(),"fingerprintFeature",packages.hasSystemFeature(PackageManager.FEATURE_FINGERPRINT),"faceFeature",Build.VERSION.SDK_INT>=29&&packages.hasSystemFeature(PackageManager.FEATURE_FACE),"irisFeature",Build.VERSION.SDK_INT>=29&&packages.hasSystemFeature(PackageManager.FEATURE_IRIS),"accessibilityServiceCount",accessibilityCount,"securityProviderCount",providerCount);
+        return Json.obj("selfDebuggable",application!=null&&(application.flags&ApplicationInfo.FLAG_DEBUGGABLE)!=0,"debuggerConnected",Debug.isDebuggerConnected(),"waitingForDebugger",Debug.waitingForDebugger(),"deviceOwnerForSelf",policy!=null&&policy.isDeviceOwnerApp(packageName),"profileOwnerForSelf",policy!=null&&policy.isProfileOwnerApp(packageName),"managedProfile",Build.VERSION.SDK_INT>=30&&users!=null&&users.isManagedProfile(),"userUnlocked",Build.VERSION.SDK_INT<24||users==null||users.isUserUnlocked(),"specialAccessAvailable",ops!=null,"appOpsCheckedCount",ops==null?0:appOpNames.length,"appOpsAllowedCount",appOpsAllowed,"canDrawOverlays",Settings.canDrawOverlays(context),"keyguardSecure",keyguard==null?null:keyguard.isKeyguardSecure(),"keyguardLocked",keyguard==null?null:keyguard.isKeyguardLocked(),"deviceSecure",keyguard==null?null:keyguard.isDeviceSecure(),"deviceLocked",keyguard==null?null:keyguard.isDeviceLocked(),"fingerprintFeature",packages.hasSystemFeature(PackageManager.FEATURE_FINGERPRINT),"faceFeature",Build.VERSION.SDK_INT>=29&&packages.hasSystemFeature(PackageManager.FEATURE_FACE),"irisFeature",Build.VERSION.SDK_INT>=29&&packages.hasSystemFeature(PackageManager.FEATURE_IRIS),"accessibilityServiceCount",accessibilityCount,"securityProviderCount",providerCount);
     }
     // 业务块：限制安全提供者摘要的体积，完整 provider/service 条目继续保留供复核。
     private static JSONObject providerSummary()throws Exception{
@@ -238,14 +238,14 @@ public final class SecurityCollector implements Collector {
         return out;
     }
     private static String[] checkedAppOps(){return new String[]{AppOpsManager.OPSTR_SYSTEM_ALERT_WINDOW,AppOpsManager.OPSTR_GET_USAGE_STATS,AppOpsManager.OPSTR_PICTURE_IN_PICTURE,AppOpsManager.OPSTR_MOCK_LOCATION,AppOpsManager.OPSTR_WRITE_SETTINGS,AppOpsManager.OPSTR_CAMERA,AppOpsManager.OPSTR_RECORD_AUDIO,AppOpsManager.OPSTR_BODY_SENSORS,AppOpsManager.OPSTR_FINE_LOCATION,AppOpsManager.OPSTR_COARSE_LOCATION};}
-    // 业务块：只记录锁屏安全状态与硬件能力声明，不读取生物特征、模板或用户身份。
+    // 业务块：只记录公开锁屏状态与硬件声明；服务缺失为未知，不等同未启用或未锁定。
     private static JSONObject lockBiometricEnvironment(Context context){
         KeyguardManager keyguard=context.getSystemService(KeyguardManager.class);
         PackageManager packages=context.getPackageManager();
-        JSONObject out=Json.obj("keyguardSecure",keyguard!=null&&keyguard.isKeyguardSecure(),
-                "keyguardLocked",keyguard!=null&&keyguard.isKeyguardLocked(),
-                "deviceSecure",Build.VERSION.SDK_INT<23||keyguard!=null&&keyguard.isDeviceSecure(),
-                "deviceLocked",Build.VERSION.SDK_INT<23||keyguard!=null&&keyguard.isDeviceLocked(),
+        JSONObject out=Json.obj("keyguardSecure",keyguard==null?null:keyguard.isKeyguardSecure(),
+                "keyguardLocked",keyguard==null?null:keyguard.isKeyguardLocked(),
+                "deviceSecure",keyguard==null?null:keyguard.isDeviceSecure(),
+                "deviceLocked",keyguard==null?null:keyguard.isDeviceLocked(),
                 "fingerprintFeature",packages.hasSystemFeature(PackageManager.FEATURE_FINGERPRINT),
                 "faceFeature",Build.VERSION.SDK_INT>=29&&packages.hasSystemFeature(PackageManager.FEATURE_FACE),
                 "irisFeature",Build.VERSION.SDK_INT>=29&&packages.hasSystemFeature(PackageManager.FEATURE_IRIS),
