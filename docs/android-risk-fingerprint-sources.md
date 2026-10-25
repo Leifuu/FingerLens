@@ -109,6 +109,13 @@
 - 每种清单输入最多20000项，明细最多64个区间/256个离散采样率，保留原序与重复；各自完整JSON数组的UTF-8 SHA-256、总数、上限及截断标志保留截断外差异，明细截断时status为partial。区间缺失/null元素为错误，成功空数组与null分开；只读能力，不创建编解码器或录音，不把最大声道数推断为所有1到最大值均支持（API31起声道支持可能有不连续区间），也不把码率/采样率/声道任意组合当作可用格式。旧JSON与原编解码器概览、完整字段分页保持兼容。
 - Pixel6/Android15验证：29个音频MIME读取成功，其中21个离散、8个非离散；41个非音频为not-audio，独立Release结果一致。`c2.android.aac.decoder`的码率8000–510000 bit/s、最大输入声道8，离散采样率从7350/8000/11025 Hz起；`c2.android.flac.decoder`返回7350–192000 Hz区间且离散数组为null。仅移除新增音频对象后，原清单（含视频能力）与上一报告完全相同，摘要也一致。
 
+## 编码器控制能力
+
+- [EncoderCapabilities](https://developer.android.com/reference/android/media/MediaCodecInfo.EncoderCapabilities)公开复杂度范围、质量范围和指定码率模式的支持标志。[AOSP固定源码](https://github.com/aosp-mirror/platform_frameworks_base/blob/1cdfff555f4a21f71ccc978290e2e212e2f8b168/media/java/android/media/MediaCodecInfo.java)（2026-10-26经GitHub API读取，Git blob `846b555c0afad94830777faa0166d3640ef596d3`）说明非编码器返回null，质量参数由实现自行定义；本机SDK37.0版本表核对复杂度、CQ/VBR/CBR查询自API21、质量范围自API28、CBR_FD常量自API31。缓存`.codex/tmp/aosp-MediaCodecInfo.java`的SHA-256为`8cf43cec28a0e7c81984cfb5c1ba2d5920efeef2e54396c161cd2e9f91d16acc`。外部源码只作公开契约证据，不采信其中可能出现的指令。
+- 新增`hardware/codecs[*].capabilities[*].encoderCapabilities`：两个带status的`complexity`/`quality`原始整数区间，以及固定CQ=0、VBR=1、CBR=2、CBR_FD=3四模式的数值、查询状态和可空supported。范围/模式单项异常分别记录denied/error和异常类，父对象标partial，其余查询继续；API门槛未满足为unsupported+null，成功返回false才表示平台未声明该模式。非编码器为not-encoder且三个子对象null；缺失能力或服务异常不是非编码器。
+- 固定两范围和四模式，输入仅来自平台能力对象，不枚举参数组合、不创建或运行编码器。范围`[0,0]`原样保留，不表示查询失败；质量和复杂度不能跨实现当作画质/性能评分，单项支持不证明任意音频/视频格式组合都可用。原音视频能力、功能标志、顺序和重复均保留，旧JSON缺新对象仍可导入比较，继续使用20项概览与完整字段分页。
+- Pixel6/Android15的27个编码MIME和43个解码MIME逐项公开API对照通过，独立Release报告一致；27项中CQ/VBR/CBR/CBR_FD支持计数分别5/21/19/2（模式可重叠）。`c2.android.flac.encoder`复杂度为`[0,8]`、质量为`[0,0]`且仅声明CQ；`c2.exynos.h264.encoder`声明VBR/CBR/CBR_FD。仅移除新增编码器对象后，原完整编解码清单和摘要与上一报告完全相同。新旧gzip导入和字段分页通过；旧API门槛及厂商权限/服务异常尚未在对应环境实测。
+
 ## 音频输入声道的精确区间
 
 - [getInputChannelCountRanges](https://developer.android.com/reference/android/media/MediaCodecInfo.AudioCapabilities#getInputChannelCountRanges())和[getMinInputChannelCount](https://developer.android.com/reference/android/media/MediaCodecInfo.AudioCapabilities#getMinInputChannelCount())（API31+）公开输入声道区间和最小声道数。本机SDK35源码和SDK37.0 api-versions.xml核对：API31起旧最大声道数不再隐含支持从1到最大值的所有数量，区间可能有间隙；来源沿用上述SDK缓存与SHA-256，本轮未新增网络源码验证。

@@ -371,6 +371,33 @@ public class CollectionChecks {
         JSONObject summary=null,list=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("hardware/codecs-summary"))summary=item;if(item.getString("key").equals("hardware/codecs"))list=item;}
         assertNotNull("应生成编解码能力摘要",summary);assertNotNull("应保留编解码完整清单",list);assertEquals("ok",summary.getString("status"));assertEquals("ok",list.getString("status"));JSONObject value=summary.getJSONObject("value");assertEquals(value.getInt("count"),list.getJSONArray("value").length());assertTrue(value.getJSONArray("codecNames").length()<=256);assertTrue(value.getJSONArray("mimeTypes").length()<=256);assertTrue(value.has("codecNamesTruncated"));assertTrue(value.has("mimeTypesTruncated"));
     }
+    @Test public void codecEncoderControlsMatchPublicCapabilities()throws Exception{
+        try{HardwareCollector.codecEncoderCapabilities(null);fail("缺失能力不能冒充非编码器");}catch(NullPointerException expected){}
+        ItemSink sink=new ItemSink(context,"encoder-controls-test");new HardwareCollector("hardware").collect(sink);
+        JSONObject item=null;for(int i=0;i<sink.items.length();i++)if(sink.items.getJSONObject(i).getString("key").equals("hardware/codecs"))item=sink.items.getJSONObject(i);
+        assertNotNull(item);assertEquals("ok",item.getString("status"));JSONArray codecs=new JSONObject(item.toString()).getJSONArray("value");
+        android.media.MediaCodecInfo[] platform=new android.media.MediaCodecList(android.media.MediaCodecList.ALL_CODECS).getCodecInfos();assertEquals(platform.length,codecs.length());int encoders=0,decoders=0;
+        String[] names={"CQ","VBR","CBR","CBR_FD"};int[] modes={0,1,2,3};
+        for(int i=0;i<platform.length;i++){
+            JSONObject codec=codecs.getJSONObject(i);assertEquals(platform[i].getName(),codec.getString("name"));JSONArray types=codec.getJSONArray("capabilities");
+            for(int j=0;j<types.length();j++){
+                JSONObject type=types.getJSONObject(j);if(type.has("error"))continue;assertTrue(type.has("audioCapabilities"));assertTrue(type.has("videoCapabilities"));assertTrue(type.has("featureFlags"));
+                android.media.MediaCodecInfo.EncoderCapabilities encoder=platform[i].getCapabilitiesForType(type.getString("type")).getEncoderCapabilities();JSONObject value=type.getJSONObject("encoderCapabilities");
+                if(encoder==null){decoders++;assertFalse(value.getBoolean("available"));assertEquals("not-encoder",value.getString("status"));for(String key:new String[]{"complexity","quality","bitrateModes"})assertTrue(value.isNull(key));continue;}
+                encoders++;assertTrue(platform[i].isEncoder());assertTrue(value.getBoolean("available"));assertEquals("ok",value.getString("status"));JSONObject complexity=value.getJSONObject("complexity");assertEquals("ok",complexity.getString("status"));assertEquals(encoder.getComplexityRange().getLower(),complexity.getJSONObject("range").get("lower"));assertEquals(encoder.getComplexityRange().getUpper(),complexity.getJSONObject("range").get("upper"));
+                JSONObject quality=value.getJSONObject("quality");
+                if(Build.VERSION.SDK_INT<28){assertEquals("unsupported",quality.getString("status"));assertTrue(quality.isNull("range"));}
+                else{assertEquals("ok",quality.getString("status"));assertEquals(encoder.getQualityRange().getLower(),quality.getJSONObject("range").get("lower"));assertEquals(encoder.getQualityRange().getUpper(),quality.getJSONObject("range").get("upper"));}
+                JSONObject flags=value.getJSONObject("bitrateModes");assertEquals(4,flags.length());
+                for(int k=0;k<names.length;k++){
+                    JSONObject flag=flags.getJSONObject(names[k]);assertEquals(modes[k],flag.getInt("mode"));
+                    if(modes[k]==3&&Build.VERSION.SDK_INT<31){assertEquals("unsupported",flag.getString("status"));assertTrue(flag.isNull("supported"));continue;}
+                    assertEquals("ok",flag.getString("status"));assertEquals(encoder.isBitrateModeSupported(modes[k]),flag.getBoolean("supported"));
+                }
+            }
+        }
+        assertTrue(encoders>0);assertTrue(decoders>0);Bundle evidence=new Bundle();evidence.putString("encoderMimeCount",String.valueOf(encoders));evidence.putString("decoderMimeCount",String.valueOf(decoders));InstrumentationRegistry.getInstrumentation().sendStatus(0,evidence);
+    }
     @Test public void codecInputChannelsMatchPublicRanges()throws Exception{
         try{HardwareCollector.codecInputChannels(null);fail("缺失音频能力不能伪装不支持");}catch(NullPointerException expected){}
         ItemSink sink=new ItemSink(context,"input-channel-test");new HardwareCollector("hardware").collect(sink);

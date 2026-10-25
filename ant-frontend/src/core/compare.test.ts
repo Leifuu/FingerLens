@@ -7,6 +7,20 @@ const raw = { semantic: false, ignoreDynamic: false }, semantic = { semantic: tr
 const find = (rows: ReturnType<typeof compare>, key: string) => rows.find(x => x.key === key)!;
 
 describe('原始与语义比较', () => {
+  it('编码器控制兼容旧JSON，区分未查询/不支持模式/错误，保留原能力和未知字段', () => {
+    const key = 'hardware/codecs', old = { type: 'video/test', videoCapabilities: { available: true, widthPixels: { lower: 2, upper: 4096 } } };
+    const report = (encoderCapabilities?: Json) => fixture([fixtureItem(key, [{ name: 'encoder', encoder: true, capabilities: [{ ...old, ...(encoderCapabilities === undefined ? {} : { encoderCapabilities }) }] }], { category: 'hardware' })]);
+    const support = { available: true, status: 'ok', complexity: { status: 'ok', range: { lower: 0, upper: 10 } }, quality: { status: 'unsupported', range: null }, bitrateModes: { CBR_FD: { mode: 3, status: 'unsupported', supported: null } } };
+    const legacy = report(), current = report(support), unavailable = report({ ...support, bitrateModes: { CBR_FD: { mode: 3, status: 'ok', supported: false } } });
+    const error = report({ ...support, status: 'partial', quality: { status: 'error', range: null, errorClass: 'synthetic' } }), future = report({ ...support, future: false });
+    const before = JSON.stringify([legacy, current, unavailable, error, future]);
+    for (const rules of [raw, semantic, smart]) {
+      expect(find(compare(legacy, current, rules), key).changedPaths).toEqual(['/value/0/capabilities/0/encoderCapabilities']);
+      expect(find(compare(current, current, rules), key).state).toBe('same');
+      for (const changed of [unavailable, error, future]) expect(find(compare(current, changed, rules), key).state).toBe('different');
+    }
+    expect(JSON.stringify([legacy, current, unavailable, error, future])).toBe(before);
+  });
   it('精确声道区间兼容旧音频JSON，不填充间隙，区分不支持/空集合/哈希变化', () => {
     const key = 'hardware/codecs', audio = { available: true, status: 'ok', maxInputChannelCount: 8 };
     const report = (value: Json) => fixture([fixtureItem(key, [{ name: 'codec', encoder: false, capabilities: [{ type: 'audio/test', audioCapabilities: value }] }], { category: 'hardware' })]);

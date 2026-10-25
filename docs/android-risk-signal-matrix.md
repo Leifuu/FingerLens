@@ -87,6 +87,10 @@
 
 - `audioCapabilities.inputChannelSupport`补充API31+精确输入声道区间和最小值，保留间隙/重复、完整原序哈希及64项明细上限；旧最大声道数不变，API31以下明确unsupported，失败不抹去采样率/码率。旧JSON缺项兼容，不推导扬声器数量或任意音频格式组合；详见[声道来源](android-risk-fingerprint-sources.md#音频输入声道的精确区间)。
 
+## 编码器控制能力补充
+
+- `hardware/codecs[*].capabilities[*].encoderCapabilities`只读两个原始范围与固定四种码率模式；API28以下质量范围、API31以下CBR_FD明确未支持查询，不能当作false。单项失败保留null/异常类且不丢失其它查询，解码器明确not-encoder。原音视频能力和旧JSON保持兼容，不将实现自定参数推断为统一画质/性能评分；详见[来源与边界](android-risk-fingerprint-sources.md#编码器控制能力)。
+
 ## 视频编解码能力范围补充
 
 - `hardware/codecs[*].capabilities[*].videoCapabilities`通过API21+公开VideoCapabilities固定读取码率/帧率/宽高的整数范围及宽高像素对齐要求；非视频MIME与读取失败分开，失败只影响新增对象。原Profile、颜色格式、功能标志及清单顺序保留，旧JSON可正常比较。
