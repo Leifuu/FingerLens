@@ -114,7 +114,9 @@ describe('设备格式化展示边界', () => {
     const sections = buildSections(item('security/self-permissions', 'security', { available: true, status: 'ok', requestedCount: 2, grantedCount: 1, deniedCount: 1, unknownCount: 0, dangerousRequestedCount: 1, dangerousGrantedCount: 1, protectionInfoCount: 2, returnedCount: 2, truncated: false, permissions: [{ name: 'android.permission.CAMERA', granted: true, protectionLevel: 1, protectionBase: 1, dangerous: true }] }));
     expect(sections[0].title).toBe('当前 App 运行时权限摘要');
     expect(sections[0].rows.map(row => row.key)).toContain('grantedCount');
+    expect(sections.find(section => section.key === 'permissions')?.title).toBe('声明权限（最多 256 项）');
     expect(sections.find(section => section.key === 'permissions')?.rows[0].key).toBe('[0].name');
+    expect(sections.find(section => section.key === 'permissions')?.rows.find(row => row.key === '[0].protectionBase')?.value).toBe('危险');
   });
   it('安全提供者摘要保留有界服务集合并单独展示提供者详情', () => {
     const sections = buildSections(item('security/providers-summary', 'security', {

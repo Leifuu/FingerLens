@@ -54,11 +54,16 @@ const APP_OP_MODE_LABELS: Record<number, string> = {
   0: '允许', 1: '忽略', 2: '拒绝', 3: '默认', 4: '前台允许',
 };
 
+const PERMISSION_PROTECTION_LABELS: Record<number, string> = {
+  0: '普通', 1: '危险', 2: '签名', 3: '签名或系统', 4: '内部',
+};
+
 function displayText(key: string, value: Json): string {
   const field = key.split('.').pop() || key;
   const bytes = byteText(key, value);
   if (bytes !== undefined) return bytes;
   if (typeof value === 'number' && field === 'mode' && key.startsWith('appOps.')) return APP_OP_MODE_LABELS[value] || `模式 ${value}`;
+  if (typeof value === 'number' && field === 'protectionBase') return PERMISSION_PROTECTION_LABELS[value] || `保护级别 ${value}`;
   if (typeof value === 'string' && (field === 'access' || field.endsWith('Access') || field.endsWith('Status'))) {
     return STATUS_LABELS[value] || (value.startsWith('error_') ? `异常（${value.slice(6)}）` : value);
   }
@@ -373,6 +378,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
           : key === 'environment/webview-provider' && arrayKey === 'signatures' ? '提供方签名 SHA-256'
           : key === 'security/providers-summary' && arrayKey === 'providers' ? '安全提供者'
           : key === 'security/providers-summary' && arrayKey === 'serviceNames' ? '服务名（最多 512 项）'
+          : key === 'security/self-permissions' && arrayKey === 'permissions' ? '声明权限（最多 256 项）'
           : key === 'storage/capacity-summary' && arrayKey === 'entries' ? '固定路径容量'
           : key === 'hardware/audio-summary'
             ? arrayKey === 'productNames' ? '音频设备名' : arrayKey === 'sampleRates' ? '采样率' : '编码格式'
