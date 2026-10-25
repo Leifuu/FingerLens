@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Badge, Button, Card, Checkbox, Col, ConfigProvider, Empty, Layout, Menu, Row, Select, Space, Table, Tag, theme, Typography, Input, message } from 'antd';
-import { AppstoreOutlined, ApiOutlined, DatabaseOutlined, DesktopOutlined, FileSearchOutlined, HddOutlined, SafetyCertificateOutlined, SearchOutlined, WifiOutlined } from '@ant-design/icons';
+import { AppstoreOutlined, ApiOutlined, DatabaseOutlined, DesktopOutlined, FileSearchOutlined, GlobalOutlined, HddOutlined, SafetyCertificateOutlined, SearchOutlined, SecurityScanOutlined, WifiOutlined } from '@ant-design/icons';
 import zhCN from 'antd/locale/zh_CN';
 import type { ColumnsType } from 'antd/es/table';
 import type { Imported, Row as CompareRow, Rules } from './core/types';
 import { categories, diffLabels } from './core/types';
+import { navigationGroups } from './core/navigation';
 import { useEvidenceWorker } from './core/useEvidenceWorker';
 import { useAdbDevices } from './core/useAdbDevices';
 import { copyText } from './core/clipboard';
@@ -29,7 +30,7 @@ function preview(row: CompareRow, side: 'left' | 'right') {
   return JSON.stringify(item.value).slice(0, 180);
 }
 
-const categoryIcons: Record<string, ReactNode> = { packages: <AppstoreOutlined />, build: <DesktopOutlined />, display: <DesktopOutlined />, network: <WifiOutlined />, security: <SafetyCertificateOutlined />, storage: <HddOutlined />, hardware: <DatabaseOutlined />, binder: <ApiOutlined /> };
+const categoryIcons: Record<string, ReactNode> = { packages: <AppstoreOutlined />, build: <DesktopOutlined />, display: <DesktopOutlined />, network: <WifiOutlined />, webview: <GlobalOutlined />, root: <SecurityScanOutlined />, security: <SafetyCertificateOutlined />, storage: <HddOutlined />, hardware: <DatabaseOutlined />, binder: <ApiOutlined /> };
 const rawRules: Rules = { semantic: false, ignoreDynamic: false };
 const smartRules: Rules = { semantic: false, ignoreDynamic: true };
 
@@ -87,7 +88,7 @@ export default function App() {
     request('compare', { rules: compareRules }).then(result => { if (token === epoch.current.compare) { setRows(result.rows); setWarnings(result.conditions); } }).catch(cause => { if (token === epoch.current.compare) message.error(cause instanceof Error ? cause.message : String(cause)); }).finally(() => { if (token === epoch.current.compare) setLoading(value => ({ ...value, compare: false })); });
   }, [files, compareRules, request]);
 
-  const counts = useMemo(() => { const value = new Map<string, number>(); rows.forEach(row => value.set(row.category, (value.get(row.category) || 0) + 1)); return value; }, [rows]);
+  const counts = useMemo(() => { const value = new Map<string, number>(); rows.forEach(row => navigationGroups(row).forEach(group => value.set(group, (value.get(group) || 0) + 1))); return value; }, [rows]);
   function stopProcessing() {
     epoch.current.left++; epoch.current.right++; epoch.current.compare++;
     cancel(); setLoading({ left: false, right: false, compare: false });
@@ -113,7 +114,7 @@ export default function App() {
     return rows.filter(row => {
       const statusMatch = status === 'all' || row.state === status;
       const content = `${row.key} ${row.name} ${row.left?.source.api || ''} ${row.right?.source.api || ''} ${row.left?.installer?.key || ''} ${row.left?.installer?.source.api || ''} ${row.right?.installer?.key || ''} ${row.right?.installer?.source.api || ''}`.toLocaleLowerCase();
-      return (category === 'all' || row.category === category) && statusMatch && (!query || content.includes(query));
+      return (category === 'all' || navigationGroups(row).includes(category)) && statusMatch && (!query || content.includes(query));
     });
   }, [rows, category, search, status]);
 
@@ -136,6 +137,8 @@ export default function App() {
           <StatCards stats={stats} />
           </>}
           <Card className="results-card" title={<Space><span>{category === 'all' ? '信息对照' : categories[category]}</span><Tag>{filtered.length}</Tag></Space>} extra={<Typography.Text type="secondary">{ready ? `显示 ${filtered.length} / ${rows.length} 项` : '等待导入两份指纹'}</Typography.Text>}>
+            {category === 'webview' && <Typography.Paragraph type="secondary">WebView 提供方、版本与默认 User-Agent。旧版文件缺少的采集项会保留为单侧数据。</Typography.Paragraph>}
+            {category === 'root' && <Typography.Paragraph type="secondary">汇总 su 与 /data/adb 路径、构建属性、SELinux、挂载和进程映射证据；相关条目也保留在原模块中。路径读取受限、单项命中或未命中均不能单独证明设备是否 Root。</Typography.Paragraph>}
             <Space className="filter-row" wrap size={[12, 12]}><Input prefix={<SearchOutlined />} placeholder="搜索名称、字段或来源" value={search} onChange={event => setSearch(event.target.value)} allowClear style={{ width: 320 }} /><Select aria-label="筛选对比状态" value={status} onChange={value => { setStatus(value); if (value !== 'different') setSmartFilter(false); }} style={{ width: 170 }} options={[{ value: 'all', label: '全部状态' }, { value: 'different', label: '值不同' }, { value: 'same', label: '相同' }, { value: 'left-only', label: '仅左侧' }, { value: 'right-only', label: '仅右侧' }, { value: 'incomparable', label: '不可比较' }]} />{status === 'different' && <Checkbox aria-label="智能过滤" checked={smartFilter} onChange={event => setSmartFilter(event.target.checked)}>智能过滤</Checkbox>}</Space>
             <Table<CompareRow> className="comparison-table" rowKey="id" loading={loading.compare || !ready && busy} dataSource={filtered} columns={columns} pagination={{ pageSize: 50, showSizeChanger: false, showQuickJumper: true, showTotal: total => `共 ${total} 项` }} scroll={{ x: 1060, y: 'calc(100vh - 440px)' }} onRow={row => ({ onClick: () => setSelected(row), tabIndex: 0, onKeyDown: event => { if (event.key === 'Enter' || event.key === ' ') setSelected(row); } })} locale={{ emptyText: ready ? <Empty description="当前条件下没有结果" /> : <Empty description="请先导入两份设备指纹" /> }} />
           </Card>

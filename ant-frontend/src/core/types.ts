@@ -19,7 +19,7 @@ export interface Imported { name: string; size: number; sha256: string; fingerpr
 export const categories: Record<string, string> = {
   packages: '应用清单', input: '输入设备', display: '屏幕显示', build: 'Build 与属性', binder: 'Binder 服务',
   kernel: '内核与进程', storage: '分区与存储', hardware: '硬件与图形', sensors: '传感器', battery: '电池',
-  sim: 'SIM 与电话', network: '网络', environment: '语言与环境', security: '安全与完整性', attestation: '密钥认证',
+  sim: 'SIM 与电话', network: '网络', environment: '语言与环境', webview: 'WebView', security: '安全与完整性', root: 'Root 检测', attestation: '密钥认证',
   virtualization: '虚拟化线索', directories: '目录清单', collection: '采集状态',
 };
 export const diffLabels: Record<DiffState, string> = { same: '相同', different: '值不同', 'left-only': '仅左侧', 'right-only': '仅右侧', status: '状态不同', incomparable: '不可比较' };
