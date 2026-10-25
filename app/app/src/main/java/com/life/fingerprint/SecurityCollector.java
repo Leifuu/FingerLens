@@ -191,19 +191,43 @@ public final class SecurityCollector implements Collector {
         JSONArray hashes=new JSONArray(),history=new JSONArray();Boolean hasPast=null;
         if(signatures!=null)for(android.content.pm.Signature signature:signatures)hashes.put(PackageInputCollector.sha(signature.toByteArray()));
         if(Build.VERSION.SDK_INT>=28&&info.signingInfo!=null){android.content.pm.Signature[] signingHistory=info.signingInfo.getSigningCertificateHistory();if(signingHistory!=null)for(android.content.pm.Signature signature:signingHistory)history.put(PackageInputCollector.sha(signature.toByteArray()));hasPast=info.signingInfo.hasPastSigningCertificates();}
-        String installer=Build.VERSION.SDK_INT>=30?pm.getInstallSourceInfo(packageName).getInstallingPackageName():pm.getInstallerPackageName(packageName);
+        android.content.pm.InstallSourceInfo installSource=null;
+        String installer=null,initiatingPackageName=null,originatingPackageName=null,updateOwnerPackageName=null,packageSourceName=null,packageSourceStatus=Build.VERSION.SDK_INT<33?"unsupported":"unavailable";
+        Integer packageSource=null;
+        if(Build.VERSION.SDK_INT>=30){
+            installSource=pm.getInstallSourceInfo(packageName);
+            if(installSource!=null){
+                installer=installSource.getInstallingPackageName();
+                initiatingPackageName=installSource.getInitiatingPackageName();
+                originatingPackageName=installSource.getOriginatingPackageName();
+                if(Build.VERSION.SDK_INT>=33){packageSource=installSource.getPackageSource();packageSourceName=packageSourceName(packageSource);packageSourceStatus="ok";}
+                if(Build.VERSION.SDK_INT>=34)updateOwnerPackageName=installSource.getUpdateOwnerPackageName();
+            }
+        }else installer=pm.getInstallerPackageName(packageName);
         ApplicationInfo application=info.applicationInfo;
         Boolean instantApp=Build.VERSION.SDK_INT>=26?pm.isInstantApp():null,packageSuspended=null;
         String packageSuspensionQueryStatus=Build.VERSION.SDK_INT<24?"unsupported":"allowed";
         if(Build.VERSION.SDK_INT>=24)try{packageSuspended=pm.isPackageSuspended();}catch(SecurityException e){packageSuspensionQueryStatus="denied";}
         return Json.obj("packageName",packageName,"versionName",info.versionName,
                 "versionCode",Build.VERSION.SDK_INT>=28?info.getLongVersionCode():(long)info.versionCode,
-                "installer",installer,"signingCertificateSha256",hashes,"signingCertificateHistorySha256",history,"hasPastSigningCertificates",hasPast,
+                "installer",installer,"initiatingPackageName",initiatingPackageName,"originatingPackageName",originatingPackageName,"updateOwnerPackageName",updateOwnerPackageName,
+                "packageSource",packageSource,"packageSourceName",packageSourceName,"packageSourceStatus",packageSourceStatus,
+                "signingCertificateSha256",hashes,"signingCertificateHistorySha256",history,"hasPastSigningCertificates",hasPast,
                 "enabled",application==null?null:application.enabled,
                 "applicationFlags",application==null?null:application.flags,
                 "debuggable",application!=null&&(application.flags&ApplicationInfo.FLAG_DEBUGGABLE)!=0,
                 "hasCode",application!=null&&(application.flags&ApplicationInfo.FLAG_HAS_CODE)!=0,
                 "instantApp",instantApp,"packageSuspended",packageSuspended,"packageSuspensionQueryStatus",packageSuspensionQueryStatus);
+    }
+    // 业务块：把公开安装来源常量转换为稳定名称；未知常量保留数值，避免伪造来源结论。
+    private static String packageSourceName(Integer source){
+        if(source==null)return null;
+        if(source==android.content.pm.PackageInstaller.PACKAGE_SOURCE_UNSPECIFIED)return "unspecified";
+        if(source==android.content.pm.PackageInstaller.PACKAGE_SOURCE_STORE)return "store";
+        if(source==android.content.pm.PackageInstaller.PACKAGE_SOURCE_LOCAL_FILE)return "local_file";
+        if(source==android.content.pm.PackageInstaller.PACKAGE_SOURCE_DOWNLOADED_FILE)return "downloaded_file";
+        if(source==android.content.pm.PackageInstaller.PACKAGE_SOURCE_OTHER)return "other";
+        return "code_"+source;
     }
     public static JSONObject key(String alias,boolean attest,boolean strong)throws Exception {
         KeyStore store=KeyStore.getInstance("AndroidKeyStore");store.load(null);
