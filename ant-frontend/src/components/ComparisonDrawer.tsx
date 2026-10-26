@@ -16,6 +16,7 @@ import { DisplayModeOverview } from './DisplayModeOverview';
 import { VibratorOverview } from './VibratorOverview';
 import { SecurityStateOverview } from './SecurityStateOverview';
 import { AudioOverview } from './AudioOverview';
+import { MicrophoneOverview } from './MicrophoneOverview';
 
 function itemMeta(item?: Item) {
   if (!item) return [['状态', '此侧没有采集项']];
@@ -74,7 +75,9 @@ export function ComparisonDrawer({ row, open, onClose }: { row?: CompareRow; ope
         <VibratorOverview itemKey={row.key} sectionKey={section.key} left={row.left?.value} right={row.right?.value} rows={section.rows} onlyDiffRows={onlyDiffRows}>
         <SecurityStateOverview itemKey={row.key} sectionKey={section.key} left={row.left?.value} right={row.right?.value} rows={section.rows} onlyDiffRows={onlyDiffRows}>
         <AudioOverview itemKey={row.key} sectionKey={section.key} left={row.left?.value} right={row.right?.value} rows={section.rows} onlyDiffRows={onlyDiffRows}>
+        <MicrophoneOverview itemKey={row.key} sectionKey={section.key} left={row.left?.value} right={row.right?.value} rows={section.rows} onlyDiffRows={onlyDiffRows}>
         <Table<MergedDisplayRow> rowKey="key" size="small" bordered pagination={(onlyDiffRows ? section.rows.filter(record => record.state !== 'same').length : section.rows.length) > 50 ? { pageSize: 50, showSizeChanger: false, showQuickJumper: true } : false} dataSource={onlyDiffRows ? section.rows.filter(record => record.state !== 'same') : section.rows} rowClassName={record => `row-${record.state}`} columns={[{ title: '字段', dataIndex: 'label', key: 'label', width: 220, fixed: 'left', render: value => <Typography.Text className="field-label">{value}</Typography.Text> }, { title: '设备 A', dataIndex: 'left', key: 'left', render: (value, record) => cell(value, 'A', record.label) }, { title: '设备 B', dataIndex: 'right', key: 'right', render: (value, record) => cell(value, 'B', record.label) }, { title: '对比', key: 'state', width: 110, render: (_, record) => <Tag color={record.state === 'same' ? 'success' : record.state === 'changed' ? 'error' : 'warning'}>{record.state === 'same' ? '相同' : record.state === 'changed' ? '差异' : record.state === 'left-only' ? '仅 A' : '仅 B'}</Tag> }] as ColumnsType<MergedDisplayRow>} scroll={{ x: 760 }} />
+        </MicrophoneOverview>
         </AudioOverview>
         </SecurityStateOverview>
         </VibratorOverview>

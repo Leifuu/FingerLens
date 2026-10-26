@@ -176,6 +176,7 @@
 
 ## 麦克风声学与阵列元数据
 
+- 展示补充（2026-10-26）：`hardware/microphones` 的 `microphones` 字段组采用每页5项的双侧概览，显示ID/类型、位置枚举、指向性、分组、校准值、位置（米）、朝向及频响计数/截断状态。频响按原始序号展开，每页10点显示Hz/dB；重复麦克风和重复频率不合并、不排序。未知哨兵只依据已有kind解释，不从零向量或原始数字补推；缺失、null、失败、未知状态和非有限类型分别保留。完整原始对象决定整行差异，未知字段、原始类型和完整哈希变化不会被格式化隐藏；差异筛选同时作用于麦克风、频响点和完整字段。保留完整字段折叠及50字段分页、长原文展开和390px独立横向查看设备B；异构结构或超过256麦克风/每条128点的概览边界时回退原字段表。旧JSON缺字段或整个条目继续比较，不从旧摘要重建新数据；本次仅调整展示。
 - [MicrophoneInfo](https://developer.android.com/reference/android/media/MicrophoneInfo) 及其 `Coordinate3F` 自API28公开；已核对本机SDK37版本表和固定AOSP提交 `1cdfff555f4a21f71ccc978290e2e212e2f8b168` 的 [MicrophoneInfo.java](https://github.com/aosp-mirror/platform_frameworks_base/blob/1cdfff555f4a21f71ccc978290e2e212e2f8b168/media/java/android/media/MicrophoneInfo.java) 与 [AudioManager.java](https://github.com/aosp-mirror/platform_frameworks_base/blob/1cdfff555f4a21f71ccc978290e2e212e2f8b168/media/java/android/media/AudioManager.java)。前者SHA256为 `6b4385c3474bbb36578a86dc58e11d104bf67eedba742d1303ea2b4945b3c531`，后者为 `7d3230e01dfd8bb8007fe53b01700364dc2189fc1132e5a8e485aac0118a640a`。
 - 新增 `hardware/microphones`，保留每个条目的id、type、location、directionality、group和indexInGroup；校准、位置、朝向与频响四个查询块独立记录status/value。灵敏度是在1000Hz、94dB SPL输入下的dBFS，最大/最小SPL是在1000Hz下的dB值；位置单位为米，朝向保留原始三轴向量，不重新归一化。频响点分别为frequencyHz和responseDb，不排序、去重或插值。
 - 灵敏度/SPL的 `-Float.MAX_VALUE`、位置三轴均为该值、朝向全零向量是平台定义的未知哨兵。保留原数值并标记 `kind:unknown-sentinel`；其它有限数仅标finite，不作物理有效性判断；NaN/Infinity标non-finite并沿用公共Json的带类型编码。位置的零向量保持finite，不能套用朝向的未知规则；group/index的-1原样保存。
