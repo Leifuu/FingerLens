@@ -186,11 +186,27 @@ public final class HardwareCollector implements Collector {
     // 业务块：只读取音频设备能力元数据，不获取音频样本；原始清单与摘要并存。
     private void audio(ItemSink s){
         AudioManager manager=s.context.getSystemService(AudioManager.class);
+        audioProperties(s,manager==null?null:manager::getProperty);
         if(manager==null){s.ok("hardware","hardware/audio-summary","音频能力摘要","AudioManager","AudioManager unavailable",Json.obj("available",false,"count",0,"productNames",new JSONArray()));s.ok("hardware","hardware/microphone-summary","麦克风阵列能力摘要","AudioManager.getMicrophones","AudioManager unavailable",microphoneUnavailable("unavailable"));s.read("hardware","hardware/microphones","麦克风声学与阵列元数据","AudioManager.getMicrophones / MicrophoneInfo",()->microphoneDetails(null,Build.VERSION.SDK_INT));return;}
         s.read("hardware","hardware/audio","音频设备公开清单","AudioManager.getDevices",()->audioDevices(manager));
         s.read("hardware","hardware/audio-summary","音频能力摘要","AudioManager.getDevices",()->audioSummary(manager));
         s.read("hardware","hardware/microphone-summary","麦克风阵列能力摘要","AudioManager.getMicrophones",()->microphoneSummary(manager));
         s.read("hardware","hardware/microphones","麦克风声学与阵列元数据","AudioManager.getMicrophones / MicrophoneInfo",()->microphoneDetails(manager,Build.VERSION.SDK_INT));
+    }
+    // 业务块：固定五个公开属性，返回值最多2048字符；保留字符串/null，每项失败独立记录。
+    static void audioProperties(ItemSink sink,java.util.function.Function<String,String> query){
+        String[][] properties={
+            {"output-sample-rate","低延迟输出采样率（Hz）",AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE},
+            {"output-frames-per-buffer","低延迟输出缓冲帧数（PCM帧）",AudioManager.PROPERTY_OUTPUT_FRAMES_PER_BUFFER},
+            {"mic-near-ultrasound","默认麦克风近超声支持声明（18–21kHz）",AudioManager.PROPERTY_SUPPORT_MIC_NEAR_ULTRASOUND},
+            {"speaker-near-ultrasound","默认扬声器近超声支持声明（18–21kHz）",AudioManager.PROPERTY_SUPPORT_SPEAKER_NEAR_ULTRASOUND},
+            {"source-unprocessed","未处理音源支持声明",AudioManager.PROPERTY_SUPPORT_AUDIO_SOURCE_UNPROCESSED},
+        };
+        for(String[] property:properties)sink.read("hardware","hardware/audio-property/"+property[0],property[1],"AudioManager.getProperty("+property[2]+")",()->{
+            if(query==null)throw new IllegalStateException("AudioManager unavailable");
+            String value=query.apply(property[2]);if(value!=null&&value.length()>2048)throw new IllegalArgumentException("audio property exceeds 2048 characters");
+            return value;
+        });
     }
     private static JSONArray audioDevices(AudioManager manager){
         JSONArray devices=new JSONArray();for(AudioDeviceInfo device:manager.getDevices(AudioManager.GET_DEVICES_ALL)){CharSequence productName=device.getProductName();devices.put(Json.obj("id",device.getId(),"type",device.getType(),"productName",productName==null?null:productName.toString(),"isSource",device.isSource(),"isSink",device.isSink(),"addressPresent",device.getAddress()!=null&&!device.getAddress().isEmpty(),"channelCounts",device.getChannelCounts(),"sampleRates",device.getSampleRates(),"encodings",device.getEncodings(),"audioProfiles",audioDeviceProfiles(device,Build.VERSION.SDK_INT),"supportedMixerAttributes",audioMixerAttributes(manager,device,Build.VERSION.SDK_INT),"speakerLayout",audioSpeakerLayout(device.getType(),Build.VERSION.SDK_INT,()->device.getSpeakerLayoutChannelMask())));}return devices;

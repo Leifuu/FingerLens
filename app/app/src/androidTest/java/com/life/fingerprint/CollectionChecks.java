@@ -21,6 +21,31 @@ public class CollectionChecks {
     private Context context;
     private final ArrayList<CollectionController> controllers=new ArrayList<>();
     @Before public void setup(){context=InstrumentationRegistry.getInstrumentation().getTargetContext();}
+    @Test public void audioPropertiesKeepRawStringsAndNull()throws Exception{
+        String[] values={" 0048000 ","","false",null,"<img src=x onerror=alert(1)>"};int[] calls={0};
+        ItemSink sink=new ItemSink(context,"audio-property-values");HardwareCollector.audioProperties(sink,key->values[calls[0]++]);assertEquals(5,calls[0]);assertEquals(5,sink.items.length());
+        for(int i=0;i<values.length;i++){JSONObject item=sink.items.getJSONObject(i);assertEquals("ok",item.getString("status"));assertEquals(values[i]==null?"null":"string",item.getString("dataType"));if(values[i]==null)assertTrue(item.isNull("value"));else assertEquals(values[i],item.getString("value"));}
+    }
+    @Test public void audioPropertyFailuresAreIsolatedAndBounded()throws Exception{
+        ItemSink sink=new ItemSink(context,"audio-property-errors");int[] calls={0};String maximum=new String(new char[2048]).replace('\0','x');
+        HardwareCollector.audioProperties(sink,key->{int index=calls[0]++;if(index==0)throw new SecurityException("synthetic");if(index==1)throw new NoSuchMethodError("synthetic");if(index==2)throw new IllegalStateException("synthetic");return index==3?maximum+"x":maximum;});
+        assertEquals(5,calls[0]);String[] states={"denied","unsupported","error","error","ok"},classes={"java.lang.SecurityException","java.lang.NoSuchMethodError","java.lang.IllegalStateException","java.lang.IllegalArgumentException"};
+        for(int i=0;i<5;i++){JSONObject item=sink.items.getJSONObject(i);assertEquals(states[i],item.getString("status"));if(i<4){assertTrue(item.isNull("value"));assertEquals(classes[i],item.getJSONObject("error").getString("class"));}else assertEquals(maximum,item.getString("value"));}
+        ItemSink missing=new ItemSink(context,"audio-property-unavailable");HardwareCollector.audioProperties(missing,null);assertEquals(5,missing.items.length());for(int i=0;i<5;i++){assertEquals("error",missing.items.getJSONObject(i).getString("status"));assertTrue(missing.items.getJSONObject(i).isNull("value"));}
+    }
+    @Test public void audioPropertiesMatchPublicApiAndKeepExistingHardware()throws Exception{
+        android.media.AudioManager manager=context.getSystemService(android.media.AudioManager.class);assertNotNull(manager);String started=CollectionController.now();
+        String[] ids={"output-sample-rate","output-frames-per-buffer","mic-near-ultrasound","speaker-near-ultrasound","source-unprocessed"};
+        String[] keys={android.media.AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE,android.media.AudioManager.PROPERTY_OUTPUT_FRAMES_PER_BUFFER,android.media.AudioManager.PROPERTY_SUPPORT_MIC_NEAR_ULTRASOUND,android.media.AudioManager.PROPERTY_SUPPORT_SPEAKER_NEAR_ULTRASOUND,android.media.AudioManager.PROPERTY_SUPPORT_AUDIO_SOURCE_UNPROCESSED};
+        ItemSink sink=new ItemSink(context,"audio-property-api");new HardwareCollector("hardware").collect(sink);JSONArray evidence=new JSONArray();boolean audio=false,summary=false;
+        for(int i=0;i<ids.length;i++){JSONObject actual=null;for(int j=0;j<sink.items.length();j++){JSONObject item=sink.items.getJSONObject(j);if(item.getString("key").equals("hardware/audio-property/"+ids[i])){assertNull("属性key必须唯一",actual);actual=item;}if(item.getString("key").equals("hardware/audio"))audio=true;if(item.getString("key").equals("hardware/audio-summary"))summary=true;}assertNotNull(actual);assertEquals("ok",actual.getString("status"));assertEquals("AudioManager.getProperty("+keys[i]+")",actual.getJSONObject("source").getString("api"));String value=manager.getProperty(keys[i]);if(value==null)assertTrue(actual.isNull("value"));else assertEquals(value,actual.getString("value"));evidence.put(actual);}
+        assertTrue(audio);assertTrue(summary);
+        android.content.pm.PackageInfo info=context.getPackageManager().getPackageInfo(context.getPackageName(),0);
+        JSONObject data=Json.obj("schemaVersion","1.0","collectorVersion",info.versionName,"sessionId",UUID.randomUUID().toString(),"startedAt",started,"finishedAt",CollectionController.now(),"state","complete",
+            "config",Json.obj("profile","audio-property-api-check","instrumentation",true,"scope","仅五项公开音频属性，非正式全量采集"),"permissions",CollectionController.permissions(context),
+            "app",Json.obj("packageName",context.getPackageName(),"versionName",info.versionName,"versionCode",info.versionCode,"androidSdk",Build.VERSION.SDK_INT,"targetSdk",context.getApplicationInfo().targetSdkVersion,"uid",android.os.Process.myUid()),"items",evidence);
+        Bundle bundle=new Bundle();bundle.putString("audioPropertyReport",Json.obj("data",data,"message","独立API instrumentation验证报告，非正式全量采集","code",0).toString());InstrumentationRegistry.getInstrumentation().sendStatus(0,bundle);
+    }
     @Test public void microphoneSentinelsAndResponseBounds()throws Exception{
         assertEquals("unknown-sentinel",HardwareCollector.microphoneFloatValue(-Float.MAX_VALUE).getString("kind"));
         for(float value:new float[]{0f,-0f,-99.5f,Float.MAX_VALUE}){JSONObject actual=HardwareCollector.microphoneFloatValue(value);assertEquals("finite",actual.getString("kind"));assertEquals((double)value,actual.getDouble("raw"),0d);}

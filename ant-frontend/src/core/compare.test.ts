@@ -7,6 +7,22 @@ const raw = { semantic: false, ignoreDynamic: false }, semantic = { semantic: tr
 const find = (rows: ReturnType<typeof compare>, key: string) => rows.find(x => x.key === key)!;
 
 describe('原始与语义比较', () => {
+  it('公开音频属性兼容旧报告，保留字符串/null/失败，不把文本声明转成布尔或数字', () => {
+    const ids = ['output-sample-rate', 'output-frames-per-buffer', 'mic-near-ultrasound', 'speaker-near-ultrasound', 'source-unprocessed'];
+    const items = ids.map((id, index) => fixtureItem(`hardware/audio-property/${id}`, ['0048000', '192', 'false', 'true', null][index], { category: 'hardware' }));
+    const current = fixture(items), old = fixture([]), before = JSON.stringify(current);
+    for (const rules of [raw, semantic, smart]) {
+      for (const item of items) {
+        expect(find(compare(old, current, rules), item.key).state).toBe('right-only');
+        expect(find(compare(current, current, rules), item.key).state).toBe('same');
+        const changed = fixture(items.map(value => value === item ? { ...item, status: 'denied', value: null, dataType: 'null' } : value));
+        expect(find(compare(current, changed, rules), item.key).state).toBe('status');
+      }
+      expect(find(compare(current, fixture([{ ...items[2], value: false, dataType: 'boolean' }]), rules), items[2].key).state).toBe('different');
+      expect(find(compare(current, fixture([{ ...items[0], value: 48000, dataType: 'number' }]), rules), items[0].key).state).toBe('different');
+    }
+    expect(JSON.stringify(current)).toBe(before);
+  });
   it('任意单侧可比较，保留真实元数据、重复项及失败状态，不补造另一侧', () => {
     const report = fixture([fixtureItem('present', 1), fixtureItem('denied', null, { status: 'denied' })]);
     const before = JSON.stringify(report);
