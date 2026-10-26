@@ -100,6 +100,11 @@
 - `hardware/codecs[*].capabilities[*].videoCapabilities`通过API21+公开VideoCapabilities固定读取码率/帧率/宽高的整数范围及宽高像素对齐要求；非视频MIME与读取失败分开，失败只影响新增对象。原Profile、颜色格式、功能标志及清单顺序保留，旧JSON可正常比较。
 - 范围不代表实时解码性能或任意宽高帧率组合均可用，不创建编解码实例或执行媒体任务。深层变化继续进入原编解码器概览差异，完整字段可展开分页复核；本轮依据本机公开SDK源码与API版本表，网络源码下载未成功。
 
+## 视频性能点补充
+
+- `hardware/codecs[*].capabilities[*].performancePoints`使用API29+公开性能点清单、描述原文和对HD/FHD/UHD各30/60/120fps共9个参考点的covers结果；区分unsupported、not-video、not-published/null、ok/[]及denied/error。最多256输入/64明细/2048字符描述，保留原序、重复和完整数组SHA256，截断外变化仍参与比较；旧能力与旧JSON保持兼容。
+- 只读取平台声明，不创建编解码器、不调用隐藏getter，也不将覆盖结果当成实测性能、任意格式组合支持或真机结论。Pixel6/API36独立公开API测试为79个MIME中17项/36点、28项未发布、34项非视频；新字段浏览器样本是旧正式报告加独立API证据的HYBRID，空/失败/截断样本为SYNTHETIC，本轮未验证新正式Release整轮报告。详见[来源与边界](android-risk-fingerprint-sources.md#视频编解码器的公开性能点)。
+
 ## 实际 APEX 包清单补充
 
 - `build/apex-packages`独立使用API29+公开`getInstalledPackages(MATCH_APEX)`并按`isApex`筛选，记录当前App可见、已安装且已激活APEX的实际包名、版本名和int64版本号。与ModuleInfo配置包名不做推测关联；不覆盖原模块清单、不代表staged文件或完整设备库存。

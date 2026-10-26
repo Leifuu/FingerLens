@@ -164,6 +164,15 @@
 - 非视频能力返回`available=false/status=not-video`及六项null；读取失败保留denied/error和异常类型，不改写原MIME、Profile、颜色格式和featureFlags。缺失CodecCapabilities不冒充非视频。旧JSON缺新增对象可导入比较，原编解码器概览继续聚合深层差异，完整字段分页可复核范围与未来字段，不据此单独判定真机或风险。
 - Pixel6/Android15验证：70个编解码器中的41个视频MIME读取成功，29个非视频MIME返回not-video，逐项与公开API对照一致；独立Release采集结果相同。示例`c2.exynos.h263.decoder`的video/3gpp能力返回宽32–720、高32–576、帧率1–60及宽高对齐4像素；只移除新增对象后原清单与上一报告完全一致，摘要也保持一致。
 
+## 视频编解码器的公开性能点
+
+- [getSupportedPerformancePoints](https://developer.android.com/reference/android/media/MediaCodecInfo.VideoCapabilities#getSupportedPerformancePoints()) 和 [PerformancePoint](https://developer.android.com/reference/android/media/MediaCodecInfo.VideoCapabilities.PerformancePoint) 自API29公开。2026-10-26核对SDK37.0版本表及[固定AOSP源码](https://github.com/aosp-mirror/platform_frameworks_base/blob/1cdfff555f4a21f71ccc978290e2e212e2f8b168/media/java/android/media/MediaCodecInfo.java)，下载源码SHA256为 `8cf43cec28a0e7c81984cfb5c1ba2d5920efeef2e54396c161cd2e9f91d16acc`。`null` 表示未发布性能点信息，空列表表示没有声明性能点保证，两者不能混同。声明以单个活动编解码器为前提，不等同实际测得帧率；32位进程也可能受分辨率限制。
+- `hardware/codecs[*].capabilities[*].performancePoints` 独立保存状态、总数、返回数、上限、截断标志、完整哈希及明细。API29以下为unsupported/null，非视频为not-video/null，未发布为not-published/null，成功空列表为ok/[]；异常为denied/error/null及errorClass，不丢失原视频、音频、编码器能力和特性字段。
+- 每点保存公开 `toString()` 的description原文及公开 `covers()` 对9个固定参考点的布尔结果：HD为1280×720、FHD为1920×1080、UHD为3840×2160，各取30/60/120fps。description仅为调试描述，不解析为结构化分辨率或稳定标识；`getMaxMacroBlocks/getMaxFrameRate/getMaxMacroBlockRate` 属于隐藏/TestApi方法，本工程不调用。覆盖参考点不保证任意格式组合可用，不覆盖原视频范围，不创建编解码实例或运行媒体负载，也不据此判定设备真实性。
+- 最多256输入、64点明细，description最多2048字符；快照保留原序与重复。超过明细上限为partial，完整原序points数组的UTF8 JSON SHA256覆盖截断外变化，超输入或描述边界作为查询错误处理。旧JSON缺新对象正常导入比较，完整原对象继续参与概览差异，所有新增原字段可在原50字段分页中复核。
+- Pixel6/Android16/API36独立公开API测试核对79个MIME：17项发布共36个性能点、28项未发布、34项非视频。例 `c2.exynos.h263.decoder` 的video/3gpp返回 `PerformancePoint(1920x1088@120)` 和 `PerformancePoint(1280x720@240)`；仅记录原声明，不用它推断实际解码分辨率。新Release APK已安装；本轮未验证新的正式Release整轮报告。
+- 浏览器新增数据样本明确标为HYBRID：上一正式报告加本轮独立公开API证据，按原序name/type逐项匹配后添加新对象；它不是新正式采集报告。此样本、明确标注的SYNTHETIC空/失败/截断样本和缺新字段的旧真实报告均通过双侧原文、分页和差异兼容检查。低API分支、空清单、输入边界、截断外哈希及失败展示由合成测试覆盖，不当作本机真实返回；其它厂商与旧API真机尚未实测。
+
 ## 当前 App 可见的已安装 APEX 包
 
 - API29+通过[PackageManager.getInstalledPackages](https://developer.android.com/reference/android/content/pm/PackageManager#getInstalledPackages(int))传入`MATCH_APEX`，仅保留`PackageInfo.isApex=true`的项，新增独立条目`build/apex-packages`。依据上述固定AOSP公开契约，仅表示当前已安装、已激活且对本App可见的包，不包含待重启激活的staged文件，也不声称是设备完整库存。

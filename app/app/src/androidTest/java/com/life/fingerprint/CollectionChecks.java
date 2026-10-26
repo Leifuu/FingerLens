@@ -665,6 +665,36 @@ public class CollectionChecks {
         try{HardwareCollector.codecAudioValues(bitrate,2,new android.util.Range[20001],null);fail("区间输入不能越界");}catch(IllegalArgumentException expected){}
         try{HardwareCollector.codecAudioValues(bitrate,2,new android.util.Range[0],new int[20001]);fail("采样率输入不能越界");}catch(IllegalArgumentException expected){}
     }
+    @Test public void codecPerformancePointBoundsAndCoverage()throws Exception{
+        JSONObject missing=HardwareCollector.codecPerformancePointValues(null);assertEquals("not-published",missing.getString("status"));assertTrue(missing.isNull("points"));assertTrue(missing.isNull("pointCount"));assertTrue(missing.isNull("pointsTruncated"));
+        JSONObject empty=HardwareCollector.codecPerformancePointValues(Collections.emptyList());assertEquals("ok",empty.getString("status"));assertEquals(0,empty.getInt("pointCount"));assertEquals("[]",empty.getJSONArray("points").toString());assertEquals(PackageInputCollector.sha("[]".getBytes(StandardCharsets.UTF_8)),empty.getString("pointsSha256"));
+        android.media.MediaCodecInfo.VideoCapabilities.PerformancePoint small=new android.media.MediaCodecInfo.VideoCapabilities.PerformancePoint(1280,720,30),large=new android.media.MediaCodecInfo.VideoCapabilities.PerformancePoint(1920,1080,60);
+        ArrayList<android.media.MediaCodecInfo.VideoCapabilities.PerformancePoint> points=new ArrayList<>(Arrays.asList(large,small,large));JSONObject actual=HardwareCollector.codecPerformancePointValues(points);JSONArray values=actual.getJSONArray("points");
+        assertEquals(3,actual.getInt("pointCount"));assertEquals(large.toString(),values.getJSONObject(0).getString("description"));assertEquals(small.toString(),values.getJSONObject(1).getString("description"));assertEquals(values.getJSONObject(0).toString(),values.getJSONObject(2).toString());assertSame(large,points.get(0));points.set(0,small);assertEquals(large.toString(),values.getJSONObject(0).getString("description"));
+        JSONObject covers=values.getJSONObject(0).getJSONObject("coversReferencePoints");assertEquals(9,covers.length());assertTrue(covers.getBoolean("HD_30"));assertTrue(covers.getBoolean("FHD_60"));assertFalse(covers.getBoolean("UHD_30"));assertFalse(covers.getBoolean("FHD_120"));
+        assertEquals(PackageInputCollector.sha(values.toString().getBytes(StandardCharsets.UTF_8)),actual.getString("pointsSha256"));
+        ArrayList<android.media.MediaCodecInfo.VideoCapabilities.PerformancePoint> many=new ArrayList<>(Collections.nCopies(256,small));JSONObject maximum=HardwareCollector.codecPerformancePointValues(many);many.set(255,large);JSONObject changed=HardwareCollector.codecPerformancePointValues(many);
+        assertEquals("partial",maximum.getString("status"));assertEquals(256,maximum.getInt("pointCount"));assertEquals(64,maximum.getInt("returnedCount"));assertEquals(64,maximum.getInt("pointLimit"));assertTrue(maximum.getBoolean("pointsTruncated"));assertEquals(maximum.getJSONArray("points").toString(),changed.getJSONArray("points").toString());assertNotEquals(maximum.getString("pointsSha256"),changed.getString("pointsSha256"));
+        assertEquals("ok",HardwareCollector.codecPerformancePointValues(Collections.nCopies(64,small)).getString("status"));assertEquals("partial",HardwareCollector.codecPerformancePointValues(Collections.nCopies(65,small)).getString("status"));
+        try{HardwareCollector.codecPerformancePointValues(Collections.nCopies(257,small));fail("最多256输入");}catch(IllegalArgumentException expected){}
+        try{HardwareCollector.codecPerformancePointValues(Collections.singletonList(null));fail("null项不是未发布");}catch(NullPointerException expected){}
+        for(int sdk:new int[]{24,28}){JSONObject old=HardwareCollector.codecPerformancePoints(null,sdk);assertEquals("unsupported",old.getString("status"));assertTrue(old.isNull("points"));}
+        try{HardwareCollector.codecPerformancePoints(null,29);fail("新API需要能力实例");}catch(NullPointerException expected){}
+    }
+    @Test public void codecPerformancePointsMatchPublicApi()throws Exception{
+        android.media.MediaCodecInfo[] platform=new android.media.MediaCodecList(android.media.MediaCodecList.ALL_CODECS).getCodecInfos();JSONArray evidence=new JSONArray();
+        String[] names={"HD_30","HD_60","HD_120","FHD_30","FHD_60","FHD_120","UHD_30","UHD_60","UHD_120"};int[][] dimensions={{1280,720,30},{1280,720,60},{1280,720,120},{1920,1080,30},{1920,1080,60},{1920,1080,120},{3840,2160,30},{3840,2160,60},{3840,2160,120}};
+        for(android.media.MediaCodecInfo codec:platform)for(String type:codec.getSupportedTypes()){
+            android.media.MediaCodecInfo.CodecCapabilities cap=codec.getCapabilitiesForType(type);JSONObject actual=HardwareCollector.codecPerformancePoints(cap,Build.VERSION.SDK_INT);evidence.put(Json.obj("name",codec.getName(),"type",type,"performancePoints",actual));
+            if(Build.VERSION.SDK_INT<29){assertEquals("unsupported",actual.getString("status"));continue;}
+            android.media.MediaCodecInfo.VideoCapabilities video=cap.getVideoCapabilities();if(video==null){assertEquals("not-video",actual.getString("status"));assertTrue(actual.isNull("points"));continue;}
+            List<android.media.MediaCodecInfo.VideoCapabilities.PerformancePoint> points=video.getSupportedPerformancePoints();if(points==null){assertEquals("not-published",actual.getString("status"));assertTrue(actual.isNull("points"));continue;}
+            assertEquals(points.size()>64?"partial":"ok",actual.getString("status"));assertEquals(points.size(),actual.getInt("pointCount"));assertEquals(Math.min(64,points.size()),actual.getInt("returnedCount"));JSONArray all=new JSONArray();
+            for(int i=0;i<points.size();i++){JSONObject coverage=new JSONObject();for(int j=0;j<names.length;j++)Json.put(coverage,names[j],points.get(i).covers(new android.media.MediaCodecInfo.VideoCapabilities.PerformancePoint(dimensions[j][0],dimensions[j][1],dimensions[j][2])));JSONObject value=Json.obj("description",points.get(i).toString(),"coversReferencePoints",coverage);all.put(value);if(i<64)assertEquals(value.toString(),actual.getJSONArray("points").getJSONObject(i).toString());}
+            assertEquals(PackageInputCollector.sha(all.toString().getBytes(StandardCharsets.UTF_8)),actual.getString("pointsSha256"));
+        }
+        Bundle result=new Bundle();result.putString("codecPerformanceEvidence",evidence.toString());InstrumentationRegistry.getInstrumentation().sendStatus(0,result);
+    }
     @Test public void codecVideoRangesMatchPublicCapabilities()throws Exception{
         try{HardwareCollector.codecVideoCapabilities(null);fail("缺失能力不能冒充非视频MIME");}catch(NullPointerException expected){}
         ItemSink sink=new ItemSink(context,"video-capabilities-test");new HardwareCollector("hardware").collect(sink);
@@ -677,6 +707,7 @@ public class CollectionChecks {
                 JSONObject type=types.getJSONObject(j);if(type.has("error"))continue;
                 assertTrue(type.has("colorFormats"));assertTrue(type.has("profileLevels"));assertTrue(type.has("featureFlags"));
                 android.media.MediaCodecInfo.VideoCapabilities video=platform[i].getCapabilitiesForType(type.getString("type")).getVideoCapabilities();JSONObject value=type.getJSONObject("videoCapabilities");
+                assertEquals(HardwareCollector.codecPerformancePoints(platform[i].getCapabilitiesForType(type.getString("type")),Build.VERSION.SDK_INT).toString(),type.getJSONObject("performancePoints").toString());
                 if(video==null){otherCount++;assertFalse(value.getBoolean("available"));assertEquals("not-video",value.getString("status"));for(String key:new String[]{"bitrateBitsPerSecond","frameRatesPerSecond","widthPixels","heightPixels","widthAlignmentPixels","heightAlignmentPixels"})assertTrue(value.isNull(key));continue;}
                 videoCount++;assertTrue(value.getBoolean("available"));assertEquals("ok",value.getString("status"));
                 android.util.Range<?>[] ranges={video.getBitrateRange(),video.getSupportedFrameRates(),video.getSupportedWidths(),video.getSupportedHeights()};String[] keys={"bitrateBitsPerSecond","frameRatesPerSecond","widthPixels","heightPixels"};

@@ -95,4 +95,14 @@ describe('编解码器概览', () => {
     expect(grouped([{ name: 'codec', encoder: false }, null])).toBeUndefined();
     expect(grouped([{ name: 'codec', encoder: false }], [{ name: 'codec' }])).toBeUndefined();
   });
+  it('性能点的旧缺项、覆盖false、原序描述与完整哈希变化参与整行差异', () => {
+    const old = { name: 'codec', encoder: false, capabilities: [{ type: 'video/test' }] };
+    const performancePoints = { status: 'ok', pointCount: 2, returnedCount: 2, pointsTruncated: false, pointsSha256: 'a', points: [{ description: 'first', coversReferencePoints: { HD_30: true, UHD_60: false } }, { description: 'second', coversReferencePoints: { HD_30: false, UHD_60: false } }] };
+    const current = { ...old, capabilities: [{ type: 'video/test', performancePoints }] };
+    expect(grouped([old], [current])![0].state).toBe('changed');expect(grouped([current], [current])![0].state).toBe('same');
+    const variants: Json[] = [{ ...performancePoints, pointsSha256: 'b' }, { ...performancePoints, points: [...performancePoints.points].reverse() }, { ...performancePoints, points: [{ ...performancePoints.points[0], coversReferencePoints: { HD_30: true, UHD_60: true } }, performancePoints.points[1]] }, { status: 'not-published', points: null }, { status: 'ok', points: [] }];
+    for (const changed of variants) {
+      expect(grouped([current], [{ ...old, capabilities: [{ type: 'video/test', performancePoints: changed }] }])![0].state).toBe('changed');
+    }
+  });
 });
