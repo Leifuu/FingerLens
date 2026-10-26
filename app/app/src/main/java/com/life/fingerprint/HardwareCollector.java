@@ -199,15 +199,37 @@ public final class HardwareCollector implements Collector {
                 if(vibrator==null)return Json.obj("available",false,"count",0,"vibrators",values);
                 values.put(vibratorValue(vibrator,0));
             }
-            boolean hasVibrator=false,hasAmplitudeControl=false;for(int i=0;i<values.length();i++){JSONObject value=values.optJSONObject(i);hasVibrator|=value!=null&&value.optBoolean("hasVibrator");hasAmplitudeControl|=value!=null&&value.optBoolean("hasAmplitudeControl");}
-            return Json.obj("available",true,"count",values.length(),"hasVibrator",hasVibrator,"hasAmplitudeControl",hasAmplitudeControl,"vibrators",values);
+            boolean hasVibrator=false;for(int i=0;i<values.length();i++){JSONObject value=values.optJSONObject(i);hasVibrator|=value!=null&&value.optBoolean("hasVibrator");}
+            return Json.obj("available",true,"count",values.length(),"hasVibrator",hasVibrator,"hasAmplitudeControl",vibratorAmplitudeSummary(values),"vibrators",values);
         });
     }
     private static JSONObject vibratorValue(Vibrator vibrator,int id){
-        JSONObject value=Json.obj("id",id,"hasVibrator",vibrator.hasVibrator(),"hasAmplitudeControl",vibrator.hasAmplitudeControl());
+        JSONObject amplitude=vibratorAmplitudeControl(vibrator,Build.VERSION.SDK_INT);
+        JSONObject value=Json.obj("id",id,"hasVibrator",vibrator.hasVibrator(),"hasAmplitudeControl",amplitude.opt("value"),"amplitudeControlStatus",amplitude.opt("status"));
+        if(amplitude.has("errorClass"))Json.put(value,"amplitudeControlErrorClass",amplitude.opt("errorClass"));
         if(Build.VERSION.SDK_INT>=30)try{Json.put(value,"effectSupportCodes",vibrator.areEffectsSupported(VibrationEffect.EFFECT_CLICK,VibrationEffect.EFFECT_DOUBLE_CLICK,VibrationEffect.EFFECT_HEAVY_CLICK,VibrationEffect.EFFECT_TICK));}catch(Exception e){Json.put(value,"effectSupportCodes",null);Json.put(value,"effectSupportStatus","error");}
         Json.put(value,"frequencyCharacteristics",vibratorFrequencyCharacteristics(vibrator));
         return value;
+    }
+    // 业务块：API24/25不调用API26接口；查询失败保留未知，避免抹去存在性和其它能力。
+    static JSONObject vibratorAmplitudeControl(Vibrator vibrator,int sdk){
+        if(sdk<26)return Json.obj("status","unsupported","value",null);
+        Objects.requireNonNull(vibrator,"missing vibrator");
+        try{return Json.obj("status","ok","value",vibrator.hasAmplitudeControl());}
+        catch(Exception|LinkageError e){return Json.obj("status",e instanceof SecurityException?"denied":"error","value",null,"errorClass",e.getClass().getName());}
+    }
+    // 业务块：最多32个振动器按三值OR汇总；任一true为true，仅全部明确false才是false。
+    static Boolean vibratorAmplitudeSummary(JSONArray values){
+        Objects.requireNonNull(values,"missing vibrators");
+        if(values.length()>32)throw new IllegalArgumentException("振动器超过 32");
+        boolean supported=false,unknown=false;
+        for(int i=0;i<values.length();i++){
+            JSONObject device=values.optJSONObject(i);Object value=device==null?null:device.opt("hasAmplitudeControl");
+            if(Boolean.TRUE.equals(value))supported=true;
+            else if(!Boolean.FALSE.equals(value))unknown=true;
+        }
+        if(supported)return true;
+        return unknown?null:Boolean.FALSE;
     }
     // 业务块：只读两个公开频率特性；NaN按平台语义保留为未知，单项异常不丢失其它振动器能力。
     static JSONObject vibratorFrequencyCharacteristics(Vibrator vibrator){

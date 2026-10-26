@@ -561,6 +561,24 @@ public class CollectionChecks {
         JSONObject summary=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("hardware/microphone-summary")){summary=item;break;}}
         assertNotNull("应生成麦克风阵列摘要",summary);String status=summary.getString("status");assertTrue("麦克风状态应明确: "+status,status.equals("ok")||status.equals("unsupported")||status.equals("denied")||status.equals("unavailable")||status.equals("error"));if(status.equals("ok")){JSONObject value=summary.getJSONObject("value");assertTrue(value.getBoolean("available"));assertTrue(value.getInt("count")>=0);assertTrue(value.getInt("returnedCount")<=256);assertTrue(value.getJSONArray("microphoneIds").length()<=64);assertTrue(value.has("typeCounts"));assertTrue(value.has("locationValues"));assertTrue(value.has("directionalityValues"));assertFalse(summary.toString().contains("MicrophoneInfo{"));}
     }
+    @Test public void vibratorAmplitudeGuardsOldApiAndPreservesUnknown()throws Exception{
+        for(int sdk:new int[]{24,25}){
+            JSONObject query=HardwareCollector.vibratorAmplitudeControl(null,sdk);
+            assertEquals("unsupported",query.getString("status"));assertTrue(query.has("value"));assertTrue(query.isNull("value"));
+        }
+        try{HardwareCollector.vibratorAmplitudeControl(null,26);fail("API26查询必须有振动器实例");}catch(NullPointerException expected){}
+        for(Object left:new Object[]{false,true,null})for(Object right:new Object[]{false,true,null}){
+            Boolean expected=Boolean.TRUE.equals(left)||Boolean.TRUE.equals(right)?Boolean.TRUE:left==null||right==null?null:Boolean.FALSE;
+            JSONArray values=new JSONArray().put(Json.obj("hasAmplitudeControl",left)).put(Json.obj("hasAmplitudeControl",right));
+            String before=values.toString();assertEquals(expected,HardwareCollector.vibratorAmplitudeSummary(values));assertEquals(before,values.toString());
+        }
+        assertEquals(Boolean.FALSE,HardwareCollector.vibratorAmplitudeSummary(new JSONArray()));
+        for(Object value:new Object[]{new JSONObject(),JSONObject.NULL,Json.obj("hasAmplitudeControl","false"),Json.obj("hasAmplitudeControl",0)})assertNull(HardwareCollector.vibratorAmplitudeSummary(new JSONArray().put(value)));
+        JSONArray maximum=new JSONArray();for(int i=0;i<32;i++)maximum.put(Json.obj("hasAmplitudeControl",false));
+        assertEquals(Boolean.FALSE,HardwareCollector.vibratorAmplitudeSummary(maximum));maximum.put(Json.obj("hasAmplitudeControl",true));
+        try{HardwareCollector.vibratorAmplitudeSummary(maximum);fail("超过32个不能静默截断");}catch(IllegalArgumentException expected){}
+        try{HardwareCollector.vibratorAmplitudeSummary(null);fail("缺失清单不能当空集合");}catch(NullPointerException expected){}
+    }
     @Test public void vibratorFrequencyValuesKeepUnknownAndNonFiniteDistinct()throws Exception{
         for(float raw:new float[]{150.5f,0f,-1f,Float.NaN,Float.POSITIVE_INFINITY,Float.NEGATIVE_INFINITY}){
             JSONObject value=new JSONObject(HardwareCollector.vibratorFrequencyValue(raw).toString());
@@ -574,10 +592,15 @@ public class CollectionChecks {
         ItemSink sink=new ItemSink(context,"vibrator-frequency-test");new HardwareCollector("hardware").collect(sink);
         JSONObject item=null;for(int i=0;i<sink.items.length();i++)if(sink.items.getJSONObject(i).getString("key").equals("hardware/vibrator"))item=sink.items.getJSONObject(i);
         assertNotNull(item);assertEquals("ok",item.getString("status"));JSONObject value=new JSONObject(item.toString()).getJSONObject("value");JSONArray devices=value.getJSONArray("vibrators");
-        assertEquals(value.getInt("count"),devices.length());
+        assertEquals(value.getInt("count"),devices.length());boolean amplitudeSupported=false,amplitudeUnknown=false;
         for(int i=0;i<devices.length();i++){
             JSONObject device=devices.getJSONObject(i);android.os.Vibrator vibrator=Build.VERSION.SDK_INT>=31?context.getSystemService(android.os.VibratorManager.class).getVibrator(device.getInt("id")):context.getSystemService(android.os.Vibrator.class);
-            assertEquals(vibrator.hasVibrator(),device.getBoolean("hasVibrator"));assertEquals(vibrator.hasAmplitudeControl(),device.getBoolean("hasAmplitudeControl"));
+            assertEquals(vibrator.hasVibrator(),device.getBoolean("hasVibrator"));
+            if(Build.VERSION.SDK_INT<26){assertTrue(device.isNull("hasAmplitudeControl"));assertEquals("unsupported",device.getString("amplitudeControlStatus"));amplitudeUnknown=true;}
+            else{
+                try{boolean expected=vibrator.hasAmplitudeControl();assertEquals(expected,device.getBoolean("hasAmplitudeControl"));assertEquals("ok",device.getString("amplitudeControlStatus"));assertFalse(device.has("amplitudeControlErrorClass"));amplitudeSupported|=expected;}
+                catch(Exception|LinkageError e){assertTrue(device.isNull("hasAmplitudeControl"));assertEquals(e instanceof SecurityException?"denied":"error",device.getString("amplitudeControlStatus"));assertEquals(e.getClass().getName(),device.getString("amplitudeControlErrorClass"));amplitudeUnknown=true;}
+            }
             if(Build.VERSION.SDK_INT>=30){int[] expected=vibrator.areEffectsSupported(android.os.VibrationEffect.EFFECT_CLICK,android.os.VibrationEffect.EFFECT_DOUBLE_CLICK,android.os.VibrationEffect.EFFECT_HEAVY_CLICK,android.os.VibrationEffect.EFFECT_TICK);assertEquals(expected.length,device.getJSONArray("effectSupportCodes").length());for(int j=0;j<expected.length;j++)assertEquals(expected[j],device.getJSONArray("effectSupportCodes").getInt(j));}
             JSONObject characteristics=device.getJSONObject("frequencyCharacteristics");assertEquals(2,characteristics.length());
             for(String name:new String[]{"resonantFrequencyHz","qFactor"}){
@@ -592,6 +615,7 @@ public class CollectionChecks {
             }
             Bundle evidence=new Bundle();evidence.putString("vibratorFrequency"+device.getInt("id"),characteristics.toString());InstrumentationRegistry.getInstrumentation().sendStatus(0,evidence);
         }
+        if(!amplitudeSupported&&amplitudeUnknown)assertTrue(value.isNull("hasAmplitudeControl"));else assertEquals(amplitudeSupported,value.getBoolean("hasAmplitudeControl"));
     }
     @Test public void vibratorEvidenceUsesPublicCapabilitiesOnly()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new HardwareCollector("hardware").collect(sink);

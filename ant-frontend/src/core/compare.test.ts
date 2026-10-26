@@ -7,6 +7,21 @@ const raw = { semantic: false, ignoreDynamic: false }, semantic = { semantic: tr
 const find = (rows: ReturnType<typeof compare>, key: string) => rows.find(x => x.key === key)!;
 
 describe('原始与语义比较', () => {
+  it('振幅能力兼容旧JSON，区分未知/null/false/缺项及查询失败且不改写原始数据', () => {
+    const key = 'hardware/vibrator', device = { id: 0, hasVibrator: true, hasAmplitudeControl: false };
+    const report = (fields: Record<string, Json>, summary: Record<string, Json> = {}) => fixture([fixtureItem(key, { ...summary, vibrators: [{ id: 0, hasVibrator: true, ...fields }] }, { category: 'hardware' })]);
+    const legacy = report(device), current = report({ ...device, amplitudeControlStatus: 'ok' });
+    const variants = [legacy, current, report({ hasAmplitudeControl: null, amplitudeControlStatus: 'unsupported' }), report({ hasAmplitudeControl: null, amplitudeControlStatus: 'error', amplitudeControlErrorClass: 'synthetic' }), report({}), report({ ...device, amplitudeControlStatus: 'future' }), report({ ...device, amplitudeControlStatus: 'ok' }, { hasAmplitudeControl: null }), report({ ...device, amplitudeControlStatus: 'ok' }, { hasAmplitudeControl: false })];
+    const before = JSON.stringify(variants);
+    for (const rules of [raw, semantic, smart]) {
+      expect(find(compare(legacy, current, rules), key).changedPaths).toEqual(['/value/vibrators/0/amplitudeControlStatus']);
+      for (let i = 0; i < variants.length; i++) {
+        expect(find(compare(variants[i], variants[i], rules), key).state).toBe('same');
+        for (const next of variants.slice(i + 1)) expect(find(compare(variants[i], next, rules), key).state).toBe('different');
+      }
+    }
+    expect(JSON.stringify(variants)).toBe(before);
+  });
   it('振动器频率兼容旧数据，区分NaN未知/零/失败及新状态而不改变原效果码', () => {
     const device = { id: 0, hasVibrator: true, hasAmplitudeControl: true, effectSupportCodes: [1, 1, 1, 2] };
     const report = (frequency?: Json) => fixture([fixtureItem('hardware/vibrator', { vibrators: [{ ...device, ...(frequency === undefined ? {} : { frequencyCharacteristics: { resonantFrequencyHz: frequency } }) }] }, { category: 'hardware' })]);
