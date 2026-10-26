@@ -13,6 +13,9 @@
 
 ## Android 安全环境资料
 
+- 传感器标识及附加信息能力（2026-10-26）：已核对 SDK37 API 版本表，以及[固定 AOSP Sensor.java](https://github.com/aosp-mirror/platform_frameworks_base/blob/1cdfff555f4a21f71ccc978290e2e212e2f8b168/core/java/android/hardware/Sensor.java) 的 `getId()`（1168–1175行）和 `isAdditionalInfoSupported()`（1257–1265行），两者自API24公开，覆盖本工程minSdk24。`getId()` 的公开契约说明同一App范围内的ID，0表示不支持此功能，-1表示可用类型和名称识别；不得将其当作跨App通用设备标识。附加信息能力仅说明支持相应API，不代表已经读取校准或事件数据。
+- `sensors/list[*].publicMetadata` 新增独立 `sensorId` 和 `additionalInfoSupported` 查询对象，分别保留 `status/value`，ID另附 `kind`：0为unsupported、-1为type-and-name、其余为app-scoped-id。读取成功的0不改为缺失，正负整数原样保留，附加能力的false不改为未知。各查询异常独立返回denied/error、null及errorClass，不丢弃已有传感器字段；不注册监听、不读取传感器样本、不新增权限。旧JSON缺该对象仍可导入比较，原有20项概览及完整字段分页继续使用，不通过名称猜ID或能力；仅新增公开元数据，不据此判定设备真伪。当前未在API24真机运行，最低版本依据SDK契约核对。
+
 - 平台补丁与组件版本展示补充（2026-10-26）：`security/platform-security-state` 的 `entries` 增加每页20项的紧凑对照，系统/厂商补丁和内核键附公开含义，组件包名及版本保持原文，空字符串与null分开显示。概览按原始键和同名重复序号配对，保留两侧原始位置；位置、完整条目的未知字段或类型变化仍标记差异。完整集合哈希、数量和截断信息继续直接展示，逐字段详情默认折叠并保留50字段分页。旧JSON缺条目、有效空清单、单侧键、重复/特殊键分别处理；服务不可用、异构结构或每侧超过128项回退原字段表，不截断输入。窄屏独立横向查看两侧；此轮仅优化展示，不改采集、比较规则或导出，不从空值推断组件已安装。
 
 - 平台补丁与组件版本状态（2026-10-26）：[SecurityStateManager.getGlobalSecurityState](https://developer.android.com/reference/android/os/SecurityStateManager#getGlobalSecurityState()) 自API35返回平台声明的字符串映射。已核对SDK37版本表与[固定AOSP接口](https://github.com/aosp-mirror/platform_frameworks_base/blob/1cdfff555f4a21f71ccc978290e2e212e2f8b168/core/java/android/os/SecurityStateManager.java)、[服务实现](https://github.com/aosp-mirror/platform_frameworks_base/blob/1cdfff555f4a21f71ccc978290e2e212e2f8b168/services/core/java/com/android/server/SecurityStateManagerService.java)：已知system_spl/vendor_spl/kernel_version键，以及模块元数据、WebView和config_securityStatePackages配置包的版本映射。该上游实现会清除调用方身份后查询，不等同于当前App单独枚举包的结果；不假定设备运行这个固定提交。

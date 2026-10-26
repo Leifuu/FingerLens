@@ -392,10 +392,23 @@ public final class HardwareCollector implements Collector {
     }
     private void sensors(ItemSink s){
         SensorManager m=s.context.getSystemService(SensorManager.class);JSONArray a=new JSONArray();JSONObject typeCounts=new JSONObject();TreeSet<String> vendors=new TreeSet<>(String.CASE_INSENSITIVE_ORDER);boolean vendorsTruncated=false;int wakeUpCount=0,dynamicCount=0,directChannelCount=0;
-        for(Sensor sensor:m.getSensorList(Sensor.TYPE_ALL)){JSONObject v=Json.obj("name",sensor.getName(),"vendor",sensor.getVendor(),"type",sensor.getType(),"stringType",sensor.getStringType(),"version",sensor.getVersion(),"resolution",sensor.getResolution(),"maximumRange",sensor.getMaximumRange(),"power",sensor.getPower(),"minDelay",sensor.getMinDelay(),"maxDelay",sensor.getMaxDelay(),"fifoMaxEventCount",sensor.getFifoMaxEventCount(),"fifoReservedEventCount",sensor.getFifoReservedEventCount(),"reportingMode",sensor.getReportingMode(),"wakeUp",sensor.isWakeUpSensor(),"dynamic",sensor.isDynamicSensor());if(sensor.isWakeUpSensor())wakeUpCount++;if(sensor.isDynamicSensor())dynamicCount++;String typeKey=String.valueOf(sensor.getType());Json.put(typeCounts,typeKey,typeCounts.optInt(typeKey,0)+1);String vendor=sensor.getVendor();if(vendor!=null&&!vendors.contains(vendor)){if(vendors.size()<128)vendors.add(vendor);else vendorsTruncated=true;}if(Build.VERSION.SDK_INT>=26){Json.put(v,"highestDirectReportRateLevel",sensor.getHighestDirectReportRateLevel());boolean memory=sensor.isDirectChannelTypeSupported(SensorDirectChannel.TYPE_MEMORY_FILE),hardware=sensor.isDirectChannelTypeSupported(SensorDirectChannel.TYPE_HARDWARE_BUFFER);Json.put(v,"memoryFileDirectChannel",memory);Json.put(v,"hardwareBufferDirectChannel",hardware);if(memory||hardware)directChannelCount++;}a.put(v);}
+        for(Sensor sensor:m.getSensorList(Sensor.TYPE_ALL)){JSONObject v=Json.obj("name",sensor.getName(),"vendor",sensor.getVendor(),"type",sensor.getType(),"stringType",sensor.getStringType(),"version",sensor.getVersion(),"resolution",sensor.getResolution(),"maximumRange",sensor.getMaximumRange(),"power",sensor.getPower(),"minDelay",sensor.getMinDelay(),"maxDelay",sensor.getMaxDelay(),"fifoMaxEventCount",sensor.getFifoMaxEventCount(),"fifoReservedEventCount",sensor.getFifoReservedEventCount(),"reportingMode",sensor.getReportingMode(),"wakeUp",sensor.isWakeUpSensor(),"dynamic",sensor.isDynamicSensor(),"publicMetadata",sensorPublicMetadata(sensor));if(sensor.isWakeUpSensor())wakeUpCount++;if(sensor.isDynamicSensor())dynamicCount++;String typeKey=String.valueOf(sensor.getType());Json.put(typeCounts,typeKey,typeCounts.optInt(typeKey,0)+1);String vendor=sensor.getVendor();if(vendor!=null&&!vendors.contains(vendor)){if(vendors.size()<128)vendors.add(vendor);else vendorsTruncated=true;}if(Build.VERSION.SDK_INT>=26){Json.put(v,"highestDirectReportRateLevel",sensor.getHighestDirectReportRateLevel());boolean memory=sensor.isDirectChannelTypeSupported(SensorDirectChannel.TYPE_MEMORY_FILE),hardware=sensor.isDirectChannelTypeSupported(SensorDirectChannel.TYPE_HARDWARE_BUFFER);Json.put(v,"memoryFileDirectChannel",memory);Json.put(v,"hardwareBufferDirectChannel",hardware);if(memory||hardware)directChannelCount++;}a.put(v);}
         JSONArray vendorValues=new JSONArray();for(String vendor:vendors)vendorValues.put(vendor);
         s.ok("sensors","sensors/summary","传感器能力摘要","android-api","SensorManager.getSensorList(TYPE_ALL)",Json.obj("count",a.length(),"wakeUpCount",wakeUpCount,"dynamicCount",dynamicCount,"directChannelCount",directChannelCount,"typeCounts",typeCounts,"vendors",vendorValues,"vendorsTruncated",vendorsTruncated));
         s.ok("sensors","sensors/list","传感器完整公开清单","android-api","SensorManager.getSensorList(TYPE_ALL)",a);
+    }
+    // 业务块：两项公开元数据自API24提供（与minSdk一致），独立失败不丢失原传感器能力；不注册监听。
+    static JSONObject sensorPublicMetadata(Sensor sensor){
+        Objects.requireNonNull(sensor,"missing sensor");JSONObject value=new JSONObject();
+        try{Json.put(value,"sensorId",sensorIdValue(sensor.getId()));}
+        catch(Exception|LinkageError e){Json.put(value,"sensorId",Json.obj("status",e instanceof SecurityException?"denied":"error","value",null,"errorClass",e.getClass().getName()));}
+        try{Json.put(value,"additionalInfoSupported",Json.obj("status","ok","value",sensor.isAdditionalInfoSupported()));}
+        catch(Exception|LinkageError e){Json.put(value,"additionalInfoSupported",Json.obj("status",e instanceof SecurityException?"denied":"error","value",null,"errorClass",e.getClass().getName()));}
+        return value;
+    }
+    // 业务块：0表示不支持ID，-1表示用类型和名称识别，其它值按原始有符号整数保留。
+    static JSONObject sensorIdValue(int id){
+        return Json.obj("status","ok","value",id,"kind",id==0?"unsupported":id==-1?"type-and-name":"app-scoped-id");
     }
     private void battery(ItemSink s){
         s.read("battery","battery/summary","电池环境摘要","BatteryManager / ACTION_BATTERY_CHANGED",()->batterySummary(s.context));

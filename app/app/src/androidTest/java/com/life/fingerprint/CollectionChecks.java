@@ -21,6 +21,31 @@ public class CollectionChecks {
     private Context context;
     private final ArrayList<CollectionController> controllers=new ArrayList<>();
     @Before public void setup(){context=InstrumentationRegistry.getInstrumentation().getTargetContext();}
+    @Test public void sensorMetadataPreservesSentinelsAndSignedRange()throws Exception{
+        for(int id:new int[]{Integer.MIN_VALUE,-2,-1,0,1,Integer.MAX_VALUE}){
+            JSONObject actual=HardwareCollector.sensorIdValue(id);assertEquals("ok",actual.getString("status"));assertEquals(id,actual.getInt("value"));
+            assertEquals(id==0?"unsupported":id==-1?"type-and-name":"app-scoped-id",actual.getString("kind"));
+            assertEquals(id,new JSONObject(actual.toString()).getInt("value"));
+        }
+        try{HardwareCollector.sensorPublicMetadata(null);fail("缺失实例不能被当作不支持");}catch(NullPointerException expected){}
+    }
+    @Test public void sensorMetadataMatchesPublicApiAndKeepsOldFields()throws Exception{
+        android.hardware.SensorManager manager=context.getSystemService(android.hardware.SensorManager.class);assertNotNull(manager);
+        List<android.hardware.Sensor> sensors=manager.getSensorList(android.hardware.Sensor.TYPE_ALL);
+        ItemSink sink=new ItemSink(context,"sensor-metadata-test");new HardwareCollector("sensors").collect(sink);
+        JSONObject item=null,summary=null;for(int i=0;i<sink.items.length();i++){JSONObject entry=sink.items.getJSONObject(i);if(entry.getString("key").equals("sensors/list"))item=entry;if(entry.getString("key").equals("sensors/summary"))summary=entry;}
+        assertNotNull(item);assertNotNull(summary);assertEquals("ok",item.getString("status"));JSONArray actual=item.getJSONArray("value"),evidence=new JSONArray();
+        assertEquals(sensors.size(),actual.length());assertEquals(actual.length(),summary.getJSONObject("value").getInt("count"));
+        for(int i=0;i<actual.length();i++){
+            android.hardware.Sensor sensor=sensors.get(i);JSONObject entry=actual.getJSONObject(i),metadata=entry.getJSONObject("publicMetadata");
+            assertEquals(sensor.getName(),entry.getString("name"));assertEquals(sensor.getVendor(),entry.getString("vendor"));assertEquals(sensor.getType(),entry.getInt("type"));assertTrue(entry.has("fifoMaxEventCount"));assertTrue(entry.has("reportingMode"));assertTrue(entry.has("wakeUp"));
+            JSONObject id=metadata.getJSONObject("sensorId"),additional=metadata.getJSONObject("additionalInfoSupported");
+            assertEquals("ok",id.getString("status"));assertEquals(sensor.getId(),id.getInt("value"));assertEquals(HardwareCollector.sensorIdValue(sensor.getId()).getString("kind"),id.getString("kind"));
+            assertEquals("ok",additional.getString("status"));assertEquals(sensor.isAdditionalInfoSupported(),additional.getBoolean("value"));
+            evidence.put(Json.obj("index",i,"name",sensor.getName(),"type",sensor.getType(),"publicMetadata",metadata));
+        }
+        Bundle status=new Bundle();status.putString("sensorPublicMetadata",evidence.toString());InstrumentationRegistry.getInstrumentation().sendStatus(0,status);
+    }
     @Test public void apexPackagesMatchPublicEnumeration()throws Exception{
         ItemSink sink=new ItemSink(context,"apex-test");new BuildSystemCollector("build").collect(sink);
         JSONObject collected=null;boolean modules=false,summary=false;

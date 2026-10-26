@@ -7,6 +7,20 @@ const raw = { semantic: false, ignoreDynamic: false }, semantic = { semantic: tr
 const find = (rows: ReturnType<typeof compare>, key: string) => rows.find(x => x.key === key)!;
 
 describe('原始与语义比较', () => {
+  it('传感器公开元数据兼容旧JSON，保留ID哨兵、false、未知值和独立失败', () => {
+    const key = 'sensors/list', sensor = { name: 'synthetic', vendor: 'test', type: 1, version: 1 };
+    const report = (metadata?: Json) => fixture([fixtureItem(key, [{ ...sensor, ...(metadata === undefined ? {} : { publicMetadata: metadata }) }], { category: 'sensors' })]);
+    const metadata = { sensorId: { status: 'ok', value: 0, kind: 'unsupported' }, additionalInfoSupported: { status: 'ok', value: false } };
+    const legacy = report(), current = report(metadata);
+    const variants: Json[] = [{ ...metadata, sensorId: { status: 'ok', value: -1, kind: 'type-and-name' } }, { ...metadata, sensorId: { status: 'ok', value: -2147483648, kind: 'app-scoped-id' } }, { ...metadata, additionalInfoSupported: { status: 'ok', value: true } }, { ...metadata, additionalInfoSupported: { status: 'error', value: null, errorClass: 'synthetic' } }, { ...metadata, sensorId: { status: 'denied', value: null } }, { ...metadata, future: false }];
+    const inputs = [legacy, current, ...variants.map(report)], before = JSON.stringify(inputs);
+    for (const rules of [raw, semantic, smart]) {
+      expect(find(compare(legacy, current, rules), key).state).toBe('different');
+      expect(find(compare(current, current, rules), key).state).toBe('same');
+      for (const next of inputs.slice(2)) expect(find(compare(current, next, rules), key).state).toBe('different');
+    }
+    expect(JSON.stringify(inputs)).toBe(before);
+  });
   it('平台安全状态兼容旧JSON，保留补丁/版本原文、空值及截断外变化', () => {
     const key = 'security/platform-security-state';
     const report = (value: Json) => fixture([fixtureItem(key, value, { category: 'security' })]);
