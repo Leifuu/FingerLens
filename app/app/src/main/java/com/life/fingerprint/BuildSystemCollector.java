@@ -331,6 +331,11 @@ public final class BuildSystemCollector implements Collector {
             if(Build.VERSION.SDK_INT>=30)Json.put(value,"thermalHeadroom",power.getThermalHeadroom(0));
             return value;
         });
+        s.read("environment","environment/thermal-headroom-thresholds","热余量阈值映射","PowerManager.getThermalHeadroomThresholds",()->{
+            if(Build.VERSION.SDK_INT<35)return thermalHeadroomThresholds(false,Build.VERSION.SDK_INT,null);
+            PowerManager power=s.context.getSystemService(PowerManager.class);
+            return thermalHeadroomThresholds(power!=null,Build.VERSION.SDK_INT,()->power.getThermalHeadroomThresholds());
+        });
         s.read("environment","environment/memory-summary","内存环境摘要","ActivityManager.MemoryInfo / Runtime",()->memorySummary(s.context));
         ActivityManager.MemoryInfo memory=new ActivityManager.MemoryInfo();((ActivityManager)s.context.getSystemService(Context.ACTIVITY_SERVICE)).getMemoryInfo(memory);
         s.ok("environment","environment/memory","内存快照","android-api","ActivityManager.getMemoryInfo",Json.obj("totalMem",memory.totalMem,"availMem",memory.availMem,"threshold",memory.threshold,"lowMemory",memory.lowMemory,"runtimeProcessors",Runtime.getRuntime().availableProcessors()));
@@ -520,6 +525,24 @@ public final class BuildSystemCollector implements Collector {
         if(reason==android.app.ApplicationExitInfo.REASON_USER_REQUESTED)return "user_requested";
         if(reason==android.app.ApplicationExitInfo.REASON_USER_STOPPED)return "user_stopped";
         return "code_"+reason;
+    }
+    // 业务块：只读一次公开热阈值快照；旧API/无服务/禁用功能/异常与有效空映射分开。
+    static JSONObject thermalHeadroomThresholds(boolean available,int sdk,java.util.function.Supplier<Map<Integer,Float>> query){
+        JSONObject missing=Json.obj("managerAvailable",sdk<35?null:available,"status",sdk<35?"unsupported":"unavailable","entryCount",null,"entryLimit",64,"entries",null);
+        if(sdk<35||!available)return missing;
+        try{return thermalHeadroomThresholdValues(Objects.requireNonNull(query,"missing thermal threshold query").get());}
+        catch(Exception|LinkageError e){Json.put(missing,"status",e instanceof SecurityException?"denied":e instanceof UnsupportedOperationException||e instanceof NoSuchMethodError?"unsupported":"error");Json.put(missing,"errorClass",e.getClass().getName());return missing;}
+    }
+    // 业务块：最多64项且全部保留，按原始整数键排序；不钳制阈值，不补齐缺失状态或滤掉未知/非有限返回值。
+    static JSONObject thermalHeadroomThresholdValues(Map<Integer,Float> thresholds){
+        if(thresholds==null||thresholds.size()>64)throw new IllegalArgumentException("热阈值映射缺失或超过64项");
+        TreeMap<Integer,Float> snapshot=new TreeMap<>();int count=0;
+        for(Map.Entry<Integer,Float> entry:thresholds.entrySet()){
+            if(++count>64||entry.getKey()==null)throw new IllegalArgumentException("热阈值键缺失或超过64项");
+            snapshot.put(entry.getKey(),entry.getValue());
+        }
+        JSONArray entries=new JSONArray();for(Map.Entry<Integer,Float> entry:snapshot.entrySet())entries.put(Json.obj("thermalStatus",entry.getKey(),"headroom",entry.getValue()));
+        return Json.obj("managerAvailable",true,"status","ok","entryCount",entries.length(),"entryLimit",64,"entries",entries);
     }
     // 业务块：读取公开的低功耗待机和用户空间重启能力，不改变电源策略。
     private static JSONObject lowPowerStandby(Context context){

@@ -7,6 +7,20 @@ const raw = { semantic: false, ignoreDynamic: false }, semantic = { semantic: tr
 const find = (rows: ReturnType<typeof compare>, key: string) => rows.find(x => x.key === key)!;
 
 describe('原始与语义比较', () => {
+  it('热阈值兼容旧JSON，缺省/空/失败/非有限值、未知编号与类型变化均参与比较', () => {
+    const key = 'environment/thermal-headroom-thresholds', old = fixture([fixtureItem('environment/power-thermal', { thermalStatus: 0 })]);
+    const value = { managerAvailable: true, status: 'ok', entryCount: 1, entryLimit: 64, entries: [{ thermalStatus: 3, headroom: 1 }] };
+    const report = (next: Json) => fixture([...old.data.items, fixtureItem(key, next, { category: 'environment' })]);
+    const current = report(value), before = JSON.stringify(current);
+    const changes: Json[] = [{ ...value, entries: [] }, { ...value, status: 'error', entries: null }, { ...value, entries: [{ thermalStatus: 999, headroom: 1 }] }, { ...value, entries: [{ thermalStatus: 3, headroom: '1' }] }, { ...value, entries: [{ thermalStatus: 3, headroom: { $type: 'float', value: 'NaN' } }] }, { ...value, future: false }];
+    for (const rules of [raw, semantic, smart]) {
+      expect(find(compare(old, current, rules), key).state).toBe('right-only');
+      expect(find(compare(current, undefined, rules), key).state).toBe('left-only');
+      expect(find(compare(current, current, rules), key).state).toBe('same');
+      for (const next of changes) expect(find(compare(current, report(next), rules), key).state).toBe('different');
+    }
+    expect(JSON.stringify(current)).toBe(before);
+  });
   it('隐私开关能力兼容旧JSON，false/未知/失败/类型和独立硬件能力继续比较', () => {
     const key = 'security/sensor-privacy-capabilities', old = fixture([fixtureItem('security/lock-biometric', { deviceSecure: true })]);
     const softwareToggle = { status: 'ok', value: true }, hardwareToggle = { status: 'ok', value: false };

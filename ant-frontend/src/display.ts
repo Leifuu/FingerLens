@@ -445,6 +445,8 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
 export function buildSections(item?: Item): DisplaySection[] {
   if (!item) return [];
   const value = commandOutput(item.value);
+  // 业务块：热阈值的原始状态编号与归一化值保留JSON类型，不推导摄氏温度或当前热状态。
+  if (item.key === 'environment/thermal-headroom-thresholds' && object(value) && Object.keys(value).length) return [section('fields', '热余量阈值快照', Object.entries(value).flatMap(([key, child]) => flattenRows(child, key, true)), true)];
   // 业务块：隐私开关完整字段保留JSON类型，避免布尔false与字符串false在差异筛选中混淆。
   if (item.key === 'security/sensor-privacy-capabilities' && object(value) && Object.keys(value).length) return [section('fields', '隐私开关支持能力', Object.entries(value).flatMap(([key, child]) => flattenRows(child, key, true)), true)];
   // visibility 是采集器写入的固定范围说明，不是从设备读取的返回值。

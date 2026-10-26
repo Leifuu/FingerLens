@@ -21,6 +21,44 @@ public class CollectionChecks {
     private Context context;
     private final ArrayList<CollectionController> controllers=new ArrayList<>();
     @Before public void setup(){context=InstrumentationRegistry.getInstrumentation().getTargetContext();}
+    private void emitThermalThresholdReport(String field,JSONObject item,boolean synthetic)throws Exception{
+        android.content.pm.PackageInfo info=context.getPackageManager().getPackageInfo(context.getPackageName(),0);String now=CollectionController.now();
+        JSONObject data=Json.obj("schemaVersion","1.0","collectorVersion",info.versionName,"sessionId",UUID.randomUUID().toString(),"startedAt",now,"finishedAt",now,"state","complete","config",Json.obj("instrumentation",true,"fixture",synthetic,"scope",synthetic?"SYNTHETIC热余量阈值夹具，非设备实测":"独立公开热阈值API快照验证，非正式全量报告"),"permissions",CollectionController.permissions(context),"app",Json.obj("packageName",context.getPackageName(),"versionName",info.versionName,"androidSdk",Build.VERSION.SDK_INT),"items",new JSONArray().put(item));
+        Bundle bundle=new Bundle();bundle.putString(field,Json.obj("data",data,"message",synthetic?"SYNTHETIC热阈值测试报告":"独立公开热阈值API验证报告","code",0).toString());InstrumentationRegistry.getInstrumentation().sendStatus(0,bundle);
+    }
+    @Test public void thermalThresholdValuesKeepRawKeysAndFloatingValues()throws Exception{
+        LinkedHashMap<Integer,Float> input=new LinkedHashMap<>();input.put(999,Float.POSITIVE_INFINITY);input.put(3,1f);input.put(-1,-0.5f);input.put(2,Float.NaN);input.put(1,0f);input.put(6,null);
+        JSONObject result=BuildSystemCollector.thermalHeadroomThresholdValues(input);JSONArray entries=result.getJSONArray("entries");assertEquals("ok",result.getString("status"));assertEquals(6,result.getInt("entryCount"));assertEquals(-1,entries.getJSONObject(0).getInt("thermalStatus"));assertEquals(-0.5,entries.getJSONObject(0).getDouble("headroom"),0);assertEquals(0,entries.getJSONObject(1).getDouble("headroom"),0);assertEquals("NaN",entries.getJSONObject(2).getJSONObject("headroom").getString("value"));assertTrue(entries.getJSONObject(4).isNull("headroom"));assertEquals("Infinity",entries.getJSONObject(5).getJSONObject("headroom").getString("value"));
+        input.put(3,0f);assertEquals(1,entries.getJSONObject(3).getDouble("headroom"),0);TreeMap<Integer,Float> reversed=new TreeMap<>(Comparator.reverseOrder());reversed.putAll(input);assertEquals(BuildSystemCollector.thermalHeadroomThresholdValues(input).toString(),BuildSystemCollector.thermalHeadroomThresholdValues(reversed).toString());
+        for(int count:new int[]{0,64,65}){HashMap<Integer,Float> many=new HashMap<>();for(int i=0;i<count;i++)many.put(i,i/10f);if(count>64){try{BuildSystemCollector.thermalHeadroomThresholdValues(many);fail("超过64项必须失败");}catch(IllegalArgumentException expected){}}else{JSONObject value=BuildSystemCollector.thermalHeadroomThresholdValues(many);assertEquals(count,value.getInt("entryCount"));assertEquals(count,value.getJSONArray("entries").length());}}
+        try{BuildSystemCollector.thermalHeadroomThresholdValues(null);fail("null不能当空映射");}catch(IllegalArgumentException expected){}
+        input.put(null,0f);try{BuildSystemCollector.thermalHeadroomThresholdValues(input);fail("null键必须失败");}catch(IllegalArgumentException expected){}input.remove(null);
+        ItemSink sink=new ItemSink(context,"SYNTHETIC-thermal-thresholds");sink.ok("environment","environment/thermal-headroom-thresholds","SYNTHETIC热阈值","collector","SYNTHETIC public threshold map fixture",result);emitThermalThresholdReport("thermalThresholdSyntheticReport",sink.items.getJSONObject(0),true);
+    }
+    @Test public void thermalThresholdQueriesKeepVersionAndFailureStates()throws Exception{
+        int[] calls={0};java.util.function.Supplier<Map<Integer,Float>> never=()->{calls[0]++;throw new AssertionError("旧API和缺服务不得调用getter");};
+        for(int sdk:new int[]{24,30,34}){JSONObject value=BuildSystemCollector.thermalHeadroomThresholds(true,sdk,never);assertEquals("unsupported",value.getString("status"));assertTrue(value.isNull("managerAvailable"));assertTrue(value.isNull("entries"));}
+        JSONObject absent=BuildSystemCollector.thermalHeadroomThresholds(false,35,never);assertEquals("unavailable",absent.getString("status"));assertFalse(absent.getBoolean("managerAvailable"));assertEquals(0,calls[0]);
+        JSONObject empty=BuildSystemCollector.thermalHeadroomThresholds(true,35,Collections::emptyMap);assertEquals("ok",empty.getString("status"));assertEquals(0,empty.getInt("entryCount"));assertEquals("[]",empty.getJSONArray("entries").toString());
+        for(Throwable error:new Throwable[]{new SecurityException("SYNTHETIC"),new UnsupportedOperationException("SYNTHETIC"),new NoSuchMethodError("SYNTHETIC"),new IllegalStateException("SYNTHETIC")}){
+            JSONObject value=BuildSystemCollector.thermalHeadroomThresholds(true,35,()->{if(error instanceof Error)throw (Error)error;throw (RuntimeException)error;});assertEquals(error instanceof SecurityException?"denied":error instanceof UnsupportedOperationException||error instanceof NoSuchMethodError?"unsupported":"error",value.getString("status"));assertTrue(value.getBoolean("managerAvailable"));assertTrue(value.isNull("entries"));assertTrue(value.isNull("entryCount"));assertEquals(error.getClass().getName(),value.getString("errorClass"));
+        }
+        assertEquals("error",BuildSystemCollector.thermalHeadroomThresholds(true,35,()->null).getString("status"));
+    }
+    @Test public void thermalThresholdSinkMatchesIndependentPublicApi()throws Exception{
+        ItemSink sink=new ItemSink(context,"thermal-threshold-api");new BuildSystemCollector("environment").collect(sink);JSONObject item=null;boolean old=false;
+        for(int i=0;i<sink.items.length();i++){JSONObject record=sink.items.getJSONObject(i);if(record.getString("key").equals("environment/thermal-headroom-thresholds"))item=record;if(record.getString("key").equals("environment/power-thermal"))old=true;}
+        assertNotNull(item);assertTrue(old);assertEquals("ok",item.getString("status"));JSONObject value=item.getJSONObject("value");
+        if(Build.VERSION.SDK_INT<35){assertEquals("unsupported",value.getString("status"));assertTrue(value.isNull("entries"));}
+        else {PowerManager power=context.getSystemService(PowerManager.class);assertEquals(power!=null,value.getBoolean("managerAvailable"));if(power==null){assertEquals("unavailable",value.getString("status"));assertTrue(value.isNull("entries"));}else{
+            Map<Integer,Float> direct=null;Throwable failure=null;try{direct=power.getThermalHeadroomThresholds();}catch(Exception|LinkageError e){failure=e;}
+            if(failure!=null){assertEquals(failure.getClass().getName(),value.getString("errorClass"));assertTrue(value.isNull("entries"));}else{
+                assertEquals("ok",value.getString("status"));assertEquals(direct.size(),value.getInt("entryCount"));JSONArray entries=value.getJSONArray("entries");assertEquals(direct.size(),entries.length());int previous=Integer.MIN_VALUE;
+                for(int i=0;i<entries.length();i++){JSONObject entry=entries.getJSONObject(i);int key=entry.getInt("thermalStatus");assertTrue(i==0||key>previous);previous=key;assertTrue(direct.containsKey(key));assertEquals(Json.value(direct.get(key)).toString(),entry.get("headroom").toString());}
+            }
+        }}
+        System.out.println("Thermal threshold public API evidence="+value);emitThermalThresholdReport("thermalThresholdReport",item,false);
+    }
     private void emitSensorPrivacyReport(String field,JSONObject item,boolean synthetic)throws Exception{
         android.content.pm.PackageInfo info=context.getPackageManager().getPackageInfo(context.getPackageName(),0);String now=CollectionController.now();
         JSONObject data=Json.obj("schemaVersion","1.0","collectorVersion",info.versionName,"sessionId",UUID.randomUUID().toString(),"startedAt",now,"finishedAt",now,"state","complete","config",Json.obj("instrumentation",true,"fixture",synthetic,"scope",synthetic?"SYNTHETIC隐私开关支持能力夹具，非设备状态":"独立隐私开关公开能力API验证，非正式全量报告"),"permissions",CollectionController.permissions(context),"app",Json.obj("packageName",context.getPackageName(),"versionName",info.versionName,"androidSdk",Build.VERSION.SDK_INT),"items",new JSONArray().put(item));

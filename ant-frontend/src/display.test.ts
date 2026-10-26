@@ -8,6 +8,22 @@ function item(key: string, category: string, value: Json): Item {
 }
 
 describe('设备格式化展示边界', () => {
+  it('热阈值完整字段保留原始类型、非有限值、空集合与错误，不补写旧报告', () => {
+    const key = 'environment/thermal-headroom-thresholds';
+    const section = (value: Json) => buildSections(item(key, 'environment', value))[0];
+    const value = { managerAvailable: true, status: 'ok', entryCount: 3, entryLimit: 64, entries: [{ thermalStatus: -1, headroom: -0.5 }, { thermalStatus: 3, headroom: 0 }, { thermalStatus: 999, headroom: { $type: 'float', value: 'NaN' } }] };
+    const before = JSON.stringify(value), group = section(value);
+    expect(group.table).toBe(true);expect(group.title).toBe('热余量阈值快照');
+    for (const [field, text] of [['status', '"ok"'], ['entries[0].thermalStatus', '-1'], ['entries[0].headroom', '-0.5'], ['entries[1].headroom', '0'], ['entries[2].headroom.value', '"NaN"']]) expect(group.rows.find(row => row.key === field)?.value).toBe(text);
+    for (const raw of [0, false, null, [], {}, { $type: 'float', value: 'NaN' }] as Json[]) {
+      expect(mergeDisplaySections(section({ entries: [{ thermalStatus: 3, headroom: raw }] }), section({ entries: [{ thermalStatus: 3, headroom: JSON.stringify(raw) }] })).rows.some(row => row.state !== 'same')).toBe(true);
+    }
+    expect(section({ status: 'ok', entries: [] }).rows.find(row => row.key === 'entries')?.value).toBe('[]');
+    expect(section({ status: 'error', entries: null, errorClass: 'SYNTHETIC' }).rows.find(row => row.key === 'entries')?.value).toBe('null');
+    expect(mergeDisplaySections(undefined, group).rows.every(row => row.state === 'right-only')).toBe(true);
+    for (const raw of [null, [], {}, 'old']) expect(section(raw).rows.length).toBeGreaterThan(0);
+    expect(JSON.stringify(value)).toBe(before);
+  });
   it('扬声器布局完整字段区分数字与字符串，未知字段保留JSON类型且旧报告不补写', () => {
     const section = (layout?: Json) => buildSections(item('hardware/audio', 'hardware', [{ id: 3, type: 2, ...(layout === undefined ? {} : { speakerLayout: layout }) }]))[0];
     expect(section().rows.some(row => row.key.includes('speakerLayout'))).toBe(false);
