@@ -13,6 +13,8 @@
 
 ## Android 安全环境资料
 
+- 传感器元数据展示补充（2026-10-26）：现有20项传感器概览直接显示 `publicMetadata.sensorId` 的原始整数及平台含义、附加信息API的true/false与独立失败状态。0不作为有效ID，-1保留按类型和名称识别含义，不从缺失kind反推；旧JSON缺对象明确未采集，null、空字符串、失败、未知状态和结构保持区别，复杂结构转到完整字段核对。格式化从原始JSON读取，文字"false"/"0"保留引号；传感器行同时比较完整原始对象，防止已格式化文字相同而掩盖类型变化。原始序号、重复项、20项分页、完整字段折叠及50字段分页、窄屏独立横向查看设备B继续保留。仅优化展示，不修改采集、通用比较规则或导出，不将附加能力声明当作已经获取事件数据。
+
 - 传感器标识及附加信息能力（2026-10-26）：已核对 SDK37 API 版本表，以及[固定 AOSP Sensor.java](https://github.com/aosp-mirror/platform_frameworks_base/blob/1cdfff555f4a21f71ccc978290e2e212e2f8b168/core/java/android/hardware/Sensor.java) 的 `getId()`（1168–1175行）和 `isAdditionalInfoSupported()`（1257–1265行），两者自API24公开，覆盖本工程minSdk24。`getId()` 的公开契约说明同一App范围内的ID，0表示不支持此功能，-1表示可用类型和名称识别；不得将其当作跨App通用设备标识。附加信息能力仅说明支持相应API，不代表已经读取校准或事件数据。
 - `sensors/list[*].publicMetadata` 新增独立 `sensorId` 和 `additionalInfoSupported` 查询对象，分别保留 `status/value`，ID另附 `kind`：0为unsupported、-1为type-and-name、其余为app-scoped-id。读取成功的0不改为缺失，正负整数原样保留，附加能力的false不改为未知。各查询异常独立返回denied/error、null及errorClass，不丢弃已有传感器字段；不注册监听、不读取传感器样本、不新增权限。旧JSON缺该对象仍可导入比较，原有20项概览及完整字段分页继续使用，不通过名称猜ID或能力；仅新增公开元数据，不据此判定设备真伪。当前未在API24真机运行，最低版本依据SDK契约核对。
 

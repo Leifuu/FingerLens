@@ -66,7 +66,7 @@ export function ComparisonDrawer({ row, open, onClose }: { row?: CompareRow; ope
         <RootPathOverview itemKey={row.key} sectionKey={section.key} rows={section.rows} onlyDiffRows={onlyDiffRows}>
         <FontOverview itemKey={row.key} sectionKey={section.key} rows={section.rows} onlyDiffRows={onlyDiffRows}>
         <CodecOverview itemKey={row.key} sectionKey={section.key} rows={section.rows} onlyDiffRows={onlyDiffRows}>
-        <SensorOverview itemKey={row.key} sectionKey={section.key} rows={section.rows} onlyDiffRows={onlyDiffRows}>
+        <SensorOverview itemKey={row.key} sectionKey={section.key} left={row.left?.value} right={row.right?.value} rows={section.rows} onlyDiffRows={onlyDiffRows}>
         <TlsOverview itemKey={row.key} sectionKey={section.key} rows={section.rows} onlyDiffRows={onlyDiffRows}>
         <ApexOverview itemKey={row.key} sectionKey={section.key} rows={section.rows} onlyDiffRows={onlyDiffRows}>
         <DisplayModeOverview itemKey={row.key} sectionKey={section.key} rows={section.rows} onlyDiffRows={onlyDiffRows}>

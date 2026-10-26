@@ -1,12 +1,13 @@
 import type { ReactNode } from 'react';
 import { Collapse, Space, Table, Tag, Typography } from 'antd';
-import { sensorDisplayRows, type SensorDisplayRow } from '../core/sensor-display';
+import { sensorDisplayRows, sensorPublicMetadataText, type SensorDisplayRow } from '../core/sensor-display';
 import type { MergedDisplayRow } from '../core/display-compare';
+import type { Json } from '../core/types';
 import { copyText } from '../core/clipboard';
 
-export function SensorOverview({ itemKey, sectionKey, rows, onlyDiffRows, children }: { itemKey: string; sectionKey: string; rows: MergedDisplayRow[]; onlyDiffRows: boolean; children: ReactNode }) {
+export function SensorOverview({ itemKey, sectionKey, left, right, rows, onlyDiffRows, children }: { itemKey: string; sectionKey: string; left?: Json; right?: Json; rows: MergedDisplayRow[]; onlyDiffRows: boolean; children: ReactNode }) {
   if (itemKey !== 'sensors/list' || sectionKey !== 'array') return children;
-  const grouped = sensorDisplayRows(rows);
+  const grouped = sensorDisplayRows(rows, left, right);
   if (!grouped) return children;
   const visible = onlyDiffRows ? grouped.filter(row => row.state !== 'same') : grouped;
   const fieldCount = onlyDiffRows ? rows.filter(row => row.state !== 'same').length : rows.length;
@@ -16,15 +17,22 @@ export function SensorOverview({ itemKey, sectionKey, rows, onlyDiffRows, childr
     <Typography.Text className="device-value copyable-value" title="双击复制传感器名" onDoubleClick={() => { const value = row.name[side]; if (value !== null) void copyText(value, '传感器名'); }}>{text(row.name[side])}</Typography.Text>
     <Typography.Text type="secondary">厂商 {text(row.vendor[side])}</Typography.Text>
   </Space>;
-  const metadata = (row: SensorDisplayRow, side: 'left' | 'right') => <Space direction="vertical" size={0}>
+  const metadata = (row: SensorDisplayRow, side: 'left' | 'right') => {
+    if (row.name[side] === null) return <Typography.Text type="secondary">此侧没有传感器</Typography.Text>;
+    const source = side === 'left' ? left : right;
+    const extra = sensorPublicMetadataText(Array.isArray(source) ? source[Number(row.key)] : undefined);
+    return <Space direction="vertical" size={0}>
     <Typography.Text>类型 {text(row.type[side])} · 版本 {text(row.version?.[side])}</Typography.Text>
     <Typography.Text className="device-value" type="secondary">{text(row.stringType?.[side])}</Typography.Text>
     <Typography.Text>分辨率 {text(row.resolution?.[side])} · 量程 {text(row.maximumRange?.[side])}</Typography.Text>
     <Typography.Text type="secondary">功耗（mA）{text(row.power?.[side])} · 上报模式 {text(row.reportingMode?.[side])}</Typography.Text>
     <Typography.Text type="secondary">唤醒 {flag(row.wakeUp?.[side])} · 动态 {flag(row.dynamic?.[side])}</Typography.Text>
+    <Typography.Paragraph className="sensor-id-summary" ellipsis={{ rows: 2, expandable: true, symbol: '展开' }}>传感器 ID：{extra.sensorId}</Typography.Paragraph>
+    <Typography.Paragraph className="sensor-additional-summary" ellipsis={{ rows: 2, expandable: true, symbol: '展开' }}>附加信息 API：{extra.additionalInfo}</Typography.Paragraph>
   </Space>;
+  };
   return <Space className="sensor-overview-section" direction="vertical" size={12} style={{ display: 'flex' }}>
-    <Typography.Text type="secondary">传感器概览 · 显示 {visible.length} / {grouped.length} 项。按原始序号比较，保留重复项；完整字段可在下方展开。</Typography.Text>
+    <Typography.Text type="secondary">传感器概览 · 显示 {visible.length} / {grouped.length} 项。按原始序号比较，保留重复项；ID 仅按平台返回含义展示，附加信息支持标志不代表已读取事件。完整字段可在下方展开。</Typography.Text>
     <Typography.Text className="sensor-scroll-hint" type="secondary">左右滑动查看设备 A、B 与对比状态。</Typography.Text>
     <Table<SensorDisplayRow> className="sensor-overview" rowKey="key" size="small" bordered dataSource={visible} pagination={visible.length > 20 ? { pageSize: 20, showSizeChanger: false, showQuickJumper: true } : false} scroll={{ x: 940 }} rowClassName={row => `row-${row.state}`} columns={[
       { title: '传感器（原始序号）', key: 'sensor', width: 310, render: (_, row) => <Space direction="vertical" size={0}><Typography.Text type="secondary">[{row.key}]</Typography.Text>{row.name.left === row.name.right && row.vendor.left === row.vendor.right ? identity(row, 'left') : <><div>A · {identity(row, 'left')}</div><div>B · {identity(row, 'right')}</div></>}</Space> },

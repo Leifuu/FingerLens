@@ -22,6 +22,7 @@
 .font-overview-section .ant-typography-secondary{color:#a6b5b0}.font-scroll-hint{display:none}@media(max-width:768px){.font-scroll-hint{display:block}}
 .codec-overview-section .ant-typography-secondary{color:#a6b5b0}.codec-scroll-hint{display:none}@media(max-width:768px){.codec-scroll-hint{display:block}}
 .sensor-overview-section .ant-typography-secondary{color:#a6b5b0}.sensor-scroll-hint{display:none}@media(max-width:768px){.sensor-scroll-hint{display:block}}
+.sensor-overview .sensor-id-summary,.sensor-overview .sensor-additional-summary{margin-bottom:0;overflow-wrap:anywhere}
 .tls-overview-section .ant-typography-secondary{color:#a6b5b0}.tls-scroll-hint{display:none}@media(max-width:768px){.tls-scroll-hint{display:block}}
 .apex-overview-section .ant-typography-secondary{color:#a6b5b0}.apex-scroll-hint{display:none}@media(max-width:768px){.apex-scroll-hint{display:block}}
 .codec-encoder-details{padding:8px 0;max-width:calc(min(1180px,100vw) - 104px)}.codec-encoder-facts{margin:0}.codec-encoder-facts>div{display:grid;grid-template-columns:minmax(88px,auto) 1fr;gap:8px;padding:3px 0}.codec-encoder-facts dt{color:#a6b5b0}.codec-encoder-facts dd{min-width:0;margin:0}.codec-overview .ant-table-row-expand-icon-cell .ant-btn{min-width:44px;min-height:44px}
