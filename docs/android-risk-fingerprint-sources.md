@@ -13,6 +13,8 @@
 
 ## Android 安全环境资料
 
+- 显示模式展示补充（2026-10-26）：`display/*` 的 `supportedModes` 采用每页20项概览，按原始序号逐行显示模式ID、原始分辨率/刷新率及HDR查询状态、类型名称与原始编号（Dolby Vision=1、HDR10=2、HLG=3、HDR10+=4，来自下述固定AOSP源码）。保留重复模式；HDR概览最多列前8项并明确省略，完整字段默认折叠且保留50字段分页。完整哈希和未知字段变化仍标记整行差异，旧JSON缺少每模式HDR时显示未采集，不从整体HDR列表补值；缺项、null、空字符串、失败及未知值保持区别，结构不完整时回退原表。本次只优化浏览，不修改采集、比较规则、JSON原值或导出。
+
 - 显示模式 HDR 类型补充（2026-10-26）：[Display.Mode.getSupportedHdrTypes](https://developer.android.com/reference/android/view/Display.Mode#getSupportedHdrTypes()) 自 API 34 返回某个显示模式支持的 HDR 类型；已核对本机 SDK 37 API 版本表和[固定 AOSP 实现](https://github.com/aosp-mirror/platform_frameworks_base/blob/1cdfff555f4a21f71ccc978290e2e212e2f8b168/core/java/android/view/Display.java#L2516-L2523)。`display/*` 的 `supportedModes[*].hdrTypeSupport` 保存查询状态、原始整数类型及数量，保留 API 返回顺序、重复与未知值；最多接受 20000 项、保存 64 项明细，完整返回数组的 JSON 文本 UTF-8 SHA-256 保存为 `typeListSha256`，包含截断外变化。有效空数组为 `ok + []`，旧系统为 `unsupported + null`，异常为 `denied/error + null` 及异常类；不把未查询当作模式不支持 HDR。原模式 ID、分辨率、刷新率和屏幕整体 `hdr` 均保留，旧 JSON 不补写新字段，既有工作台支持模式表可直接查看、分页和比较新增字段。只读元数据，不切换显示模式、不播放或捕获画面；整体 HDR 列表不代表每种模式均支持相同类型，模式能力也不保证当前播放链路或许可证可用。
 
 - TLS 展示补充（2026-10-26）：`security/tls-parameters` 的17个已知摘要字段以9行概览展示提供者、上下文、状态和四组列表数量/截断状态，完整原字段默认折叠，协议与密码套件原文仍在各组。完整哈希或未知元数据变化仍标记对应概览行差异，缺项、null、空字符串与未知状态保留区别；结构不完整时沿用原字段视图。仅调整浏览层，不改采集、比较规则、JSON原值或导出，不新增外部指纹结论。
