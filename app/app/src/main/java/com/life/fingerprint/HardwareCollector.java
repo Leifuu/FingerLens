@@ -451,6 +451,10 @@ public final class HardwareCollector implements Collector {
     }
     // 业务块：只读取 NFC 适配器公开能力，不启停适配器、不读取标签内容。
     private void nfc(ItemSink s){
+        s.read("hardware","hardware/nfc-antennas","NFC 天线位置元数据","NfcAdapter.getNfcAntennaInfo / NfcAntennaInfo / AvailableNfcAntenna",()->{
+            NfcAdapter adapter=NfcAdapter.getDefaultAdapter(s.context);
+            return nfcAntennaDetails(adapter!=null,Build.VERSION.SDK_INT,()->adapter.getNfcAntennaInfo());
+        });
         s.read("hardware","hardware/nfc-observe-mode","NFC Observe Mode 能力与状态","NfcAdapter.isObserveModeSupported / isObserveModeEnabled",()->{
             NfcAdapter adapter=NfcAdapter.getDefaultAdapter(s.context);
             return nfcObserveMode(adapter!=null,Build.VERSION.SDK_INT,()->adapter.isObserveModeSupported(),()->adapter.isObserveModeEnabled());
@@ -463,6 +467,22 @@ public final class HardwareCollector implements Collector {
             if(Build.VERSION.SDK_INT>=34){NfcAntennaInfo antenna=adapter.getNfcAntennaInfo();Json.put(value,"antennaInfoAvailable",antenna!=null);if(antenna!=null)Json.put(value,"antennaCount",antenna.getAvailableNfcAntennas()==null?0:antenna.getAvailableNfcAntennas().size());Json.put(value,"deviceWidth",antenna==null?null:antenna.getDeviceWidth());Json.put(value,"deviceHeight",antenna==null?null:antenna.getDeviceHeight());Json.put(value,"deviceFoldable",antenna==null?null:antenna.isDeviceFoldable());}
             return value;
         });
+    }
+    // 业务块：API34+天线几何查询独立记录；null不是空清单，失败不抹去原NFC摘要。
+    static JSONObject nfcAntennaDetails(boolean available,int sdk,java.util.function.Supplier<NfcAntennaInfo> query){
+        JSONObject missing=Json.obj("status",sdk<34?"unsupported":"unavailable","adapterAvailable",available,"infoAvailable",null,"deviceWidthMm",null,"deviceHeightMm",null,"deviceFoldable",null,"antennaCount",null,"returnedCount",0,"antennaLimit",64,"antennasTruncated",null,"antennasSha256",null,"antennas",null);
+        if(sdk<34||!available)return missing;
+        try{
+            NfcAntennaInfo info=Objects.requireNonNull(query,"missing NFC antenna query").get();
+            if(info==null){Json.put(missing,"status","not-provided");Json.put(missing,"infoAvailable",false);return missing;}
+            return nfcAntennaValues(info);
+        }catch(Exception|LinkageError e){Json.put(missing,"status",e instanceof SecurityException?"denied":e instanceof UnsupportedOperationException||e instanceof NoSuchMethodError?"unsupported":"error");Json.put(missing,"errorClass",e.getClass().getName());return missing;}
+    }
+    static JSONObject nfcAntennaValues(NfcAntennaInfo info)throws Exception{
+        Objects.requireNonNull(info,"missing NFC antenna info");List<AvailableNfcAntenna> antennas=Objects.requireNonNull(info.getAvailableNfcAntennas(),"missing NFC antenna list");
+        if(antennas.size()>256)throw new IllegalArgumentException("NFC antennas exceeds 256");ArrayList<AvailableNfcAntenna> snapshot=new ArrayList<>(antennas);if(snapshot.size()>256)throw new IllegalArgumentException("NFC antennas exceeds 256");
+        JSONArray all=new JSONArray(),returned=new JSONArray();for(AvailableNfcAntenna antenna:snapshot){Objects.requireNonNull(antenna,"missing NFC antenna");JSONObject value=Json.obj("locationXmm",antenna.getLocationX(),"locationYmm",antenna.getLocationY());all.put(value);if(returned.length()<64)returned.put(value);}
+        return Json.obj("status",snapshot.size()>64?"partial":"ok","adapterAvailable",true,"infoAvailable",true,"deviceWidthMm",info.getDeviceWidth(),"deviceHeightMm",info.getDeviceHeight(),"deviceFoldable",info.isDeviceFoldable(),"antennaCount",snapshot.size(),"returnedCount",returned.length(),"antennaLimit",64,"antennasTruncated",snapshot.size()>64,"antennasSha256",PackageInputCollector.sha(all.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)),"antennas",returned);
     }
     // 业务块：API35+只读Observe Mode能力及状态；两个查询独立，旧API/缺适配器不调用新getter。
     static JSONObject nfcObserveMode(boolean available,int sdk,java.util.function.BooleanSupplier supported,java.util.function.BooleanSupplier enabled){

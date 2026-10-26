@@ -7,6 +7,19 @@ const raw = { semantic: false, ignoreDynamic: false }, semantic = { semantic: tr
 const find = (rows: ReturnType<typeof compare>, key: string) => rows.find(x => x.key === key)!;
 
 describe('原始与语义比较', () => {
+  it('NFC天线兼容旧JSON，坐标原序/重复/哈希/失败和原始类型继续比较', () => {
+    const key = 'hardware/nfc-antennas', old = fixture([fixtureItem('hardware/nfc', { available: true, antennaCount: 2 })]);
+    const a = { locationXmm: 0, locationYmm: -1 }, b = { locationXmm: 1, locationYmm: 2 };
+    const value = { status: 'ok', antennasSha256: 'a', antennas: [a, b, a] }, report = (next: Json) => fixture([...old.data.items, fixtureItem(key, next)]);
+    const current = report(value), before = JSON.stringify(current);
+    const changes: Json[] = [{ ...value, antennas: [a, a, b] }, { ...value, antennas: [a, b] }, { ...value, antennasSha256: 'b' }, { status: 'not-provided', antennas: null }, { ...value, antennas: [{ ...a, locationXmm: '0' }, b, a] }, { ...value, future: false }];
+    for (const rules of [raw, semantic, smart]) {
+      expect(find(compare(old, current, rules), key).state).toBe('right-only');
+      expect(find(compare(current, current, rules), key).state).toBe('same');
+      for (const next of changes) expect(find(compare(current, report(next), rules), key).state).toBe('different');
+    }
+    expect(JSON.stringify(current)).toBe(before);
+  });
   it('NFC Observe Mode兼容旧JSON，独立状态、false/null和原始类型不混淆', () => {
     const key = 'hardware/nfc-observe-mode', old = fixture([fixtureItem('hardware/nfc', { available: true, enabled: false })]);
     const value = { available: true, supported: { status: 'ok', value: false }, enabled: { status: 'ok', value: true } };
