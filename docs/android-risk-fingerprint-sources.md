@@ -13,6 +13,8 @@
 
 ## Android 安全环境资料
 
+- 平台补丁与组件版本展示补充（2026-10-26）：`security/platform-security-state` 的 `entries` 增加每页20项的紧凑对照，系统/厂商补丁和内核键附公开含义，组件包名及版本保持原文，空字符串与null分开显示。概览按原始键和同名重复序号配对，保留两侧原始位置；位置、完整条目的未知字段或类型变化仍标记差异。完整集合哈希、数量和截断信息继续直接展示，逐字段详情默认折叠并保留50字段分页。旧JSON缺条目、有效空清单、单侧键、重复/特殊键分别处理；服务不可用、异构结构或每侧超过128项回退原字段表，不截断输入。窄屏独立横向查看两侧；此轮仅优化展示，不改采集、比较规则或导出，不从空值推断组件已安装。
+
 - 平台补丁与组件版本状态（2026-10-26）：[SecurityStateManager.getGlobalSecurityState](https://developer.android.com/reference/android/os/SecurityStateManager#getGlobalSecurityState()) 自API35返回平台声明的字符串映射。已核对SDK37版本表与[固定AOSP接口](https://github.com/aosp-mirror/platform_frameworks_base/blob/1cdfff555f4a21f71ccc978290e2e212e2f8b168/core/java/android/os/SecurityStateManager.java)、[服务实现](https://github.com/aosp-mirror/platform_frameworks_base/blob/1cdfff555f4a21f71ccc978290e2e212e2f8b168/services/core/java/com/android/server/SecurityStateManagerService.java)：已知system_spl/vendor_spl/kernel_version键，以及模块元数据、WebView和config_securityStatePackages配置包的版本映射。该上游实现会清除调用方身份后查询，不等同于当前App单独枚举包的结果；不假定设备运行这个固定提交。
 - 新增 `security/platform-security-state`：按原始键排序记录entries，保留补丁日期、版本尾部零、空字符串、显式null与未知键，不从Build、属性或其它包条目回填缺项。最多接受512项、键1..1024字符、字符串值最多8192字符；符合当前公开字符串契约的映射保留前128项明细，完整排序数组JSON的UTF-8 SHA-256保留截断外变化。有效空Bundle为ok/[]，服务缺失为unavailable/null，API35以下为条目unsupported/null，异常沿用ItemSink的denied/error/null；返回Bundle缺失、非字符串非null值或越界明确报错，不猜测类型/版本。旧JSON缺此条目仍可导入比较，通用字段表保留分页；既有Build补丁、内核、包版本及WebView条目不变。不联网、不安装更新、不新增权限；仅是平台返回的证据，内核版本可能已由服务裁剪，包版本可为空，不能替代补丁漏洞覆盖或设备真实性证明。老API采用分支模拟，尚无对应真机验证。
 
