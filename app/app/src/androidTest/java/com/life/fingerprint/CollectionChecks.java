@@ -118,6 +118,31 @@ public class CollectionChecks {
         JSONObject summary=null;int rawCount=0;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);String key=item.getString("key");if(key.equals("display/summary"))summary=item;if(key.startsWith("display/")&&!key.equals("display/summary"))rawCount++;}
         assertNotNull("应生成显示能力摘要",summary);assertEquals("ok",summary.getString("status"));JSONObject value=summary.getJSONObject("value");assertEquals(value.getInt("count"),rawCount);assertTrue(value.has("validCount"));assertTrue(value.has("secureCount"));assertTrue(value.has("presentationCategoryCount"));assertTrue(value.has("hdrCount"));assertTrue(value.getJSONArray("widths").length()<=64);assertTrue(value.getJSONArray("heights").length()<=64);assertTrue(value.getJSONArray("densityDpi").length()<=64);assertTrue(value.getJSONArray("refreshRates").length()<=64);
     }
+    @Test public void displayModeHdrKeepsUnknownValuesAndCompleteHash()throws Exception{
+        int[] types={4,2,4,999,-1,0},original=types.clone();JSONObject value=PackageInputCollector.displayModeHdrValues(types);
+        assertArrayEquals(original,types);assertEquals("ok",value.getString("status"));assertEquals(6,value.getInt("typeCount"));assertEquals(6,value.getInt("returnedCount"));assertFalse(value.getBoolean("typesTruncated"));
+        assertEquals("[4,2,4,999,-1,0]",value.getJSONArray("types").toString());assertEquals(PackageInputCollector.sha("[4,2,4,999,-1,0]".getBytes(StandardCharsets.UTF_8)),value.getString("typeListSha256"));
+        JSONObject empty=PackageInputCollector.displayModeHdrValues(new int[0]);assertEquals("ok",empty.getString("status"));assertEquals(0,empty.getInt("typeCount"));assertEquals("[]",empty.getJSONArray("types").toString());
+        int[] many=new int[65];for(int i=0;i<many.length;i++)many[i]=i;JSONObject first=PackageInputCollector.displayModeHdrValues(many);many[64]=9001;JSONObject changed=PackageInputCollector.displayModeHdrValues(many);
+        assertEquals("partial",first.getString("status"));assertEquals(65,first.getInt("typeCount"));assertEquals(64,first.getInt("returnedCount"));assertEquals(64,first.getInt("typeLimit"));assertTrue(first.getBoolean("typesTruncated"));assertEquals(first.getJSONArray("types").toString(),changed.getJSONArray("types").toString());assertNotEquals(first.getString("typeListSha256"),changed.getString("typeListSha256"));
+        for(int[] bad:new int[][]{null,new int[20001]})try{PackageInputCollector.displayModeHdrValues(bad);fail("缺失/过量HDR类型不能猜为空集合");}catch(IllegalArgumentException expected){}
+        try{PackageInputCollector.displayModeHdr(null);fail("缺失显示模式不能查询");}catch(NullPointerException expected){}
+    }
+    @Test public void displayModeHdrMatchesPublicApiAndPreservesLegacyHdr()throws Exception{
+        ItemSink sink=new ItemSink(context,"display-mode-hdr-test");new PackageInputCollector("display").collect(sink);
+        android.hardware.display.DisplayManager manager=context.getSystemService(android.hardware.display.DisplayManager.class);int checked=0;
+        for(android.view.Display display:manager.getDisplays()){
+            JSONObject item=null;for(int i=0;i<sink.items.length();i++)if(sink.items.getJSONObject(i).getString("key").equals("display/"+display.getDisplayId()))item=sink.items.getJSONObject(i);
+            assertNotNull(item);assertEquals("ok",item.getString("status"));JSONObject value=new JSONObject(item.toString()).getJSONObject("value");JSONArray modes=value.getJSONArray("supportedModes");android.view.Display.Mode[] direct=display.getSupportedModes();assertEquals(direct.length,modes.length());
+            for(int i=0;i<direct.length;i++){
+                JSONObject mode=modes.getJSONObject(i),hdr=mode.getJSONObject("hdrTypeSupport");assertEquals(direct[i].getModeId(),mode.getInt("modeId"));assertEquals(direct[i].getPhysicalWidth(),mode.getInt("physicalWidth"));assertEquals(direct[i].getPhysicalHeight(),mode.getInt("physicalHeight"));assertEquals(direct[i].getRefreshRate(),mode.getDouble("refreshRate"),0.001);
+                if(Build.VERSION.SDK_INT<34){assertEquals("unsupported",hdr.getString("status"));assertTrue(hdr.isNull("types"));assertTrue(hdr.isNull("typeCount"));continue;}
+                int[] types=direct[i].getSupportedHdrTypes();JSONArray all=new JSONArray();for(int type:types)all.put(type);assertEquals(types.length>64?"partial":"ok",hdr.getString("status"));assertEquals(types.length,hdr.getInt("typeCount"));assertEquals(Math.min(64,types.length),hdr.getInt("returnedCount"));assertEquals(PackageInputCollector.sha(all.toString().getBytes(StandardCharsets.UTF_8)),hdr.getString("typeListSha256"));for(int t=0;t<Math.min(64,types.length);t++)assertEquals(types[t],hdr.getJSONArray("types").getInt(t));checked++;
+            }
+            android.view.Display.HdrCapabilities old=display.getHdrCapabilities();if(old!=null){assertTrue(value.has("hdr"));JSONArray types=value.getJSONObject("hdr").getJSONArray("types");assertEquals(old.getSupportedHdrTypes().length,types.length());for(int t=0;t<types.length();t++)assertEquals(old.getSupportedHdrTypes()[t],types.getInt(t));}
+        }
+        Bundle evidence=new Bundle();evidence.putInt("displayModesHdrCompared",checked);InstrumentationRegistry.getInstrumentation().sendStatus(0,evidence);
+    }
     @Test public void sysconfSummaryKeepsPositiveValuesAndRawEvidence()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new BuildSystemCollector("kernel").collect(sink);
         JSONObject item=null;boolean uname=false;for(int i=0;i<sink.items.length();i++){JSONObject entry=sink.items.getJSONObject(i);if(entry.getString("key").equals("kernel/sysconf-summary"))item=entry;if(entry.getString("key").equals("kernel/uname"))uname=true;}

@@ -7,6 +7,21 @@ const raw = { semantic: false, ignoreDynamic: false }, semantic = { semantic: tr
 const find = (rows: ReturnType<typeof compare>, key: string) => rows.find(x => x.key === key)!;
 
 describe('原始与语义比较', () => {
+  it('显示模式HDR兼容旧字段并区分未知/空集/失败及截断外变化', () => {
+    const mode = { modeId: 1, physicalWidth: 1080, physicalHeight: 2400, refreshRate: 60 };
+    const report = (support?: Json) => fixture([fixtureItem('display/0', { supportedModes: [{ ...mode, ...(support === undefined ? {} : { hdrTypeSupport: support }) }], hdr: { types: [2, 3] } }, { category: 'display' })]);
+    const old = report(), current = report({ status: 'ok', types: [2, 3], typeListSha256: 'a' });
+    const variants = [report({ status: 'ok', types: [] }), report({ status: 'unsupported', types: null }), report({ status: 'error', types: null }), report({ status: 'ok', types: [2, 999] }), report({ status: 'ok', types: [2, 3], typeListSha256: 'b' })];
+    const before = JSON.stringify([old, current, ...variants]);
+    for (const rules of [raw, semantic, smart]) {
+      const added = find(compare(old, current, rules), 'display/0');
+      expect(added.changedPaths).toEqual(['/value/supportedModes/0/hdrTypeSupport']);
+      for (const next of variants) expect(find(compare(current, next, rules), 'display/0').state).toBe('different');
+      expect(find(compare(variants[0], variants[1], rules), 'display/0').state).toBe('different');
+      expect(find(compare(variants[1], variants[2], rules), 'display/0').state).toBe('different');
+    }
+    expect(JSON.stringify([old, current, ...variants])).toBe(before);
+  });
   it('Widevine插件级别与请求常量分开，兼容旧JSON且不把失败当L3', () => {
     const key = 'hardware/drm/widevine', old = { supported: true, maxSecurityLevel: 6, deviceUniqueId: { sha256: 'a', length: 32, rawExported: false } };
     const report = (value: Json) => fixture([fixtureItem(key, value, { category: 'hardware' })]);

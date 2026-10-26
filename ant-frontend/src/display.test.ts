@@ -97,6 +97,23 @@ describe('设备格式化展示边界', () => {
     expect(sections.find(section => section.key === 'sync')?.rows[0].value).toBe('9007199254740993');
     expect(JSON.stringify(sections)).toContain('futureField');
   });
+  it('显示模式HDR类型保留原序与未知值，旧报告不填充且与整体HDR分开', () => {
+    const legacy = { displayId: 0, supportedModes: [{ modeId: 1, refreshRate: 60 }], hdr: { types: [2, 3] } };
+    const support = { status: 'ok', typeCount: 4, types: [4, 2, 4, 999], future: false };
+    const current = { ...legacy, supportedModes: [{ ...legacy.supportedModes[0], hdrTypeSupport: support }] };
+    const before = JSON.stringify([legacy, current]);
+    const old = buildSections(item('display/0', 'display', legacy));
+    expect(JSON.stringify(old)).not.toContain('hdrTypeSupport');
+    const sections = buildSections(item('display/0', 'display', current)), modes = sections.find(section => section.key === 'modes')!.rows;
+    expect(modes.filter(row => row.key.startsWith('[0].hdrTypeSupport.types[')).map(row => row.value)).toEqual(['4', '2', '4', '999']);
+    expect(modes.find(row => row.key === '[0].hdrTypeSupport.future')?.value).toBe('false');
+    expect(sections.find(section => section.key === 'hdr')!.rows.map(row => row.value)).toEqual(['2', '3']);
+    for (const types of [null, []]) {
+      const fallback = buildSections(item('display/0', 'display', { ...legacy, supportedModes: [{ ...legacy.supportedModes[0], hdrTypeSupport: { status: types === null ? 'unsupported' : 'ok', types } }] })).find(section => section.key === 'modes')!.rows;
+      expect(fallback.find(row => row.key === '[0].hdrTypeSupport.types')?.value).toBe(types === null ? 'null' : '[]');
+    }
+    expect(JSON.stringify([legacy, current])).toBe(before);
+  });
   it('数组逐字段保留空值、嵌套数据、顺序与重复项', () => {
     const value = item('sensors/list', 'sensors', [{ name: '<script>', values: [null, '中文\n'] }, { name: '<script>', values: [] }]);
     const sections = buildSections(value);
