@@ -430,11 +430,28 @@ describe('设备格式化展示边界', () => {
   it('USB 设备详情按数量与接口摘要展示', () => {
     const value = item('hardware/usb', 'hardware', { count: 1, devices: [{ deviceName: '/dev/bus/usb/001/002', vendorId: 18, productId: 52, interfaces: [{ id: 0, endpointCount: 2 }] }] });
     const sections = buildSections(value);
-    expect(sections[0].title).toContain('原始描述符保留');
+    expect(sections[0].title).toBe('USB 设备摘要');
     expect(sections[0].rows.map(row => row.key)).toContain('interfaceCount');
     expect(sections.find(section => section.key === 'vendorIds')?.rows[0].value).toBe('18');
-    expect(JSON.stringify(sections)).not.toContain('/dev/bus/usb/001/002');
+    expect(JSON.stringify(sections[0])).not.toContain('/dev/bus/usb/001/002');
+    expect(sections.find(section => section.key === 'descriptors')?.rows.find(row => row.key === 'devices[0].deviceName')?.value).toBe('"/dev/bus/usb/001/002"');
     expect(JSON.stringify(value)).toContain('/dev/bus/usb/001/002');
+  });
+  it('USB完整描述符保留端点原序/未知字段与JSON类型，旧报告缺项不补写', () => {
+    const old = { count: 1, devices: [{ vendorId: 18, productId: 52, interfaces: [{ id: 0, endpointCount: 2 }] }] };
+    const full = (value: Json) => buildSections(item('hardware/usb', 'hardware', value)).find(section => section.key === 'descriptors')!;
+    expect(full(old).rows.some(row => row.key.includes('endpointDescriptors'))).toBe(false);
+    const descriptor = { address: 129, endpointNumber: 1, direction: 128, attributes: 2, type: 2, maxPacketSize: -1, interval: 0, future: false };
+    const current = structuredClone(old) as { count: number; devices: { vendorId: number; productId: number; interfaces: Json[] }[] };
+    current.devices[0].interfaces[0] = { ...old.devices[0].interfaces[0], endpointDescriptors: { status: 'ok', endpoints: [descriptor, descriptor] } };
+    const before = JSON.stringify(current), fields = full(current).rows;
+    expect(fields.filter(row => row.key.endsWith('.address')).map(row => row.value)).toEqual(['129', '129']);
+    expect(fields.find(row => row.key.endsWith('[0].maxPacketSize'))?.value).toBe('-1');
+    for (const value of [false, 0, null, [], {}] as Json[]) {
+      const a = full({ ...old, future: value }), b = full({ ...old, future: JSON.stringify(value) });
+      expect(mergeDisplaySections(a, b).rows.find(row => row.label === 'future')?.state).toBe('changed');
+    }
+    expect(JSON.stringify(current)).toBe(before);
   });
   it('电源与热状态按公开快照字段展示', () => {
     const sections = buildSections(item('environment/power-thermal', 'environment', { powerSaveMode: false, interactive: true, ignoresBatteryOptimizations: null, batteryOptimizationQueryStatus: 'denied', deviceIdleMode: false, thermalStatus: 0, thermalHeadroom: 1.25 }));

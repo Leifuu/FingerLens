@@ -412,15 +412,33 @@ public final class HardwareCollector implements Collector {
             Map<String,UsbDevice> devices=manager.getDeviceList();
             if(devices.size()>256)throw new IllegalStateException("USB 设备超过 256");
             ArrayList<String> names=new ArrayList<>(devices.keySet());Collections.sort(names);
-            JSONArray values=new JSONArray();
+            JSONArray values=new JSONArray();int[] endpointBudget={4096};
             for(String name:names){
                 UsbDevice device=devices.get(name);if(device==null)continue;
                 JSONArray interfaces=new JSONArray();
-                for(int i=0;i<device.getInterfaceCount();i++){UsbInterface face=device.getInterface(i);interfaces.put(Json.obj("id",face.getId(),"alternateSetting",face.getAlternateSetting(),"class",face.getInterfaceClass(),"subclass",face.getInterfaceSubclass(),"protocol",face.getInterfaceProtocol(),"endpointCount",face.getEndpointCount()));}
+                for(int i=0;i<device.getInterfaceCount();i++){UsbInterface face=device.getInterface(i);interfaces.put(Json.obj("id",face.getId(),"alternateSetting",face.getAlternateSetting(),"class",face.getInterfaceClass(),"subclass",face.getInterfaceSubclass(),"protocol",face.getInterfaceProtocol(),"endpointCount",face.getEndpointCount(),"endpointDescriptors",usbEndpoints(face,endpointBudget)));}
                 values.put(Json.obj("deviceName",name,"vendorId",device.getVendorId(),"productId",device.getProductId(),"deviceClass",device.getDeviceClass(),"deviceSubclass",device.getDeviceSubclass(),"deviceProtocol",device.getDeviceProtocol(),"configurationCount",device.getConfigurationCount(),"interfaceCount",device.getInterfaceCount(),"interfaces",interfaces));
             }
             return Json.obj("count",values.length(),"devices",values);
         });
+    }
+    // 业务块：只读接口端点描述符；全快照4096端点预算，逐接口最多256输入/64明细，失败不抹去接口旧字段。
+    static JSONObject usbEndpoints(UsbInterface face,int[] remaining){
+        JSONObject missing=Json.obj("status","error","endpointCount",null,"returnedCount",0,"endpointLimit",64,"endpointsTruncated",null,"endpointsSha256",null,"endpoints",null);
+        try{
+            Objects.requireNonNull(face,"missing USB interface");Objects.requireNonNull(remaining,"missing endpoint budget");
+            if(remaining.length!=1||remaining[0]<0||remaining[0]>4096)throw new IllegalArgumentException("invalid endpoint budget");
+            int count=face.getEndpointCount();if(count<0||count>256)throw new IllegalArgumentException("USB interface endpoints exceeds 256");Json.put(missing,"endpointCount",count);
+            if(count>remaining[0]){Json.put(missing,"status","skipped");Json.put(missing,"reason","snapshot-endpoint-budget");return missing;}
+            remaining[0]-=count;ArrayList<UsbEndpoint> endpoints=new ArrayList<>();for(int i=0;i<count;i++)endpoints.add(face.getEndpoint(i));
+            return usbEndpointValues(endpoints);
+        }catch(Exception|LinkageError e){Json.put(missing,"status",e instanceof SecurityException?"denied":"error");Json.put(missing,"errorClass",e.getClass().getName());return missing;}
+    }
+    static JSONObject usbEndpointValues(List<UsbEndpoint> endpoints)throws Exception{
+        Objects.requireNonNull(endpoints,"missing USB endpoints");if(endpoints.size()>256)throw new IllegalArgumentException("USB interface endpoints exceeds 256");
+        ArrayList<UsbEndpoint> snapshot=new ArrayList<>(endpoints);if(snapshot.size()>256)throw new IllegalArgumentException("USB interface endpoints exceeds 256");JSONArray all=new JSONArray(),returned=new JSONArray();
+        for(UsbEndpoint endpoint:snapshot){Objects.requireNonNull(endpoint,"missing USB endpoint");JSONObject value=Json.obj("address",endpoint.getAddress(),"endpointNumber",endpoint.getEndpointNumber(),"direction",endpoint.getDirection(),"attributes",endpoint.getAttributes(),"type",endpoint.getType(),"maxPacketSize",endpoint.getMaxPacketSize(),"interval",endpoint.getInterval());all.put(value);if(returned.length()<64)returned.put(value);}
+        return Json.obj("status",snapshot.size()>64?"partial":"ok","endpointCount",snapshot.size(),"returnedCount",returned.length(),"endpointLimit",64,"endpointsTruncated",snapshot.size()>64,"endpointsSha256",PackageInputCollector.sha(all.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)),"endpoints",returned);
     }
     // 业务块：压缩 USB 描述符为可比较摘要；不复制设备路径、序列号或接口逐项数据。
     private static JSONObject usbSummary(Context context){

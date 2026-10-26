@@ -7,6 +7,17 @@ const raw = { semantic: false, ignoreDynamic: false }, semantic = { semantic: tr
 const find = (rows: ReturnType<typeof compare>, key: string) => rows.find(x => x.key === key)!;
 
 describe('原始与语义比较', () => {
+  it('USB端点兼容旧接口，完整哈希/原序/重复/原始类型和状态参与比较', () => {
+    const key = 'hardware/usb', endpoint = { address: 129, endpointNumber: 1, direction: 128, attributes: 2, type: 2, maxPacketSize: 512, interval: 0 };
+    const old = { count: 1, devices: [{ interfaces: [{ id: 0, endpointCount: 2 }] }] };
+    const report = (cap?: Json) => fixture([fixtureItem(key, cap === undefined ? old : { count: 1, devices: [{ interfaces: [{ id: 0, endpointCount: 2, endpointDescriptors: cap }] }] })]);
+    const base = { status: 'ok', endpointsSha256: 'a', endpoints: [endpoint, endpoint] }, current = report(base);
+    for (const rules of [raw, semantic, smart]) {
+      expect(find(compare(report(), current, rules), key).state).toBe('different');
+      expect(find(compare(current, current, rules), key).state).toBe('same');
+      for (const changed of [{ ...base, endpointsSha256: 'b' }, { ...base, endpoints: [{ ...endpoint, direction: '128' }, endpoint] }, { ...base, future: false }, { status: 'skipped', endpoints: null }, { ...base, endpoints: [endpoint] }]) expect(find(compare(current, report(changed), rules), key).state).toBe('different');
+    }
+  });
   it('公开音频属性兼容旧报告，保留字符串/null/失败，不把文本声明转成布尔或数字', () => {
     const ids = ['output-sample-rate', 'output-frames-per-buffer', 'mic-near-ultrasound', 'speaker-near-ultrasound', 'source-unprocessed'];
     const items = ids.map((id, index) => fixtureItem(`hardware/audio-property/${id}`, ['0048000', '192', 'false', 'true', null][index], { category: 'hardware' }));

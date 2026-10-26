@@ -244,7 +244,7 @@ function usbSections(value: Json): DisplaySection[] {
     }
   }
   const summary = objectRows({ count: typeof value.count === 'number' ? value.count : value.devices.length, vendorIdCount: vendorIds.length, productIdCount: productIds.length, interfaceCount, endpointCount, interfaceClassCounts: classCounts });
-  return [section('summary', 'USB 设备摘要（原始描述符保留在 JSON）', summary), section('vendorIds', '厂商 ID', vendorIds.map((id, index) => row(`[${index}]`, id)), true), section('productIds', '产品 ID', productIds.map((id, index) => row(`[${index}]`, id)), true)].filter(item => item.rows.length);
+  return [section('summary', 'USB 设备摘要', summary), section('vendorIds', '厂商 ID', vendorIds.map((id, index) => row(`[${index}]`, id)), true), section('productIds', '产品 ID', productIds.map((id, index) => row(`[${index}]`, id)), true), section('descriptors', 'USB 设备与接口完整字段', Object.entries(value).flatMap(([key, child]) => flattenRows(child, key, true)), true)].filter(item => item.rows.length);
 }
 
 function genericSections(value: Json): DisplaySection[] {
