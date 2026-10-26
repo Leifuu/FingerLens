@@ -163,7 +163,30 @@ public final class HardwareCollector implements Collector {
         s.read("hardware","hardware/microphone-summary","麦克风阵列能力摘要","AudioManager.getMicrophones",()->microphoneSummary(manager));
     }
     private static JSONArray audioDevices(AudioManager manager){
-        JSONArray devices=new JSONArray();for(AudioDeviceInfo device:manager.getDevices(AudioManager.GET_DEVICES_ALL)){CharSequence productName=device.getProductName();devices.put(Json.obj("id",device.getId(),"type",device.getType(),"productName",productName==null?null:productName.toString(),"isSource",device.isSource(),"isSink",device.isSink(),"addressPresent",device.getAddress()!=null&&!device.getAddress().isEmpty(),"channelCounts",device.getChannelCounts(),"sampleRates",device.getSampleRates(),"encodings",device.getEncodings()));}return devices;
+        JSONArray devices=new JSONArray();for(AudioDeviceInfo device:manager.getDevices(AudioManager.GET_DEVICES_ALL)){CharSequence productName=device.getProductName();devices.put(Json.obj("id",device.getId(),"type",device.getType(),"productName",productName==null?null:productName.toString(),"isSource",device.isSource(),"isSink",device.isSink(),"addressPresent",device.getAddress()!=null&&!device.getAddress().isEmpty(),"channelCounts",device.getChannelCounts(),"sampleRates",device.getSampleRates(),"encodings",device.getEncodings(),"audioProfiles",audioDeviceProfiles(device,Build.VERSION.SDK_INT)));}return devices;
+    }
+    // 业务块：API31+按格式读取采样率/声道/封装的关联能力，不打开音频设备；新增查询失败不丢失旧字段。
+    static JSONObject audioDeviceProfiles(AudioDeviceInfo device,int sdk){
+        JSONObject missing=Json.obj("status",sdk<31?"unsupported":"error","profileCount",null,"profiles",null);
+        if(sdk<31)return missing;
+        Objects.requireNonNull(device,"missing audio device");
+        try{return audioProfileValues(device.getAudioProfiles());}
+        catch(Exception|LinkageError e){Json.put(missing,"status",e instanceof SecurityException?"denied":"error");Json.put(missing,"errorClass",e.getClass().getName());return missing;}
+    }
+    // 业务块：最多256条输入/64条明细，每个数组最多1024整数；保留原序重复与完整集合哈希。
+    static JSONObject audioProfileValues(List<AudioProfile> profiles)throws Exception{
+        Objects.requireNonNull(profiles,"missing audio profiles");if(profiles.size()>256)throw new IllegalArgumentException("audio profiles exceeds 256");
+        ArrayList<AudioProfile> snapshot=new ArrayList<>(profiles);if(snapshot.size()>256)throw new IllegalArgumentException("audio profiles exceeds 256");
+        JSONArray all=new JSONArray(),returned=new JSONArray();
+        for(AudioProfile profile:snapshot){
+            Objects.requireNonNull(profile,"missing audio profile");JSONObject value=audioProfileValue(profile.getFormat(),profile.getSampleRates(),profile.getChannelMasks(),profile.getChannelIndexMasks(),profile.getEncapsulationType());
+            all.put(value);if(returned.length()<64)returned.put(value);
+        }
+        return Json.obj("status",snapshot.size()>64?"partial":"ok","profileCount",snapshot.size(),"returnedCount",returned.length(),"profileLimit",64,"profilesTruncated",snapshot.size()>64,"profilesSha256",PackageInputCollector.sha(all.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)),"profiles",returned);
+    }
+    static JSONObject audioProfileValue(int format,int[] sampleRates,int[] channelMasks,int[] channelIndexMasks,int encapsulationType){
+        for(int[] values:new int[][]{sampleRates,channelMasks,channelIndexMasks}){Objects.requireNonNull(values,"missing audio profile array");if(values.length>1024)throw new IllegalArgumentException("audio profile array exceeds 1024");}
+        return Json.obj("format",format,"sampleRatesHz",sampleRates,"channelMasks",channelMasks,"channelIndexMasks",channelIndexMasks,"encapsulationType",encapsulationType);
     }
     private static JSONObject audioSummary(AudioManager manager){
         AudioDeviceInfo[] devices=manager.getDevices(AudioManager.GET_DEVICES_ALL);JSONObject typeCounts=new JSONObject();TreeSet<String> productNames=new TreeSet<>(String.CASE_INSENSITIVE_ORDER);boolean productNamesTruncated=false;int sourceCount=0,sinkCount=0;TreeSet<Integer> sampleRates=new TreeSet<>(),encodings=new TreeSet<>();

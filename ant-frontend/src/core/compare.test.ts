@@ -7,6 +7,20 @@ const raw = { semantic: false, ignoreDynamic: false }, semantic = { semantic: tr
 const find = (rows: ReturnType<typeof compare>, key: string) => rows.find(x => x.key === key)!;
 
 describe('原始与语义比较', () => {
+  it('音频关联profile兼容旧JSON，保留原序/重复、掩码、空集合及截断外哈希', () => {
+    const key = 'hardware/audio', device = { id: 1, type: 2, encodings: [2], sampleRates: [48000], channelCounts: [2] };
+    const report = (profiles?: Json) => fixture([fixtureItem(key, [{ ...device, ...(profiles === undefined ? {} : { audioProfiles: profiles }) }], { category: 'hardware' })]);
+    const profile = { format: 2, sampleRatesHz: [48000, 48000, 0], channelMasks: [12, -2147483648], channelIndexMasks: [], encapsulationType: 0 };
+    const value = { status: 'ok', profiles: [profile, profile], profilesSha256: 'a' };
+    const variants: Json[] = [{ ...value, profilesSha256: 'b' }, { ...value, profiles: [{ ...profile, channelMasks: [-2147483648, 12] }, profile] }, { ...value, profiles: [{ ...profile, encapsulationType: 999 }, profile] }, { status: 'ok', profiles: [] }, { status: 'unsupported', profiles: null }, { status: 'denied', profiles: null }, { ...value, future: false }];
+    const old = report(), current = report(value), inputs = [old, current, ...variants.map(report)], before = JSON.stringify(inputs);
+    for (const rules of [raw, semantic, smart]) {
+      expect(find(compare(old, current, rules), key).state).toBe('different');
+      expect(find(compare(current, current, rules), key).state).toBe('same');
+      for (const next of inputs.slice(2)) expect(find(compare(current, next, rules), key).state).toBe('different');
+    }
+    expect(JSON.stringify(inputs)).toBe(before);
+  });
   it('传感器公开元数据兼容旧JSON，保留ID哨兵、false、未知值和独立失败', () => {
     const key = 'sensors/list', sensor = { name: 'synthetic', vendor: 'test', type: 1, version: 1 };
     const report = (metadata?: Json) => fixture([fixtureItem(key, [{ ...sensor, ...(metadata === undefined ? {} : { publicMetadata: metadata }) }], { category: 'sensors' })]);

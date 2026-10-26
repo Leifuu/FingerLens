@@ -21,6 +21,35 @@ public class CollectionChecks {
     private Context context;
     private final ArrayList<CollectionController> controllers=new ArrayList<>();
     @Before public void setup(){context=InstrumentationRegistry.getInstrumentation().getTargetContext();}
+    @Test public void audioProfileValuesPreserveMasksOrderAndBounds()throws Exception{
+        int[] rates={48000,0,48000,-1},masks={12,Integer.MIN_VALUE,0,12},indexes={Integer.MAX_VALUE,-1};
+        JSONObject value=HardwareCollector.audioProfileValue(-99,rates,masks,indexes,999);
+        assertEquals(-99,value.getInt("format"));assertEquals(999,value.getInt("encapsulationType"));assertEquals("[48000,0,48000,-1]",value.getJSONArray("sampleRatesHz").toString());assertEquals("[12,-2147483648,0,12]",value.getJSONArray("channelMasks").toString());assertEquals("[2147483647,-1]",value.getJSONArray("channelIndexMasks").toString());assertArrayEquals(new int[]{48000,0,48000,-1},rates);assertEquals(12,masks[0]);
+        rates[0]=96000;assertEquals(48000,value.getJSONArray("sampleRatesHz").getInt(0));
+        assertEquals("[]",HardwareCollector.audioProfileValue(0,new int[0],new int[0],new int[0],0).getJSONArray("channelMasks").toString());
+        assertEquals(1024,HardwareCollector.audioProfileValue(0,new int[1024],new int[1024],new int[1024],0).getJSONArray("channelMasks").length());
+        for(int position=0;position<3;position++){int[][] arrays={new int[0],new int[0],new int[0]};arrays[position]=new int[1025];try{HardwareCollector.audioProfileValue(0,arrays[0],arrays[1],arrays[2],0);fail("最多1024整数");}catch(IllegalArgumentException expected){}arrays[position]=null;try{HardwareCollector.audioProfileValue(0,arrays[0],arrays[1],arrays[2],0);fail("null不能当成空数组");}catch(NullPointerException expected){}}
+        assertEquals("unsupported",HardwareCollector.audioDeviceProfiles(null,30).getString("status"));assertTrue(HardwareCollector.audioDeviceProfiles(null,24).isNull("profiles"));
+        try{HardwareCollector.audioDeviceProfiles(null,31);fail("新API缺少设备实例");}catch(NullPointerException expected){}
+        try{HardwareCollector.audioProfileValues(null);fail("缺失不能当作空集合");}catch(NullPointerException expected){}
+        try{HardwareCollector.audioProfileValues(Collections.singletonList(null));fail("缺失profile");}catch(NullPointerException expected){}
+        try{HardwareCollector.audioProfileValues(Collections.nCopies(257,null));fail("最多256项");}catch(IllegalArgumentException expected){}
+        JSONObject empty=HardwareCollector.audioProfileValues(Collections.emptyList());assertEquals("ok",empty.getString("status"));assertEquals("[]",empty.getJSONArray("profiles").toString());assertEquals(PackageInputCollector.sha("[]".getBytes(StandardCharsets.UTF_8)),empty.getString("profilesSha256"));
+    }
+    @Test public void audioProfilesMatchPublicApiAndKeepOldDevices()throws Exception{
+        android.media.AudioManager manager=context.getSystemService(android.media.AudioManager.class);assertNotNull(manager);
+        android.media.AudioDeviceInfo[] devices=manager.getDevices(android.media.AudioManager.GET_DEVICES_ALL);JSONArray evidence=new JSONArray();android.media.AudioProfile first=null;
+        for(android.media.AudioDeviceInfo device:devices){
+            JSONObject value=HardwareCollector.audioDeviceProfiles(device,Build.VERSION.SDK_INT);
+            if(Build.VERSION.SDK_INT<31){assertEquals("unsupported",value.getString("status"));assertTrue(value.isNull("profiles"));continue;}
+            List<android.media.AudioProfile> expected=device.getAudioProfiles();assertEquals(expected.size(),value.getInt("profileCount"));assertEquals(Math.min(64,expected.size()),value.getInt("returnedCount"));JSONArray all=new JSONArray();
+            for(android.media.AudioProfile profile:expected){if(first==null)first=profile;all.put(Json.obj("format",profile.getFormat(),"sampleRatesHz",profile.getSampleRates(),"channelMasks",profile.getChannelMasks(),"channelIndexMasks",profile.getChannelIndexMasks(),"encapsulationType",profile.getEncapsulationType()));}
+            assertEquals(PackageInputCollector.sha(all.toString().getBytes(StandardCharsets.UTF_8)),value.getString("profilesSha256"));for(int i=0;i<value.getJSONArray("profiles").length();i++)assertEquals(all.getJSONObject(i).toString(),value.getJSONArray("profiles").getJSONObject(i).toString());
+            evidence.put(Json.obj("id",device.getId(),"type",device.getType(),"audioProfiles",value));
+        }
+        if(first!=null){List<android.media.AudioProfile> maximum=Collections.nCopies(256,first);JSONObject bounded=HardwareCollector.audioProfileValues(maximum);assertEquals("partial",bounded.getString("status"));assertTrue(bounded.getBoolean("profilesTruncated"));assertEquals(64,bounded.getJSONArray("profiles").length());assertEquals(256,bounded.getInt("profileCount"));JSONObject shorter=HardwareCollector.audioProfileValues(Collections.nCopies(255,first));assertEquals(bounded.getJSONArray("profiles").toString(),shorter.getJSONArray("profiles").toString());assertNotEquals(bounded.getString("profilesSha256"),shorter.getString("profilesSha256"));assertEquals(256,maximum.size());}
+        Bundle status=new Bundle();status.putString("audioDeviceProfiles",evidence.toString());InstrumentationRegistry.getInstrumentation().sendStatus(0,status);
+    }
     @Test public void sensorMetadataPreservesSentinelsAndSignedRange()throws Exception{
         for(int id:new int[]{Integer.MIN_VALUE,-2,-1,0,1,Integer.MAX_VALUE}){
             JSONObject actual=HardwareCollector.sensorIdValue(id);assertEquals("ok",actual.getString("status"));assertEquals(id,actual.getInt("value"));

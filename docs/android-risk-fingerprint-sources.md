@@ -13,6 +13,9 @@
 
 ## Android 安全环境资料
 
+- 音频设备关联格式能力（2026-10-26）：[AudioDeviceInfo.getAudioProfiles](https://developer.android.com/reference/android/media/AudioDeviceInfo#getAudioProfiles()) 与 [AudioProfile](https://developer.android.com/reference/android/media/AudioProfile) 自API31公开。已核对SDK37版本表和[固定AOSP AudioProfile.java](https://github.com/aosp-mirror/platform_frameworks_base/blob/1cdfff555f4a21f71ccc978290e2e212e2f8b168/media/java/android/media/AudioProfile.java)、[AudioDeviceInfo.java](https://github.com/aosp-mirror/platform_frameworks_base/blob/1cdfff555f4a21f71ccc978290e2e212e2f8b168/media/java/android/media/AudioDeviceInfo.java)：profile按编码格式关联采样率及声道掩码，相同编码可因封装方式不同而有多条记录。封装类型公开值0=NONE、1=IEC61937、2=PCM，采集保留整数，不丢弃未知值；仅使用公开getter，未使用SystemApi构造器。
+- `hardware/audio[*].audioProfiles` 新增原序profiles，每项包含format、sampleRatesHz、channelMasks、channelIndexMasks及encapsulationType。最多接受256项、每个整数数组最多1024项，保留前64项明细和完整原序JSON集合的UTF8 SHA256；不排序、去重或合并相同格式，保留空数组、零和有符号掩码。有效空清单为ok/[]，API31以下unsupported/null，读取失败denied/error/null及errorClass，不把缺失数组/清单当成空集合，也不从旧聚合数组重建profile。查询独立于原有设备字段，旧JSON无新对象继续导入比较；通用字段表保留50字段分页。只读能力元数据，不打开音频设备、不播放/录制、不新增权限；不由多个聚合列表推导所有组合可用，也不把profile声明当作当前路由或录放音成功证明。旧API目前通过分支模拟，尚无对应真机验证。
+
 - 传感器元数据展示补充（2026-10-26）：现有20项传感器概览直接显示 `publicMetadata.sensorId` 的原始整数及平台含义、附加信息API的true/false与独立失败状态。0不作为有效ID，-1保留按类型和名称识别含义，不从缺失kind反推；旧JSON缺对象明确未采集，null、空字符串、失败、未知状态和结构保持区别，复杂结构转到完整字段核对。格式化从原始JSON读取，文字"false"/"0"保留引号；传感器行同时比较完整原始对象，防止已格式化文字相同而掩盖类型变化。原始序号、重复项、20项分页、完整字段折叠及50字段分页、窄屏独立横向查看设备B继续保留。仅优化展示，不修改采集、通用比较规则或导出，不将附加能力声明当作已经获取事件数据。
 
 - 传感器标识及附加信息能力（2026-10-26）：已核对 SDK37 API 版本表，以及[固定 AOSP Sensor.java](https://github.com/aosp-mirror/platform_frameworks_base/blob/1cdfff555f4a21f71ccc978290e2e212e2f8b168/core/java/android/hardware/Sensor.java) 的 `getId()`（1168–1175行）和 `isAdditionalInfoSupported()`（1257–1265行），两者自API24公开，覆盖本工程minSdk24。`getId()` 的公开契约说明同一App范围内的ID，0表示不支持此功能，-1表示可用类型和名称识别；不得将其当作跨App通用设备标识。附加信息能力仅说明支持相应API，不代表已经读取校准或事件数据。
