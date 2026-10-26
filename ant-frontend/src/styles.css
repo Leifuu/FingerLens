@@ -41,3 +41,5 @@
 .comparison-drawer .usb-overview-section .ant-table-placeholder .ant-table-cell{color:#a6b5b0}
 .sensor-privacy-overview-section .ant-typography-secondary{color:#a6b5b0}.sensor-privacy-facts{display:flex;flex-direction:column;gap:4px;min-width:0;overflow-wrap:anywhere}.sensor-privacy-facts .ant-typography{margin-bottom:0;white-space:pre-wrap}.sensor-privacy-scroll-hint{display:none}@media(max-width:768px){.sensor-privacy-scroll-hint{display:block}}
 .comparison-drawer .sensor-privacy-overview-section .ant-table-placeholder .ant-table-cell{color:#a6b5b0}
+.thermal-threshold-overview-section .ant-typography-secondary{color:#a6b5b0}.thermal-threshold-facts{display:flex;flex-direction:column;gap:4px;min-width:0;overflow-wrap:anywhere}.thermal-threshold-facts .ant-typography{margin-bottom:0;white-space:pre-wrap}.thermal-threshold-scroll-hint{display:none}@media(max-width:768px){.thermal-threshold-scroll-hint{display:block}}
+.comparison-drawer .thermal-threshold-overview-section .ant-table-placeholder .ant-table-cell{color:#a6b5b0}
