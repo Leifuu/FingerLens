@@ -21,6 +21,18 @@ describe('原始与语义比较', () => {
     }
     expect(JSON.stringify(inputs)).toBe(before);
   });
+  it('扬声器布局兼容旧JSON，保留零/有符号掩码、不适用、失败与未知字段', () => {
+    const key = 'hardware/audio', device = { id: 3, type: 2, channelCounts: [2], audioProfiles: { status: 'ok', profiles: [] } };
+    const report = (speakerLayout?: Json) => fixture([fixtureItem(key, [{ ...device, ...(speakerLayout === undefined ? {} : { speakerLayout }) }], { category: 'hardware' })]);
+    const value = { status: 'ok', channelMask: 0 }, old = report(), current = report(value);
+    const variants: Json[] = [{ ...value, channelMask: 12 }, { ...value, channelMask: -2147483648 }, { ...value, channelMask: '0' }, { status: 'unsupported', channelMask: null }, { status: 'not-applicable', channelMask: null }, { status: 'error', channelMask: null, errorClass: 'synthetic' }, { ...value, future: false }, null];
+    const inputs = [old, current, ...variants.map(report)], before = JSON.stringify(inputs);
+    for (const rules of [raw, semantic, smart]) {
+      expect(find(compare(old, current, rules), key).state).toBe('different');expect(find(compare(current, current, rules), key).state).toBe('same');
+      for (const next of inputs.slice(2)) expect(find(compare(current, next, rules), key).state).toBe('different');
+    }
+    expect(JSON.stringify(inputs)).toBe(before);
+  });
   it('音频混音属性兼容旧JSON，保留原序重复、类型、空与失败及截断外哈希差异', () => {
     const key = 'hardware/audio', device = { id: 1, type: 2, sampleRates: [48000], audioProfiles: { status: 'ok', profiles: [] } };
     const report = (supportedMixerAttributes?: Json) => fixture([fixtureItem(key, [{ ...device, ...(supportedMixerAttributes === undefined ? {} : { supportedMixerAttributes }) }], { category: 'hardware' })]);

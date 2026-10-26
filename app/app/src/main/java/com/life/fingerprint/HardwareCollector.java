@@ -193,7 +193,15 @@ public final class HardwareCollector implements Collector {
         s.read("hardware","hardware/microphones","麦克风声学与阵列元数据","AudioManager.getMicrophones / MicrophoneInfo",()->microphoneDetails(manager,Build.VERSION.SDK_INT));
     }
     private static JSONArray audioDevices(AudioManager manager){
-        JSONArray devices=new JSONArray();for(AudioDeviceInfo device:manager.getDevices(AudioManager.GET_DEVICES_ALL)){CharSequence productName=device.getProductName();devices.put(Json.obj("id",device.getId(),"type",device.getType(),"productName",productName==null?null:productName.toString(),"isSource",device.isSource(),"isSink",device.isSink(),"addressPresent",device.getAddress()!=null&&!device.getAddress().isEmpty(),"channelCounts",device.getChannelCounts(),"sampleRates",device.getSampleRates(),"encodings",device.getEncodings(),"audioProfiles",audioDeviceProfiles(device,Build.VERSION.SDK_INT),"supportedMixerAttributes",audioMixerAttributes(manager,device,Build.VERSION.SDK_INT)));}return devices;
+        JSONArray devices=new JSONArray();for(AudioDeviceInfo device:manager.getDevices(AudioManager.GET_DEVICES_ALL)){CharSequence productName=device.getProductName();devices.put(Json.obj("id",device.getId(),"type",device.getType(),"productName",productName==null?null:productName.toString(),"isSource",device.isSource(),"isSink",device.isSink(),"addressPresent",device.getAddress()!=null&&!device.getAddress().isEmpty(),"channelCounts",device.getChannelCounts(),"sampleRates",device.getSampleRates(),"encodings",device.getEncodings(),"audioProfiles",audioDeviceProfiles(device,Build.VERSION.SDK_INT),"supportedMixerAttributes",audioMixerAttributes(manager,device,Build.VERSION.SDK_INT),"speakerLayout",audioSpeakerLayout(device.getType(),Build.VERSION.SDK_INT,()->device.getSpeakerLayoutChannelMask())));}return devices;
+    }
+    // 业务块：API36+只对内置扬声器查询布局掩码；原始零/负值保留，失败不丢失设备旧字段。
+    static JSONObject audioSpeakerLayout(int deviceType,int sdk,java.util.function.IntSupplier query){
+        JSONObject result=Json.obj("status",sdk<36?"unsupported":deviceType!=AudioDeviceInfo.TYPE_BUILTIN_SPEAKER?"not-applicable":"ok","channelMask",null);
+        if(sdk<36||deviceType!=AudioDeviceInfo.TYPE_BUILTIN_SPEAKER)return result;
+        try{Json.put(result,"channelMask",Objects.requireNonNull(query,"missing speaker layout query").getAsInt());}
+        catch(Exception|LinkageError e){Json.put(result,"status",e instanceof SecurityException?"denied":"error");Json.put(result,"errorClass",e.getClass().getName());}
+        return result;
     }
     static JSONObject audioMixerAttributes(AudioManager manager,AudioDeviceInfo device,int sdk){
         // 业务块：API34+只读支持的混音配置；公开API空清单也可能表示底层查询失败，不据此断言硬件不支持。

@@ -58,6 +58,27 @@ public class CollectionChecks {
         if(!expected.isEmpty()){JSONObject maximum=HardwareCollector.microphoneValues(Collections.nCopies(256,expected.get(0))),shorter=HardwareCollector.microphoneValues(Collections.nCopies(255,expected.get(0)));assertEquals("partial",maximum.getString("status"));assertEquals(64,maximum.getJSONArray("microphones").length());assertEquals(maximum.getJSONArray("microphones").toString(),shorter.getJSONArray("microphones").toString());assertNotEquals(maximum.getString("microphonesSha256"),shorter.getString("microphonesSha256"));}
         Bundle status=new Bundle();status.putString("microphoneDetails",actual.toString());InstrumentationRegistry.getInstrumentation().sendStatus(0,status);
     }
+    @Test public void speakerLayoutStatesKeepRawMasksAndSkipInvalidQueries()throws Exception{
+        for(int sdk:new int[]{24,35}){JSONObject value=HardwareCollector.audioSpeakerLayout(2,sdk,()->{throw new AssertionError("旧API不应查询");});assertEquals("unsupported",value.getString("status"));assertTrue(value.isNull("channelMask"));}
+        for(int type:new int[]{0,1,3,15,18,24,-1,Integer.MAX_VALUE}){JSONObject value=HardwareCollector.audioSpeakerLayout(type,36,()->{throw new AssertionError("仅内置扬声器适用");});assertEquals("not-applicable",value.getString("status"));assertTrue(value.isNull("channelMask"));}
+        for(int mask:new int[]{0,1,12,Integer.MIN_VALUE,-1,Integer.MAX_VALUE}){JSONObject value=HardwareCollector.audioSpeakerLayout(2,36,()->mask);assertEquals("ok",value.getString("status"));assertEquals(mask,value.getInt("channelMask"));assertEquals(mask,new JSONObject(value.toString()).getInt("channelMask"));}
+        JSONObject denied=HardwareCollector.audioSpeakerLayout(2,36,()->{throw new SecurityException("synthetic");});assertEquals("denied",denied.getString("status"));assertTrue(denied.isNull("channelMask"));assertEquals("java.lang.SecurityException",denied.getString("errorClass"));
+        JSONObject error=HardwareCollector.audioSpeakerLayout(2,36,()->{throw new IllegalStateException("synthetic");});assertEquals("error",error.getString("status"));assertTrue(error.isNull("channelMask"));
+        JSONObject linkage=HardwareCollector.audioSpeakerLayout(2,36,()->{throw new NoSuchMethodError("synthetic");});assertEquals("error",linkage.getString("status"));assertTrue(linkage.isNull("channelMask"));assertEquals("java.lang.NoSuchMethodError",linkage.getString("errorClass"));
+    }
+    @Test public void speakerLayoutMatchesPublicApiAndPreservesAudioDevices()throws Exception{
+        org.junit.Assume.assumeTrue(Build.VERSION.SDK_INT>=36);
+        android.media.AudioManager manager=context.getSystemService(android.media.AudioManager.class);assertNotNull(manager);android.media.AudioDeviceInfo[] devices=manager.getDevices(android.media.AudioManager.GET_DEVICES_ALL);
+        ItemSink sink=new ItemSink(context,"speaker-layout-test");new HardwareCollector("hardware").collect(sink);JSONObject item=null;for(int i=0;i<sink.items.length();i++)if(sink.items.getJSONObject(i).getString("key").equals("hardware/audio"))item=sink.items.getJSONObject(i);
+        assertNotNull(item);assertEquals("ok",item.getString("status"));JSONArray collected=item.getJSONArray("value"),evidence=new JSONArray();assertEquals(devices.length,collected.length());int speakers=0;
+        for(android.media.AudioDeviceInfo device:devices){
+            JSONObject expected=device.getType()==android.media.AudioDeviceInfo.TYPE_BUILTIN_SPEAKER?Json.obj("status","ok","channelMask",device.getSpeakerLayoutChannelMask()):Json.obj("status","not-applicable","channelMask",null);
+            if(device.getType()==android.media.AudioDeviceInfo.TYPE_BUILTIN_SPEAKER)speakers++;
+            JSONObject stored=null;for(int i=0;i<collected.length();i++)if(collected.getJSONObject(i).getInt("id")==device.getId())stored=collected.getJSONObject(i);assertNotNull(stored);assertEquals(device.getType(),stored.getInt("type"));assertEquals(device.isSource(),stored.getBoolean("isSource"));assertEquals(device.isSink(),stored.getBoolean("isSink"));assertTrue(stored.has("encodings"));assertTrue(stored.has("channelCounts"));assertTrue(stored.has("sampleRates"));assertTrue(stored.has("audioProfiles"));assertTrue(stored.has("supportedMixerAttributes"));assertEquals(expected.toString(),stored.getJSONObject("speakerLayout").toString());
+            evidence.put(Json.obj("id",device.getId(),"type",device.getType(),"isSource",device.isSource(),"isSink",device.isSink(),"speakerLayout",expected));
+        }
+        assertTrue("需要至少一个内置扬声器来验证真实getter",speakers>0);Bundle result=new Bundle();result.putString("speakerLayoutEvidence",evidence.toString());InstrumentationRegistry.getInstrumentation().sendStatus(0,result);
+    }
     @Test public void audioMixerValuesPreserveFormatsOrderAndBounds()throws Exception{
         for(int sdk:new int[]{24,33}){JSONObject missing=HardwareCollector.audioMixerAttributes(null,null,sdk);assertEquals("unsupported",missing.getString("status"));assertTrue(missing.isNull("attributes"));}
         assertEquals("unavailable",HardwareCollector.audioMixerAttributes(null,null,34).getString("status"));
