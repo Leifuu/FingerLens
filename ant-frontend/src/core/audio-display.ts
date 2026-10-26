@@ -1,6 +1,7 @@
 import { differences } from './compare';
 import type { Json } from './types';
 import type { MergedDisplayRow } from './display-compare';
+import { audioMixerFacts, type AudioMixerFacts } from './audio-mixer-display';
 
 const object = (value: Json | undefined): value is Record<string, Json> => value !== null && typeof value === 'object' && !Array.isArray(value);
 const scalar = (value: Json | undefined) => value === undefined || value === null || typeof value !== 'object';
@@ -16,6 +17,7 @@ export interface AudioFacts {
   profileStatus: string;
   profileCount: string;
   profiles?: Json[] | null;
+  mixer?: AudioMixerFacts;
 }
 export interface AudioDisplayRow {
   key: string;
@@ -27,6 +29,8 @@ export interface AudioDisplayRow {
 function facts(device: Json): AudioFacts | undefined {
   if (!object(device) || !Object.hasOwn(device, 'id') || !Object.hasOwn(device, 'type') || !['productName', 'id', 'type', 'isSource', 'isSink'].every(key => scalar(device[key]))) return undefined;
   if (!['encodings', 'sampleRates', 'channelCounts'].every(key => array(device[key]))) return undefined;
+  const mixer = device.supportedMixerAttributes === undefined ? undefined : audioMixerFacts(device.supportedMixerAttributes);
+  if (device.supportedMixerAttributes !== undefined && !mixer) return undefined;
   const cap = device.audioProfiles;
   let profileStatus = '未采集', profileCount = '旧报告未采集关联格式', profiles: Json[] | null | undefined;
   if (cap !== undefined) {
@@ -49,7 +53,7 @@ function facts(device: Json): AudioFacts | undefined {
   return { name: typeof device.productName === 'string' ? device.productName || '（空字符串）' : text(device.productName), identity: `ID ${text(device.id)} · 类型 ${text(device.type)}`,
     roles: `输入 ${text(device.isSource)} · 输出 ${text(device.isSink)}`,
     aggregate: `编码 ${text(device.encodings)} · 采样率 Hz ${text(device.sampleRates)} · 声道数 ${text(device.channelCounts)}`,
-    profileStatus, profileCount, profiles };
+    profileStatus, profileCount, profiles, mixer };
 }
 
 // 业务块：最多256设备/64关联格式/数组1024项进入概览；保留原始序号和重复，异构数据回退完整字段。

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildSections } from './display';
+import { mergeDisplaySections } from './core/display-compare';
 import type { Item, Json } from './core/types';
 
 function item(key: string, category: string, value: Json): Item {
@@ -7,6 +8,21 @@ function item(key: string, category: string, value: Json): Item {
 }
 
 describe('设备格式化展示边界', () => {
+  it('音频混音完整字段保留JSON类型，旧设备字段格式不变且不补写缺项', () => {
+    const key = 'hardware/audio', old = { id: 0, type: 2, productName: 'synthetic', encodings: [2], audioProfiles: { status: 'ok', profiles: [] } };
+    const section = (cap?: Json) => buildSections(item(key, 'hardware', [{ ...old, ...(cap === undefined ? {} : { supportedMixerAttributes: cap }) }]))[0];
+    const baseline = section(), cap = { status: 'ok', attributes: [{ mixerBehavior: 0, sampleRateHz: 48000 }], attributesSha256: '0007', future: false }, current = section(cap);
+    expect(current.rows.filter(row => !row.key.includes('supportedMixerAttributes'))).toEqual(baseline.rows);
+    expect(baseline.rows.some(row => row.key.includes('supportedMixerAttributes'))).toBe(false);
+    for (const [field, value] of [['status', '"ok"'], ['attributes[0].sampleRateHz', '48000'], ['attributesSha256', '"0007"'], ['future', 'false']]) expect(current.rows.find(row => row.key === `[0].supportedMixerAttributes.${field}`)?.value).toBe(value);
+    const values: Json[] = [false, 0, null, [], {}, { $type: 'int64', value: '0007' }];
+    for (const value of values) {
+      const a = section({ future: value }), b = section({ future: JSON.stringify(value) });
+      expect(mergeDisplaySections(a, b).rows.find(row => row.label === '[0].supportedMixerAttributes.future')?.state).toBe('changed');
+    }
+    expect(mergeDisplaySections(current, section({ ...cap, attributes: [{ mixerBehavior: 0, sampleRateHz: '48000' }] })).rows.find(row => row.label.endsWith('.sampleRateHz'))?.state).toBe('changed');
+    expect(buildSections(item(key, 'hardware', []))).toEqual(buildSections(item('hardware/legacy', 'hardware', [])));
+  });
   it('显示产品独立分组保留字符串ID、null、-1和未知字段，旧JSON不补写', () => {
     const old = { displayId: 0, hdr: { types: [2, 3] }, supportedModes: [{ modeId: 1 }] };
     const product = { status: 'ok', value: { name: null, manufacturerPnpId: 'SYN', productId: '0007', modelYear: 2026, manufactureYear: -1, manufactureWeek: -1, connectionToSinkType: 999, future: false } };

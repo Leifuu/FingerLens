@@ -13,6 +13,8 @@
 
 ## Android 安全环境资料
 
+- 混音属性展示补充（2026-10-26）：`hardware/audio` 的设备概览增加混音查询状态、总数/返回数/上限/截断及空/null/旧未采集说明；明细按原始序号每页5项对照行为、编码、采样率和声道位置/索引掩码、声道数，保留重复。仅数值行为0/1附默认/位精确名称，字符串、未知整数、负掩码原样展示，能力列表不代表当前配置或实际播放成功。设备与明细行都比较完整原始对象，未知元数据/属性字段、完整哈希及类型变化继续标差异；已知文字相同但未知字段变化时提示核对完整字段。保留原设备/profile概览和完整字段折叠/50行分页，混音完整字段保留JSON类型，防止数字或布尔与同文字符串被差异筛选漏掉；只对混音对象启用，旧音频字段格式不变。旧JSON不补写，空列表不推导硬件不支持；混音异构结构或超过64项明细回退完整字段，390px窄屏可独立横向查看设备B。此轮只优化浏览层，不改变采集、导出或通用比较规则。
+
 - 音频设备支持的混音属性（2026-10-26）：[AudioManager.getSupportedMixerAttributes](https://developer.android.com/reference/android/media/AudioManager#getSupportedMixerAttributes(android.media.AudioDeviceInfo)) 与 [AudioMixerAttributes](https://developer.android.com/reference/android/media/AudioMixerAttributes) 自API34公开；已核对SDK37版本表和固定AOSP的 [AudioManager.java](https://github.com/aosp-mirror/platform_frameworks_base/blob/1cdfff555f4a21f71ccc978290e2e212e2f8b168/media/java/android/media/AudioManager.java#L9875-L9894)、[AudioMixerAttributes.java](https://github.com/aosp-mirror/platform_frameworks_base/blob/1cdfff555f4a21f71ccc978290e2e212e2f8b168/media/java/android/media/AudioMixerAttributes.java)。返回可用作偏好配置的格式与混音行为，DEFAULT=0、BIT_PERFECT=1；公开说明仅USB设备保证暴露可配置混音属性，其它设备可以返回空列表。该固定上游实现底层查询失败时也返回空列表，故无法据空列表区分未声明、不可配置与底层失败，也不假定设备正运行此提交。
 - `hardware/audio[*].supportedMixerAttributes` 新增独立查询状态、总数/返回数/上限/截断、完整集合SHA256及前64项明细。每项保留混音行为、采样率Hz、编码、声道位置/索引掩码和声道数六个原始整数；最多接受256项输入，原序/重复进入完整原序JSON的UTF8哈希，不推导组合。公共getter正常返回空列表记为ok/[]，API34以下unsupported/null、服务缺失unavailable/null、异常denied/error/null并保留异常类；查询失败不丢失原设备字段或audioProfiles。只调用getter，不设置混音偏好、不打开音频流、不播放或录制、不新增权限；能力列表不代表当前配置或bit-perfect播放成功。旧JSON缺对象不补写，既有完整字段折叠及50字段分页直接展示新数据，原设备概览按完整对象比较并保留未知字段差异。低API分支、非空及超限为合成测试；当前Pixel6/API36的9个设备均返回空列表，尚未实测USB设备的非空结果。
 
