@@ -1,4 +1,6 @@
 import type { MergedDisplayRow } from './display-compare';
+import { differences } from './compare';
+import type { Json } from './types';
 
 export interface DisplayModeRow {
   key: string;
@@ -14,8 +16,8 @@ const hdrNames = new Map([['1', 'Dolby Vision'], ['2', 'HDR10'], ['3', 'HLG'], [
 const statuses = new Map([['ok', '成功'], ['partial', '部分返回'], ['unsupported', '系统不支持查询'], ['denied', '读取受限'], ['error', '读取异常']]);
 const raw = (value: string | null | undefined) => value === '' ? '（空字符串）' : value ?? '未采集';
 
-// 业务块：以原始数组序号比较模式，不用分辨率或ID合并；未知字段与完整哈希仍决定整行差异。
-export function displayModeRows(rows: MergedDisplayRow[]): DisplayModeRow[] | undefined {
+// 业务块：以原始数组序号比较模式，不用分辨率或ID合并；原始对象差异保留格式化文字隐藏的类型变化。
+export function displayModeRows(rows: MergedDisplayRow[], leftModes?: Json[], rightModes?: Json[]): DisplayModeRow[] | undefined {
   const groups = new Map<string, MergedDisplayRow[]>();
   for (const row of rows) {
     const match = /^\[(\d+)\]\./.exec(row.label);
@@ -54,7 +56,7 @@ export function displayModeRows(rows: MergedDisplayRow[]): DisplayModeRow[] | un
       return parts.join(' · ');
     };
     result.push({ key, modeId, width, height, refreshRate, hdr: { left: hdr('left'), right: hdr('right') },
-      state: !left ? 'right-only' : !right ? 'left-only' : fields.some(row => row.state !== 'same') ? 'changed' : 'same' });
+      state: !left ? 'right-only' : !right ? 'left-only' : fields.some(row => row.state !== 'same') || leftModes && rightModes && differences(leftModes[Number(key)], rightModes[Number(key)]).length ? 'changed' : 'same' });
   }
   return result.length ? result : undefined;
 }

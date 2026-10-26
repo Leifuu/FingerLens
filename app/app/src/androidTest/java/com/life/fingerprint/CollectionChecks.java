@@ -250,6 +250,35 @@ public class CollectionChecks {
         JSONObject summary=null;int rawCount=0;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);String key=item.getString("key");if(key.equals("display/summary"))summary=item;if(key.startsWith("display/")&&!key.equals("display/summary"))rawCount++;}
         assertNotNull("应生成显示能力摘要",summary);assertEquals("ok",summary.getString("status"));JSONObject value=summary.getJSONObject("value");assertEquals(value.getInt("count"),rawCount);assertTrue(value.has("validCount"));assertTrue(value.has("secureCount"));assertTrue(value.has("presentationCategoryCount"));assertTrue(value.has("hdrCount"));assertTrue(value.getJSONArray("widths").length()<=64);assertTrue(value.getJSONArray("heights").length()<=64);assertTrue(value.getJSONArray("densityDpi").length()<=64);assertTrue(value.getJSONArray("refreshRates").length()<=64);
     }
+    @Test public void displayAlternativeRatesPreserveOrderTypesAndBounds()throws Exception{
+        float[] rates={90f,59.94f,90f,0f,-1f,Float.NaN,Float.POSITIVE_INFINITY,Float.NEGATIVE_INFINITY},original=rates.clone();
+        JSONObject actual=PackageInputCollector.displayModeAlternativeRateValues(rates);JSONArray expected=(JSONArray)Json.value(original);
+        assertArrayEquals(original,rates,0f);assertEquals("ok",actual.getString("status"));assertEquals(expected.toString(),actual.getJSONArray("ratesHz").toString());
+        assertEquals(PackageInputCollector.sha(expected.toString().getBytes(StandardCharsets.UTF_8)),actual.getString("ratesSha256"));assertEquals(8,actual.getInt("rateCount"));assertFalse(actual.getBoolean("ratesTruncated"));
+        rates[0]=120f;assertEquals(90d,actual.getJSONArray("ratesHz").getDouble(0),0d);
+        JSONObject empty=PackageInputCollector.displayModeAlternativeRateValues(new float[0]);assertEquals("ok",empty.getString("status"));assertEquals("[]",empty.getJSONArray("ratesHz").toString());assertEquals(0,empty.getInt("rateCount"));assertEquals(PackageInputCollector.sha("[]".getBytes(StandardCharsets.UTF_8)),empty.getString("ratesSha256"));
+        float[] many=new float[4096];Arrays.fill(many,60f);JSONObject first=PackageInputCollector.displayModeAlternativeRateValues(many);many[4095]=120f;JSONObject changed=PackageInputCollector.displayModeAlternativeRateValues(many);
+        assertEquals("partial",first.getString("status"));assertEquals(4096,first.getInt("rateCount"));assertEquals(64,first.getInt("returnedCount"));assertEquals(64,first.getInt("rateLimit"));assertTrue(first.getBoolean("ratesTruncated"));assertEquals(first.getJSONArray("ratesHz").toString(),changed.getJSONArray("ratesHz").toString());assertNotEquals(first.getString("ratesSha256"),changed.getString("ratesSha256"));
+        assertEquals("ok",PackageInputCollector.displayModeAlternativeRateValues(new float[64]).getString("status"));assertEquals("partial",PackageInputCollector.displayModeAlternativeRateValues(new float[65]).getString("status"));
+        for(float[] bad:new float[][]{null,new float[4097]})try{PackageInputCollector.displayModeAlternativeRateValues(bad);fail("缺失或超量不能当作空集合");}catch(IllegalArgumentException expectedFailure){}
+        for(int sdk:new int[]{24,30}){JSONObject old=PackageInputCollector.displayModeAlternativeRates(null,sdk);assertEquals("unsupported",old.getString("status"));assertTrue(old.isNull("ratesHz"));assertTrue(old.isNull("rateCount"));assertTrue(old.isNull("ratesTruncated"));}
+        try{PackageInputCollector.displayModeAlternativeRates(null,31);fail("新API需要模式实例");}catch(NullPointerException expectedFailure){}
+    }
+    @Test public void displayAlternativeRatesMatchPublicApiAndPreserveModes()throws Exception{
+        ItemSink sink=new ItemSink(context,"display-alternative-rate-test");new PackageInputCollector("display").collect(sink);JSONArray evidence=new JSONArray();
+        android.hardware.display.DisplayManager manager=context.getSystemService(android.hardware.display.DisplayManager.class);
+        for(android.view.Display display:manager.getDisplays()){
+            JSONObject item=null;for(int i=0;i<sink.items.length();i++)if(sink.items.getJSONObject(i).getString("key").equals("display/"+display.getDisplayId()))item=sink.items.getJSONObject(i);
+            assertNotNull(item);assertEquals("ok",item.getString("status"));JSONArray modes=item.getJSONObject("value").getJSONArray("supportedModes");android.view.Display.Mode[] direct=display.getSupportedModes();assertEquals(direct.length,modes.length());
+            for(int i=0;i<direct.length;i++){
+                JSONObject mode=modes.getJSONObject(i),actual=mode.getJSONObject("alternativeRefreshRateSupport");assertEquals(direct[i].getModeId(),mode.getInt("modeId"));assertEquals(direct[i].getPhysicalWidth(),mode.getInt("physicalWidth"));assertEquals(direct[i].getPhysicalHeight(),mode.getInt("physicalHeight"));assertEquals((double)direct[i].getRefreshRate(),mode.getDouble("refreshRate"),0d);assertTrue(mode.has("hdrTypeSupport"));
+                if(Build.VERSION.SDK_INT<31){assertEquals("unsupported",actual.getString("status"));assertTrue(actual.isNull("ratesHz"));continue;}
+                float[] rates=direct[i].getAlternativeRefreshRates();JSONArray all=(JSONArray)Json.value(rates);assertEquals(rates.length>64?"partial":"ok",actual.getString("status"));assertEquals(rates.length,actual.getInt("rateCount"));assertEquals(Math.min(64,rates.length),actual.getInt("returnedCount"));assertEquals(PackageInputCollector.sha(all.toString().getBytes(StandardCharsets.UTF_8)),actual.getString("ratesSha256"));for(int j=0;j<Math.min(64,rates.length);j++)assertEquals(all.get(j).toString(),actual.getJSONArray("ratesHz").get(j).toString());
+                evidence.put(Json.obj("displayId",display.getDisplayId(),"modeId",direct[i].getModeId(),"ratesHz",all));
+            }
+        }
+        assertTrue(evidence.length()>0||Build.VERSION.SDK_INT<31);Bundle result=new Bundle();result.putString("alternativeRefreshRates",evidence.toString());InstrumentationRegistry.getInstrumentation().sendStatus(0,result);
+    }
     @Test public void displayModeHdrKeepsUnknownValuesAndCompleteHash()throws Exception{
         int[] types={4,2,4,999,-1,0},original=types.clone();JSONObject value=PackageInputCollector.displayModeHdrValues(types);
         assertArrayEquals(original,types);assertEquals("ok",value.getString("status"));assertEquals(6,value.getInt("typeCount"));assertEquals(6,value.getInt("returnedCount"));assertFalse(value.getBoolean("typesTruncated"));

@@ -10,7 +10,7 @@ function grouped(left: Json[] | undefined, right?: Json[]) {
   const original = JSON.stringify([left, right]);
   const section = (modes: Json[]) => buildSections(fixtureItem('display/0', { supportedModes: modes }, { category: 'display' })).find(section => section.key === 'modes');
   const merged = mergeDisplaySections(left === undefined ? undefined : section(left), right === undefined ? undefined : section(right));
-  const before = JSON.stringify(merged), rows = displayModeRows(merged.rows);
+  const before = JSON.stringify(merged), rows = displayModeRows(merged.rows, left, right);
   expect(JSON.stringify(merged)).toBe(before);
   expect(JSON.stringify([left, right])).toBe(original);
   return rows;
@@ -50,6 +50,20 @@ describe('显示模式概览', () => {
     for (const changed of [{ ...original, hdrTypeSupport: { ...original.hdrTypeSupport, typeListSha256: 'b' } }, { ...original, future: { flag: true } }, { ...original, added: null }]) {
       expect(grouped([original], [changed])![0].state).toBe('changed');
     }
+  });
+  it('替代刷新率保留旧JSON缺项、原序/类型和截断外哈希差异', () => {
+    const support = { status: 'ok', rateCount: 4, returnedCount: 4, rateLimit: 64, ratesTruncated: false, ratesSha256: 'a', ratesHz: [90, 59.94, 90, { $type: 'float', value: 'NaN' }] };
+    const current = { ...mode, alternativeRefreshRateSupport: support };
+    expect(grouped([mode], [current])![0].state).toBe('changed');expect(grouped([current], [current])![0].state).toBe('same');
+    for (const changed of [{ ...support, ratesSha256: 'b' }, { ...support, ratesHz: ['90', 59.94, 90, { $type: 'float', value: 'NaN' }] }, { ...support, ratesHz: [59.94, 90, 90, { $type: 'float', value: 'NaN' }] }, { ...support, status: 'denied', ratesHz: null }]) {
+      expect(grouped([current], [{ ...mode, alternativeRefreshRateSupport: changed }])![0].state).toBe('changed');
+    }
+    const section = buildSections(fixtureItem('display/0', { supportedModes: [current] }, { category: 'display' })).find(section => section.key === 'modes')!;
+    const rows = mergeDisplaySections(undefined, section).rows;
+    expect(rows.find(row => row.label === '[0].alternativeRefreshRateSupport.ratesHz[0]')?.right).toBe('90');
+    expect(rows.find(row => row.label === '[0].alternativeRefreshRateSupport.ratesHz[1]')?.right).toBe('59.94');
+    expect(rows.find(row => row.label === '[0].alternativeRefreshRateSupport.ratesHz[3].value')?.right).toBe('NaN');
+    expect(rows.find(row => row.label === '[0].alternativeRefreshRateSupport.ratesSha256')?.right).toBe('a');
   });
   it('缺少基础模式字段、混合数组或复杂基础值时回退完整字段', () => {
     expect(grouped([], [])).toBeUndefined();expect(grouped(['legacy'])).toBeUndefined();expect(grouped([mode, null])).toBeUndefined();

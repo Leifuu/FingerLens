@@ -2,10 +2,12 @@ import type { ReactNode } from 'react';
 import { Collapse, Space, Table, Tag, Typography } from 'antd';
 import { displayModeRows, type DisplayModeRow } from '../core/display-mode-display';
 import type { MergedDisplayRow } from '../core/display-compare';
+import type { Json } from '../core/types';
 
-export function DisplayModeOverview({ itemKey, sectionKey, rows, onlyDiffRows, children }: { itemKey: string; sectionKey: string; rows: MergedDisplayRow[]; onlyDiffRows: boolean; children: ReactNode }) {
+export function DisplayModeOverview({ itemKey, sectionKey, left, right, rows, onlyDiffRows, children }: { itemKey: string; sectionKey: string; left?: Json; right?: Json; rows: MergedDisplayRow[]; onlyDiffRows: boolean; children: ReactNode }) {
   if (!itemKey.startsWith('display/') || sectionKey !== 'modes') return children;
-  const grouped = displayModeRows(rows);
+  const modes = (value: Json | undefined) => value && typeof value === 'object' && !Array.isArray(value) && Array.isArray(value.supportedModes) ? value.supportedModes : undefined;
+  const grouped = displayModeRows(rows, modes(left), modes(right));
   if (!grouped) return children;
   const visible = onlyDiffRows ? grouped.filter(row => row.state !== 'same') : grouped;
   const fieldCount = onlyDiffRows ? rows.filter(row => row.state !== 'same').length : rows.length;

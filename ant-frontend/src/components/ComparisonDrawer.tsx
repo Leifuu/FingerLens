@@ -71,7 +71,7 @@ export function ComparisonDrawer({ row, open, onClose }: { row?: CompareRow; ope
         <SensorOverview itemKey={row.key} sectionKey={section.key} left={row.left?.value} right={row.right?.value} rows={section.rows} onlyDiffRows={onlyDiffRows}>
         <TlsOverview itemKey={row.key} sectionKey={section.key} rows={section.rows} onlyDiffRows={onlyDiffRows}>
         <ApexOverview itemKey={row.key} sectionKey={section.key} rows={section.rows} onlyDiffRows={onlyDiffRows}>
-        <DisplayModeOverview itemKey={row.key} sectionKey={section.key} rows={section.rows} onlyDiffRows={onlyDiffRows}>
+        <DisplayModeOverview itemKey={row.key} sectionKey={section.key} left={row.left?.value} right={row.right?.value} rows={section.rows} onlyDiffRows={onlyDiffRows}>
         <VibratorOverview itemKey={row.key} sectionKey={section.key} left={row.left?.value} right={row.right?.value} rows={section.rows} onlyDiffRows={onlyDiffRows}>
         <SecurityStateOverview itemKey={row.key} sectionKey={section.key} left={row.left?.value} right={row.right?.value} rows={section.rows} onlyDiffRows={onlyDiffRows}>
         <AudioOverview itemKey={row.key} sectionKey={section.key} left={row.left?.value} right={row.right?.value} rows={section.rows} onlyDiffRows={onlyDiffRows}>

@@ -40,6 +40,12 @@
 
 - [Android SELinux](https://source.android.com/docs/security/features/selinux)：说明 Android 运行时的 enforcing/permissive 策略状态与进程安全上下文。本工程新增 `security/selinux-summary`，只保存 enforcing 状态、上下文长度和 SHA-256，原始安全文件继续保留。
 
+## 显示模式替代刷新率
+
+- [Display.Mode.getAlternativeRefreshRates](https://developer.android.com/reference/android/view/Display.Mode#getAlternativeRefreshRates()) 自API31公开，已核对SDK37的api-versions.xml，以及重新下载的[固定AOSP Display.java](https://github.com/aosp-mirror/platform_frameworks_base/blob/1cdfff555f4a21f71ccc978290e2e212e2f8b168/core/java/android/view/Display.java#L2489-L2514)；文件SHA256为 `c6ed6409ffc5a13b20f77b7507857e9696db835a4051f1cd5ec3bf32c45e8434`。该列表描述从当前模式可无视觉中断切换到的刷新率，存在于列表不保证系统一定执行切换；不能从列表推导实际帧率、面板真实性或当前播放性能。
+- `display/*` 的 `supportedModes[*].alternativeRefreshRateSupport` 独立保存status、rateCount、returnedCount、rateLimit、ratesTruncated、ratesSha256及ratesHz。最多接受4096项、保存64项明细，完整原序数组的JSON文本UTF8 SHA256包含截断外变化；保留重复、零、负值及非有限数的公共带类型编码，不排序、去重、钳制或从其它模式补值。成功空数组为ok/[]，API31以下unsupported/null，失败denied/error/null及异常类；新增查询失败不丢弃原模式或HDR字段。不切换显示模式、不设置帧率、不新增权限。
+- 旧JSON缺新字段继续比较；完整字段折叠保留50行分页，新对象及完整哈希变化参与20项模式概览差异筛选。显示模式概览现同时核对原始模式对象，修复数值90与字符串"90"被格式化成相同文字后漏标差异的问题，原始文件不改写。Pixel6/API36独立API测试核对两个模式，分别返回替代值[90]与[60]；API24/30为模拟版本分支，非有限值/超量/截断均为合成边界测试，不作为本机返回。新版Release已安装，正式网关采集任务尚未执行验证。
+
 ## 官方 Android 设备标识资料
 
 - [Build](https://developer.android.com/reference/android/os/Build)：公开硬件、产品、指纹、ABI 等构建字段。
