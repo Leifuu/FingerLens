@@ -9,12 +9,28 @@ export interface DisplayModeRow {
   height: MergedDisplayRow;
   refreshRate: MergedDisplayRow;
   hdr: { left: string; right: string };
+  alternativeRates: { left: string; right: string };
   state: MergedDisplayRow['state'];
 }
 
 const hdrNames = new Map([['1', 'Dolby Vision'], ['2', 'HDR10'], ['3', 'HLG'], ['4', 'HDR10+']]);
 const statuses = new Map([['ok', '成功'], ['partial', '部分返回'], ['unsupported', '系统不支持查询'], ['denied', '读取受限'], ['error', '读取异常']]);
 const raw = (value: string | null | undefined) => value === '' ? '（空字符串）' : value ?? '未采集';
+const object = (value: Json | undefined): value is Record<string, Json> => value !== null && typeof value === 'object' && !Array.isArray(value);
+const originalText = (value: Json | undefined): string => value === undefined ? '未采集' : value === '' ? '（空字符串）' : value !== null && typeof value === 'object' ? object(value) && (value.$type === 'float' || value.$type === 'int64') && typeof value.value === 'string' ? `${JSON.stringify(value.value)}（${value.$type}）` : '其他结构（详见完整字段）' : JSON.stringify(value);
+
+// 业务块：仅从原始模式读取替代刷新率，概览最多列8项；缺失、空、失败和非有限类型不互相补推。
+function alternativeRates(mode: Json | undefined): string {
+  const support = object(mode) ? mode.alternativeRefreshRateSupport : undefined;
+  if (support === undefined) return '未采集';
+  if (!object(support)) return `原始值 ${originalText(support)}`;
+  const label = typeof support.status === 'string' ? statuses.get(support.status) : undefined;
+  const status = label ? `${label}（${support.status}）` : `读取状态 ${originalText(support.status)}`;
+  const rates = support.ratesHz;
+  const values = Array.isArray(rates) ? rates.length ? rates.slice(0, 8).map(originalText).join('、') + (rates.length > 8 ? '…（仅列前8项，完整字段可展开）' : '') : '空数组 []' : rates === null ? '原始值 null' : originalText(rates);
+  const error = support.errorClass === undefined ? '' : `\n错误 ${originalText(support.errorClass)}`;
+  return `${status} · ${values}\n总数 ${originalText(support.rateCount)} · 返回 ${originalText(support.returnedCount)} · 截断 ${originalText(support.ratesTruncated)}${error}`;
+}
 
 // 业务块：以原始数组序号比较模式，不用分辨率或ID合并；原始对象差异保留格式化文字隐藏的类型变化。
 export function displayModeRows(rows: MergedDisplayRow[], leftModes?: Json[], rightModes?: Json[]): DisplayModeRow[] | undefined {
@@ -55,7 +71,7 @@ export function displayModeRows(rows: MergedDisplayRow[], leftModes?: Json[], ri
       else if (truncated !== null && truncated !== undefined && truncated !== 'false') parts.push(`截断状态 ${raw(truncated)}`);
       return parts.join(' · ');
     };
-    result.push({ key, modeId, width, height, refreshRate, hdr: { left: hdr('left'), right: hdr('right') },
+    result.push({ key, modeId, width, height, refreshRate, hdr: { left: hdr('left'), right: hdr('right') }, alternativeRates: { left: left ? alternativeRates(leftModes?.[Number(key)]) : '—', right: right ? alternativeRates(rightModes?.[Number(key)]) : '—' },
       state: !left ? 'right-only' : !right ? 'left-only' : fields.some(row => row.state !== 'same') || leftModes && rightModes && differences(leftModes[Number(key)], rightModes[Number(key)]).length ? 'changed' : 'same' });
   }
   return result.length ? result : undefined;

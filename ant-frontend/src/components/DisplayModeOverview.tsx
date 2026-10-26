@@ -16,9 +16,10 @@ export function DisplayModeOverview({ itemKey, sectionKey, left, right, rows, on
     <Typography.Text className="device-value">{text(row.width[side])} × {text(row.height[side])} px · {text(row.refreshRate[side])} Hz</Typography.Text>
     <Typography.Text type="secondary">模式 ID {text(row.modeId[side])}</Typography.Text>
     <Typography.Text>HDR：{row.hdr[side]}</Typography.Text>
+    <Typography.Paragraph className="display-mode-alternative-rates" ellipsis={{ rows: 3, expandable: true, symbol: '展开原文' }}>替代刷新率 Hz：{row.alternativeRates[side]}</Typography.Paragraph>
   </Space>;
   return <Space className="display-mode-overview-section" direction="vertical" size={12} style={{ display: 'flex' }}>
-    <Typography.Text type="secondary">显示模式概览 · 显示 {visible.length} / {grouped.length} 项。按原始序号比较，保留重复模式；完整字段可在下方展开。</Typography.Text>
+    <Typography.Text type="secondary">显示模式概览 · 显示 {visible.length} / {grouped.length} 项。按原始序号比较，保留重复模式；替代刷新率为平台声明的无缝切换能力，不保证系统执行切换。完整字段可在下方展开。</Typography.Text>
     <Typography.Text className="display-mode-scroll-hint" type="secondary">左右滑动查看设备 A、B 与对比状态。</Typography.Text>
     <Table<DisplayModeRow> className="display-mode-overview" rowKey="key" size="small" bordered dataSource={visible} pagination={visible.length > 20 ? { pageSize: 20, showSizeChanger: false, showQuickJumper: true } : false} scroll={{ x: 900 }} rowClassName={row => `row-${row.state}`} columns={[
       { title: '原始序号', key: 'index', width: 100, render: (_, row) => <Typography.Text type="secondary">[{row.key}]</Typography.Text> },

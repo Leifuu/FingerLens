@@ -71,4 +71,21 @@ describe('显示模式概览', () => {
     expect(grouped([{ ...mode, physicalWidth: { raw: 1080 } }])).toBeUndefined();
     expect(grouped([mode], [{ modeId: 1, physicalHeight: 2400, refreshRate: 60 }])).toBeUndefined();
   });
+  it('概览保留替代刷新率顺序、重复和原始类型，长清单只在概览限8项', () => {
+    const support = { status: 'partial', rateCount: 65, returnedCount: 9, ratesTruncated: true, ratesHz: [90, 59.94, 90, '90', 0, -1, { $type: 'float', value: 'NaN' }, { $type: 'float', value: 'Infinity' }, 144] };
+    const row = grouped([{ ...mode, alternativeRefreshRateSupport: support }])![0];
+    expect(row.alternativeRates.left).toBe('部分返回（partial） · 90、59.94、90、"90"、0、-1、"NaN"（float）、"Infinity"（float）…（仅列前8项，完整字段可展开）\n总数 65 · 返回 9 · 截断 true');
+    expect(row.alternativeRates.left).not.toContain('144');expect(row.alternativeRates.right).toBe('—');
+    expect(grouped(undefined, [{ ...mode, alternativeRefreshRateSupport: support }])![0].alternativeRates.right).toBe(row.alternativeRates.left);
+  });
+  it('替代刷新率区分旧字段、空数组、null、失败和未知状态，不从当前刷新率补值', () => {
+    expect(grouped([mode])![0].alternativeRates.left).toBe('未采集');
+    const summary = (value: Json) => grouped([{ ...mode, alternativeRefreshRateSupport: value }])![0].alternativeRates.left;
+    expect(summary(null)).toBe('原始值 null');expect(summary(false)).toBe('原始值 false');expect(summary('')).toBe('原始值 （空字符串）');
+    expect(summary({ status: 'ok', rateCount: 0, returnedCount: 0, ratesTruncated: false, ratesHz: [] })).toBe('成功（ok） · 空数组 []\n总数 0 · 返回 0 · 截断 false');
+    expect(summary({ status: 'unsupported', ratesHz: null })).toBe('系统不支持查询（unsupported） · 原始值 null\n总数 未采集 · 返回 未采集 · 截断 未采集');
+    expect(summary({ status: 'denied', ratesHz: null, errorClass: 'synthetic-error' })).toContain('读取受限（denied） · 原始值 null');expect(summary({ status: 'error', errorClass: '<img>' })).toContain('读取异常（error） · 未采集\n总数 未采集 · 返回 未采集 · 截断 未采集\n错误 "<img>"');
+    expect(summary({ status: 'constructor', ratesHz: [false, null, '', {}], rateCount: '4', returnedCount: null, ratesTruncated: 'false' })).toBe('读取状态 "constructor" · false、null、（空字符串）、其他结构（详见完整字段）\n总数 "4" · 返回 null · 截断 "false"');
+    expect(summary({ ratesHz: { future: 0 } })).toContain('读取状态 未采集 · 其他结构（详见完整字段）');
+  });
 });
