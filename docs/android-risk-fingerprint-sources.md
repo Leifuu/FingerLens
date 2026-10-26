@@ -13,6 +13,8 @@
 
 ## Android 安全环境资料
 
+- 扬声器布局展示补充（2026-10-26）：音频设备概览新增独立查询状态及原始通道掩码，每页5设备。仅数字0/1分别附[CHANNEL_INVALID](https://developer.android.com/reference/android/media/AudioFormat#CHANNEL_INVALID)/[CHANNEL_OUT_DEFAULT](https://developer.android.com/reference/android/media/AudioFormat#CHANNEL_OUT_DEFAULT)名称（本机公开SDK37 android.jar常量值已核对）；字符串、负值、未知整数、成功null与失败保留原样，不从掩码推断扬声器数量或物理坐标。旧侧缺对象显示未采集，双侧均无对象时不增加摘要；已采集对象的未知字段继续参与完整原对象比较并提示核对完整字段。布局完整字段保留JSON类型，数字1与字符串"1"、布尔与同文字符串不会被格式化合并；复杂已知结构回退原字段表，旧音频字段及profile/混音分页保持。此增量仅改变浏览层；验证使用既有独立API证据与旧报告组成的HYBRID样本、明确标注的SYNTHETIC样本和旧真实报告，不冒充新正式采集。
+
 - 内置扬声器声道布局（2026-10-26）：[AudioDeviceInfo.getSpeakerLayoutChannelMask](https://developer.android.com/reference/android/media/AudioDeviceInfo#getSpeakerLayoutChannelMask()) 自API36公开；已核对SDK37的API版本表和[固定AOSP AudioDeviceInfo.java](https://github.com/aosp-mirror/platform_frameworks_base/blob/1cdfff555f4a21f71ccc978290e2e212e2f8b168/media/java/android/media/AudioDeviceInfo.java#L586-L600)。其契约限定仅对TYPE_BUILTIN_SPEAKER有效，掩码说明平台返回的扬声器通道，物理布局还应参照多声道标准；不能由此推断扬声器数量、坐标、朝向、当前输出格式或播放成功。该固定实现为FlaggedApi，本工程仍只调用公开getter，SDK满足时如方法不可用则独立保留异常。
 - `hardware/audio[*].speakerLayout` 保存`status/channelMask`，API36以下unsupported/null、API36+非TYPE_BUILTIN_SPEAKER为not-applicable/null且不调用getter；适用时原始32位有符号整数（含0及未知位）不变，异常denied/error/null并附errorClass。查询独立于旧设备/audioProfiles/混音字段，不回填其它声道掩码，不录放音、不调整音频路由、不新增权限；旧JSON无对象仍可导入和比较，完整字段保持分页。Pixel6/API36的内置扬声器（id3/type2）公开getter与采集sink均返回1，其余8设备不适用；SDK37常量及上述AOSP注解包含CHANNEL_INVALID=0、CHANNEL_OUT_DEFAULT=1，不能把原始1解释成单声道。API24/35门槛、原始0/负数/极值与异常为合成测试，尚无低API或厂商异常真机证据。
 

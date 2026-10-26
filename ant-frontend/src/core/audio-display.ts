@@ -18,6 +18,7 @@ export interface AudioFacts {
   profileCount: string;
   profiles?: Json[] | null;
   mixer?: AudioMixerFacts;
+  speakerLayout?: { status: string; mask: string };
 }
 export interface AudioDisplayRow {
   key: string;
@@ -31,6 +32,23 @@ function facts(device: Json): AudioFacts | undefined {
   if (!['encodings', 'sampleRates', 'channelCounts'].every(key => array(device[key]))) return undefined;
   const mixer = device.supportedMixerAttributes === undefined ? undefined : audioMixerFacts(device.supportedMixerAttributes);
   if (device.supportedMixerAttributes !== undefined && !mixer) return undefined;
+  const layout = device.speakerLayout;
+  let speakerLayout: AudioFacts['speakerLayout'];
+  if (layout !== undefined) {
+    if (!object(layout)) {
+      if (!scalar(layout)) return undefined;
+      speakerLayout = { status: `原始值 ${text(layout)}`, mask: '详见完整字段' };
+    } else {
+      if (!['status', 'channelMask', 'errorClass'].every(key => scalar(layout[key]))) return undefined;
+      const label = layout.status === 'not-applicable' ? '不适用（非内置扬声器）' : typeof layout.status === 'string' ? states.get(layout.status) : undefined;
+      const unknown = Object.keys(layout).filter(key => !['status', 'channelMask', 'errorClass'].includes(key)).length;
+      const meaning = layout.channelMask === 0 ? '（CHANNEL_INVALID）' : layout.channelMask === 1 ? '（CHANNEL_OUT_DEFAULT）' : '';
+      speakerLayout = {
+        status: `${label ? `${label}（${layout.status}）` : `查询状态 ${text(layout.status)}`}${layout.errorClass === undefined ? '' : ` · ${text(layout.errorClass)}`}${unknown ? ` · 其它元数据 ${unknown} 项，见完整字段` : ''}`,
+        mask: `通道掩码 ${text(layout.channelMask)}${meaning}`,
+      };
+    }
+  }
   const cap = device.audioProfiles;
   let profileStatus = '未采集', profileCount = '旧报告未采集关联格式', profiles: Json[] | null | undefined;
   if (cap !== undefined) {
@@ -53,7 +71,7 @@ function facts(device: Json): AudioFacts | undefined {
   return { name: typeof device.productName === 'string' ? device.productName || '（空字符串）' : text(device.productName), identity: `ID ${text(device.id)} · 类型 ${text(device.type)}`,
     roles: `输入 ${text(device.isSource)} · 输出 ${text(device.isSink)}`,
     aggregate: `编码 ${text(device.encodings)} · 采样率 Hz ${text(device.sampleRates)} · 声道数 ${text(device.channelCounts)}`,
-    profileStatus, profileCount, profiles, mixer };
+    profileStatus, profileCount, profiles, mixer, speakerLayout };
 }
 
 // 业务块：最多256设备/64关联格式/数组1024项进入概览；保留原始序号和重复，异构数据回退完整字段。

@@ -14,6 +14,24 @@ function grouped(left: Json | undefined, right?: Json) {
 }
 
 describe('音频设备关联能力概览', () => {
+  it('布局摘要保留状态/原始类型/有符号值，只有数值0和1附公开常量名称', () => {
+    const report = (layout: Json) => [{ ...device, speakerLayout: layout }];
+    for (const [value, mask] of [[0, '0（CHANNEL_INVALID）'], [1, '1（CHANNEL_OUT_DEFAULT）'], [12, '12'], [-2147483648, '-2147483648'], [2147483647, '2147483647'], ['1', '"1"'], [null, 'null'], [false, 'false']] as const) {
+      const row = grouped(report({ status: 'ok', channelMask: value }))![0];
+      expect(row.left!.speakerLayout).toEqual({ status: '成功（ok）', mask: `通道掩码 ${mask}` });
+    }
+    for (const [status, label] of [['not-applicable', '不适用（非内置扬声器）'], ['unsupported', '系统不支持查询'], ['denied', '读取受限'], ['error', '读取异常']] as const) {
+      expect(grouped(report({ status, channelMask: null, errorClass: 'synthetic-error' }))![0].left!.speakerLayout).toEqual({ status: `${label}（${status}） · "synthetic-error"`, mask: '通道掩码 null' });
+    }
+    expect(grouped(report({ status: 'constructor', future: {} }))![0].left!.speakerLayout).toEqual({ status: '查询状态 "constructor" · 其它元数据 1 项，见完整字段', mask: '通道掩码 未采集' });
+    expect(grouped(report(null))![0].left!.speakerLayout).toEqual({ status: '原始值 null', mask: '详见完整字段' });
+    const row = grouped([device], report({ status: 'ok', channelMask: 1 }))![0];
+    expect(row.left!.speakerLayout).toBeUndefined();expect(row.state).toBe('changed');
+    const base = { status: 'ok', channelMask: 1, future: false };
+    for (const next of [{ ...base, channelMask: '1' }, { ...base, future: 'false' }, { ...base, future: true }]) expect(grouped(report(base), report(next))![0].state).toBe('changed');
+    const invalid: Json[] = [[], { channelMask: {} }, { status: [] }, { errorClass: {} }];
+    for (const value of invalid) expect(grouped(report(value))).toBeUndefined();
+  });
   it('保留重复设备/格式和原始序号，显示有符号掩码、重复采样率和未知封装', () => {
     const rows = grouped([device, device], [device, device])!;
     expect(rows.map(row => [row.key, row.state])).toEqual([['0', 'same'], ['1', 'same']]);

@@ -8,6 +8,15 @@ function item(key: string, category: string, value: Json): Item {
 }
 
 describe('设备格式化展示边界', () => {
+  it('扬声器布局完整字段区分数字与字符串，未知字段保留JSON类型且旧报告不补写', () => {
+    const section = (layout?: Json) => buildSections(item('hardware/audio', 'hardware', [{ id: 3, type: 2, ...(layout === undefined ? {} : { speakerLayout: layout }) }]))[0];
+    expect(section().rows.some(row => row.key.includes('speakerLayout'))).toBe(false);
+    for (const value of [0, 1, false, null, [], {}, { $type: 'int64', value: '0007' }] as Json[]) {
+      const rows = mergeDisplaySections(section({ channelMask: value, future: value }), section({ channelMask: JSON.stringify(value), future: JSON.stringify(value) })).rows;
+      expect(rows.find(row => row.label.endsWith('.channelMask'))?.state).toBe('changed');
+      expect(rows.find(row => row.label.endsWith('.future'))?.state).toBe('changed');
+    }
+  });
   it('音频混音完整字段保留JSON类型，旧设备字段格式不变且不补写缺项', () => {
     const key = 'hardware/audio', old = { id: 0, type: 2, productName: 'synthetic', encodings: [2], audioProfiles: { status: 'ok', profiles: [] } };
     const section = (cap?: Json) => buildSections(item(key, 'hardware', [{ ...old, ...(cap === undefined ? {} : { supportedMixerAttributes: cap }) }]))[0];

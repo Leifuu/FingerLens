@@ -450,9 +450,9 @@ export function buildSections(item?: Item): DisplaySection[] {
   if (item.key === 'security/trust-store') return trustStoreSections(value);
   if (item.key === 'attestation/tee' || item.key === 'attestation/plain' || item.key === 'attestation/strongbox') return attestationSections(item.key, value);
   if (item.key === 'hardware/usb') return usbSections(value);
-  // 业务块：只对新增混音对象保留JSON类型，旧音频字段继续沿用原格式与顺序。
+  // 业务块：混音与布局对象保留JSON类型，旧音频字段继续沿用原格式与顺序。
   if (item.key === 'hardware/audio' && Array.isArray(value) && value.length) return [section('array', '采集数组', value.flatMap((device, index) =>
-    object(device) && Object.keys(device).length ? Object.entries(device).flatMap(([key, child]) => flattenRows(child, `[${index}].${key}`, key === 'supportedMixerAttributes')) : flattenRows(device, `[${index}]`)), true)];
+    object(device) && Object.keys(device).length ? Object.entries(device).flatMap(([key, child]) => flattenRows(child, `[${index}].${key}`, key === 'supportedMixerAttributes' || key === 'speakerLayout')) : flattenRows(device, `[${index}]`)), true)];
   if (item.key === 'security/tls-parameters') {
     const titles: Record<string, string> = {
       fields: '默认 TLS 上下文摘要', supportedProtocols: '支持的 TLS 协议', defaultProtocols: '默认启用的 TLS 协议',
