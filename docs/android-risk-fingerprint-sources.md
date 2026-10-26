@@ -81,6 +81,16 @@
 - `display/*` 的 `supportedModes[*].alternativeRefreshRateSupport` 独立保存status、rateCount、returnedCount、rateLimit、ratesTruncated、ratesSha256及ratesHz。最多接受4096项、保存64项明细，完整原序数组的JSON文本UTF8 SHA256包含截断外变化；保留重复、零、负值及非有限数的公共带类型编码，不排序、去重、钳制或从其它模式补值。成功空数组为ok/[]，API31以下unsupported/null，失败denied/error/null及异常类；新增查询失败不丢弃原模式或HDR字段。不切换显示模式、不设置帧率、不新增权限。
 - 旧JSON缺新字段继续比较；完整字段折叠保留50行分页，新对象及完整哈希变化参与20项模式概览差异筛选。显示模式概览现同时核对原始模式对象，修复数值90与字符串"90"被格式化成相同文字后漏标差异的问题，原始文件不改写。Pixel6/API36独立API测试核对两个模式，分别返回替代值[90]与[60]；API24/30为模拟版本分支，非有限值/超量/截断均为合成边界测试，不作为本机返回。新版Release已安装，正式网关采集任务尚未执行验证。
 
+## Widevine 容器与安全级别查询
+
+2026-10-26 核对 [MediaDrm.isCryptoSchemeSupported(UUID,String,int)](https://developer.android.com/reference/android/media/MediaDrm#isCryptoSchemeSupported(java.util.UUID,java.lang.String,int))、本机 SDK37 的 `api-versions.xml` 与[固定 AOSP 源码](https://github.com/aosp-mirror/platform_frameworks_base/blob/1cdfff555f4a21f71ccc978290e2e212e2f8b168/media/java/android/media/MediaDrm.java#L201-L221)。三参数重载自 **API29** 公开；五个具体安全级别常量自API28公开，不能据此将方法边界写为28。在线源码文件 SHA256 为 `9fc91ecb4a3731bd11cb737880daf35f406db08af9f31883c9f0af04572ba387`。
+
+`hardware/drm/widevine-capabilities` 独立静态查询固定顺序的 `video/mp4`、`video/webm`、`audio/mp4`、`audio/webm`，每种依次请求 `SW_SECURE_CRYPTO=1`、`SW_SECURE_DECODE=2`、`HW_SECURE_CRYPTO=3`、`HW_SECURE_DECODE=4`、`HW_SECURE_ALL=5`。最多20次调用，不查询UNKNOWN=0或最大级别请求占位码6。`entries` 始终保留20项 `mimeType/securityLevel/status/supported`；`queryCount` 为实际尝试数（API29+为20、旧系统为0），`queryLimit=20` 为固定上限。成功false为有效返回；API不足时为unsupported/null且不调用新API；SecurityException为denied，UnsupportedOperationException或NoSuchMethodError为unsupported，其余Exception/LinkageError为error，异常类单独保留，各项独立。
+
+MIME表示**媒体容器**，不是音视频编码格式。结果只证明当前调用上下文中的DRM插件响应，不代表特定编解码器、会话安全级别、L1/L3认证、设备真实性、许可证可用性或实际播放成功；AOSP明确物理设备与VirtualDevice中可能不同。新增查询不创建MediaDrm实例、不打开会话、不读取标识、不设置属性或发起网络请求。原Widevine属性项及方案清单继续保留；旧JSON不补写新项，工作台保留JSON类型、未知字段、50字段分页，窄屏通过横向滚动查看双侧。
+
+Pixel6/API36的独立instrumentation快照中，20项与同UID直接静态getter一致：两种audio容器在级别5返回false，其余18项为true。低API与异常分支来自明确标注的合成夹具，不宣称低API真机或正式Release全量采集已验证。
+
 ## 官方 Android 设备标识资料
 
 - [Build](https://developer.android.com/reference/android/os/Build)：公开硬件、产品、指纹、ABI 等构建字段。

@@ -500,6 +500,8 @@ public final class HardwareCollector implements Collector {
             return drmSchemeValues(MediaDrm.getSupportedCryptoSchemes());
         });
         final UUID widevine=UUID.fromString("edef8ba9-79d6-4ace-a3c8-27dcd51d21ed");
+        s.read("hardware","hardware/drm/widevine-capabilities","Widevine 容器与安全级别支持","MediaDrm.isCryptoSchemeSupported(UUID,String,int)",
+                ()->widevineCryptoCapabilities(Build.VERSION.SDK_INT,(mime,level)->MediaDrm.isCryptoSchemeSupported(widevine,mime,level)));
         s.read("hardware","hardware/drm/widevine","Widevine DRM 能力","MediaDrm",()->{
             if(!MediaDrm.isCryptoSchemeSupported(widevine))return Json.obj("supported",false,"schemeUuid",widevine.toString());
             MediaDrm drm=null;
@@ -520,6 +522,25 @@ public final class HardwareCollector implements Collector {
                 return value;
             }finally{if(drm!=null)drm.release();}
         });
+    }
+    // 业务块：固定4种容器×5个具体级别，最多20次静态查询；旧系统不调用新API，不打开DRM会话。
+    static JSONObject widevineCryptoCapabilities(int sdk,java.util.function.BiPredicate<String,Integer> query){
+        if(sdk>=29)Objects.requireNonNull(query,"missing DRM capability query");
+        String[] mimeTypes={"video/mp4","video/webm","audio/mp4","audio/webm"};
+        int[] levels={MediaDrm.SECURITY_LEVEL_SW_SECURE_CRYPTO,MediaDrm.SECURITY_LEVEL_SW_SECURE_DECODE,
+                MediaDrm.SECURITY_LEVEL_HW_SECURE_CRYPTO,MediaDrm.SECURITY_LEVEL_HW_SECURE_DECODE,MediaDrm.SECURITY_LEVEL_HW_SECURE_ALL};
+        JSONArray entries=new JSONArray();
+        for(String mime:mimeTypes)for(int level:levels){
+            JSONObject entry=Json.obj("mimeType",mime,"securityLevel",level,"status","unsupported","supported",null);
+            if(sdk>=29)try{Json.put(entry,"supported",query.test(mime,level));Json.put(entry,"status","ok");}
+            catch(Exception|LinkageError e){
+                Json.put(entry,"status",e instanceof SecurityException?"denied":e instanceof UnsupportedOperationException||e instanceof NoSuchMethodError?"unsupported":"error");
+                Json.put(entry,"errorClass",e.getClass().getName());
+            }
+            entries.put(entry);
+        }
+        return Json.obj("schemeUuid","edef8ba9-79d6-4ace-a3c8-27dcd51d21ed","scope","container-security-level-support",
+                "queryCount",sdk>=29?20:0,"queryLimit",20,"entries",entries);
     }
     // 业务块：Widevine插件属性与请求用占位常量分开；读取失败不猜L1/L3，也不抹去原DRM元数据。
     static JSONObject drmSecurityLevelProperty(MediaDrm drm){

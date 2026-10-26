@@ -89,6 +89,12 @@
 | 系统字体集合 | [SystemFonts](https://developer.android.com/reference/android/graphics/fonts/SystemFonts) 与 [Font](https://developer.android.com/reference/android/graphics/fonts/Font) 自 API 29 公开系统字体和样式元数据。 | `environment/system-fonts` | 最多保存 128 项明细，完整排序元数据多重集合 SHA-256；保留 basename、TTC 索引、字重、倾斜、语言及变体设置和无文件 null，不读取正文、不导出完整路径。哈希不是文件内容哈希或永久设备 ID，旧 JSON 不变。 |
 | 资源语言集合 | [FingerprintJS Android 固定实现](https://github.com/fingerprintjs/fingerprintjs-android/blob/a9c2bf327877115481049935dd99e8e78dae0cf0/fingerprint/src/main/java/com/fingerprintjs/android/fingerprint/info_providers/DevicePersonalizationInfoProvider.kt) 读取 AssetManager.locales；公开 [AssetManager.getLocales](https://developer.android.com/reference/android/content/res/AssetManager#getLocales()) 返回该资源集合的语言标签。 | `environment/resource-locales` | 分别记录 App 已加载资源（含系统资源）和系统资源；每组最多 256 项、完整排序 JSON 数组哈希，保留原始标签/重复/空值，不等同用户语言、APK 自身翻译集合或硬件 ID；旧 JSON 不变。 |
 
+## Widevine 容器与安全级别补充
+
+| 公开来源 | 本工程采集项 | 解释与边界 |
+| --- | --- | --- |
+| [MediaDrm.isCryptoSchemeSupported(UUID,String,int)](https://developer.android.com/reference/android/media/MediaDrm#isCryptoSchemeSupported(java.util.UUID,java.lang.String,int))，API29+；[固定源码与版本依据](android-risk-fingerprint-sources.md#widevine-容器与安全级别查询) | `hardware/drm/widevine-capabilities` | 四种MP4/WebM音视频容器×1..5具体安全级别，共20项独立status/supported；false、API不足、拒绝与异常null分开。旧JSON缺项兼容，JSON类型与未知字段不丢失；不打开会话、不取标识，不推导许可证、L1/L3或实际播放成功。 |
+
 ## Mainline 关联包版本补充
 
 - `build/modules.modules[*].packageVersion` 通过API29+的 [MATCH_APEX](https://developer.android.com/reference/android/content/pm/PackageManager#MATCH_APEX) 查询模块关联包，保存版本名、int64版本号、APEX标志与独立查询状态；最多512个模块，同包名查询复用。未找到或不可见不冒充版本0/非APEX，原模块元数据、旧集合哈希与旧JSON保留。版本变化在完整模块清单比较，不将关联包版本当作所有内部组件版本或风险结论。

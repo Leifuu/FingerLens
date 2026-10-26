@@ -21,6 +21,48 @@ public class CollectionChecks {
     private Context context;
     private final ArrayList<CollectionController> controllers=new ArrayList<>();
     @Before public void setup(){context=InstrumentationRegistry.getInstrumentation().getTargetContext();}
+    private void emitWidevineCapabilitiesReport(String field,JSONObject item,boolean synthetic)throws Exception{
+        android.content.pm.PackageInfo info=context.getPackageManager().getPackageInfo(context.getPackageName(),0);String now=CollectionController.now();
+        JSONObject data=Json.obj("schemaVersion","1.0","collectorVersion",info.versionName,"sessionId",UUID.randomUUID().toString(),"startedAt",now,"finishedAt",now,"state","complete",
+                "config",Json.obj("instrumentation",true,"fixture",synthetic,"scope",synthetic?"SYNTHETIC Widevine查询夹具，非设备实测":"独立公开Widevine能力API快照，非正式全量报告"),
+                "permissions",CollectionController.permissions(context),"app",Json.obj("packageName",context.getPackageName(),"versionName",info.versionName,"androidSdk",Build.VERSION.SDK_INT),"items",new JSONArray().put(item));
+        Bundle bundle=new Bundle();bundle.putString(field,Json.obj("data",data,"message",synthetic?"SYNTHETIC Widevine能力报告":"独立公开Widevine能力验证报告","code",0).toString());InstrumentationRegistry.getInstrumentation().sendStatus(0,bundle);
+    }
+    @Test public void widevineCapabilitiesKeepFixedOrderAndIndependentFailures()throws Exception{
+        int[] calls={0};JSONObject value=HardwareCollector.widevineCryptoCapabilities(29,(mime,level)->{
+            calls[0]++;
+            if(!mime.equals("video/mp4"))return true;
+            switch(level){case 1:return false;case 2:throw new SecurityException("SYNTHETIC");case 3:throw new UnsupportedOperationException("SYNTHETIC");case 4:throw new NoSuchMethodError("SYNTHETIC");default:throw new IllegalStateException("SYNTHETIC");}
+        });
+        assertEquals(20,calls[0]);assertEquals(20,value.getInt("queryCount"));assertEquals(20,value.getInt("queryLimit"));assertEquals("container-security-level-support",value.getString("scope"));
+        String[] mimes={"video/mp4","video/webm","audio/mp4","audio/webm"},statuses={"ok","denied","unsupported","unsupported","error"};JSONArray entries=value.getJSONArray("entries");assertEquals(20,entries.length());
+        for(int i=0;i<20;i++){JSONObject entry=entries.getJSONObject(i);assertEquals(mimes[i/5],entry.getString("mimeType"));assertEquals(i%5+1,entry.getInt("securityLevel"));assertEquals(i<5?statuses[i]:"ok",entry.getString("status"));if(i==0){assertFalse(entry.getBoolean("supported"));assertFalse(entry.has("errorClass"));}else if(i<5){assertTrue(entry.isNull("supported"));assertTrue(entry.has("errorClass"));}else assertTrue(entry.getBoolean("supported"));}
+        ItemSink sink=new ItemSink(context,"SYNTHETIC-widevine-capabilities");sink.ok("hardware","hardware/drm/widevine-capabilities","SYNTHETIC Widevine容器与安全级别","collector","SYNTHETIC BiPredicate fixture",value);emitWidevineCapabilitiesReport("widevineCapabilitiesSyntheticReport",sink.items.getJSONObject(0),true);
+    }
+    @Test public void widevineCapabilitiesGuardApiAndPreserveLinkageErrors()throws Exception{
+        int[] calls={0};java.util.function.BiPredicate<String,Integer> never=(mime,level)->{calls[0]++;throw new AssertionError("旧API不得调用getter");};
+        for(int sdk:new int[]{24,28}){
+            for(JSONObject value:Arrays.asList(HardwareCollector.widevineCryptoCapabilities(sdk,never),HardwareCollector.widevineCryptoCapabilities(sdk,null))){assertEquals(0,value.getInt("queryCount"));assertEquals(20,value.getJSONArray("entries").length());for(int i=0;i<20;i++){JSONObject entry=value.getJSONArray("entries").getJSONObject(i);assertEquals("unsupported",entry.getString("status"));assertTrue(entry.isNull("supported"));assertFalse(entry.has("errorClass"));}}
+        }
+        assertEquals(0,calls[0]);try{HardwareCollector.widevineCryptoCapabilities(29,null);fail("新API必须有查询函数");}catch(NullPointerException expected){}
+        for(int sdk:new int[]{29,Math.max(29,Build.VERSION.SDK_INT)}){
+            JSONObject result=HardwareCollector.widevineCryptoCapabilities(sdk,(mime,level)->{if(level==1)throw new UnsatisfiedLinkError("SYNTHETIC");if(level==2)throw new IllegalArgumentException("SYNTHETIC");return false;});
+            JSONArray entries=result.getJSONArray("entries");for(int i=0;i<20;i++){JSONObject entry=entries.getJSONObject(i);assertEquals(i%5<2?"error":"ok",entry.getString("status"));if(i%5<2)assertTrue(entry.isNull("supported"));else assertFalse(entry.getBoolean("supported"));}
+        }
+    }
+    @Test public void widevineCapabilitiesMatchPublicApiAndKeepLegacyItems()throws Exception{
+        ItemSink sink=new ItemSink(context,"widevine-capabilities-api");new HardwareCollector("hardware").collect(sink);JSONObject item=null;boolean old=false,schemes=false;
+        for(int i=0;i<sink.items.length();i++){JSONObject record=sink.items.getJSONObject(i);String key=record.getString("key");if(key.equals("hardware/drm/widevine-capabilities"))item=record;if(key.equals("hardware/drm/widevine"))old=true;if(key.equals("hardware/drm-schemes"))schemes=true;}
+        assertNotNull(item);assertTrue(old);assertTrue(schemes);assertEquals("ok",item.getString("status"));JSONObject value=item.getJSONObject("value");UUID uuid=UUID.fromString("edef8ba9-79d6-4ace-a3c8-27dcd51d21ed");assertEquals(uuid.toString(),value.getString("schemeUuid"));assertEquals(Build.VERSION.SDK_INT<29?0:20,value.getInt("queryCount"));
+        String[] mimes={"video/mp4","video/webm","audio/mp4","audio/webm"};JSONArray entries=value.getJSONArray("entries");assertEquals(20,entries.length());
+        for(int i=0;i<20;i++){
+            JSONObject entry=entries.getJSONObject(i);String mime=mimes[i/5];int level=i%5+1;assertEquals(mime,entry.getString("mimeType"));assertEquals(level,entry.getInt("securityLevel"));
+            if(Build.VERSION.SDK_INT<29){assertEquals("unsupported",entry.getString("status"));assertTrue(entry.isNull("supported"));continue;}
+            try{boolean supported=android.media.MediaDrm.isCryptoSchemeSupported(uuid,mime,level);assertEquals("ok",entry.getString("status"));assertEquals(supported,entry.getBoolean("supported"));}
+            catch(Exception|LinkageError e){assertEquals(e instanceof SecurityException?"denied":e instanceof UnsupportedOperationException||e instanceof NoSuchMethodError?"unsupported":"error",entry.getString("status"));assertEquals(e.getClass().getName(),entry.getString("errorClass"));assertTrue(entry.isNull("supported"));}
+        }
+        assertFalse(value.has("deviceUniqueId"));assertFalse(value.has("sessionId"));System.out.println("Widevine public capability evidence="+value);emitWidevineCapabilitiesReport("widevineCapabilitiesReport",item,false);
+    }
     private void emitThermalThresholdReport(String field,JSONObject item,boolean synthetic)throws Exception{
         android.content.pm.PackageInfo info=context.getPackageManager().getPackageInfo(context.getPackageName(),0);String now=CollectionController.now();
         JSONObject data=Json.obj("schemaVersion","1.0","collectorVersion",info.versionName,"sessionId",UUID.randomUUID().toString(),"startedAt",now,"finishedAt",now,"state","complete","config",Json.obj("instrumentation",true,"fixture",synthetic,"scope",synthetic?"SYNTHETIC热余量阈值夹具，非设备实测":"独立公开热阈值API快照验证，非正式全量报告"),"permissions",CollectionController.permissions(context),"app",Json.obj("packageName",context.getPackageName(),"versionName",info.versionName,"androidSdk",Build.VERSION.SDK_INT),"items",new JSONArray().put(item));

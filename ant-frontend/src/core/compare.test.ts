@@ -7,6 +7,27 @@ const raw = { semantic: false, ignoreDynamic: false }, semantic = { semantic: tr
 const find = (rows: ReturnType<typeof compare>, key: string) => rows.find(x => x.key === key)!;
 
 describe('原始与语义比较', () => {
+  it('Widevine容器级别兼容旧JSON并保留false/null/失败/类型/顺序及未知字段差异', () => {
+    const key = 'hardware/drm/widevine-capabilities', legacyKey = 'hardware/drm/widevine';
+    const old = fixture([fixtureItem(legacyKey, { supported: true, maxSecurityLevel: 6 }, { category: 'hardware' })]);
+    const entry = { mimeType: 'video/mp4', securityLevel: 1, status: 'ok', supported: false };
+    const value = { schemeUuid: 'edef8ba9-79d6-4ace-a3c8-27dcd51d21ed', queryCount: 20, queryLimit: 20, entries: [entry, { ...entry, securityLevel: 2, supported: true }] };
+    const report = (next: Json) => fixture([...old.data.items, fixtureItem(key, next, { category: 'hardware' })]);
+    const current = report(value), before = JSON.stringify(current);
+    const changes: Json[] = [{ ...value, entries: [] }, { ...value, entries: null }, ...[
+      { ...entry, supported: true }, { ...entry, supported: 'false' }, { ...entry, status: 'denied', supported: null },
+      { ...entry, status: 'unsupported', supported: null }, { ...entry, status: 'error', supported: null, errorClass: 'SYNTHETIC' },
+      { ...entry, securityLevel: '1' }, { ...entry, mimeType: 'audio/mp4' }, { ...entry, future: false },
+    ].map(next => ({ ...value, entries: [next, value.entries[1]] })), { ...value, entries: [...value.entries].reverse() }, { ...value, future: false }];
+    for (const rules of [raw, semantic, smart]) {
+      expect(find(compare(old, current, rules), legacyKey).state).toBe('same');
+      expect(find(compare(old, current, rules), key).state).toBe('right-only');
+      expect(find(compare(current, undefined, rules), key).state).toBe('left-only');
+      expect(find(compare(current, current, rules), key).state).toBe('same');
+      for (const next of changes) expect(find(compare(current, report(next), rules), key).state).toBe('different');
+    }
+    expect(JSON.stringify(current)).toBe(before);
+  });
   it('热阈值兼容旧JSON，缺省/空/失败/非有限值、未知编号与类型变化均参与比较', () => {
     const key = 'environment/thermal-headroom-thresholds', old = fixture([fixtureItem('environment/power-thermal', { thermalStatus: 0 })]);
     const value = { managerAvailable: true, status: 'ok', entryCount: 1, entryLimit: 64, entries: [{ thermalStatus: 3, headroom: 1 }] };

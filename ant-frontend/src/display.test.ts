@@ -8,6 +8,22 @@ function item(key: string, category: string, value: Json): Item {
 }
 
 describe('设备格式化展示边界', () => {
+  it('Widevine容器查询保留20项原序、false/null与JSON类型，未知字段及旧缺项继续展示', () => {
+    const section = (value: Json) => buildSections(item('hardware/drm/widevine-capabilities', 'hardware', value))[0];
+    const entries = Array.from({ length: 20 }, (_, i) => ({ mimeType: ['video/mp4', 'video/webm', 'audio/mp4', 'audio/webm'][Math.floor(i / 5)], securityLevel: i % 5 + 1, status: 'ok', supported: false }));
+    const value = { schemeUuid: 'edef8ba9-79d6-4ace-a3c8-27dcd51d21ed', queryCount: 20, queryLimit: 20, entries }, before = JSON.stringify(value), group = section(value);
+    expect(group.table).toBe(true);expect(group.title).toBe('Widevine 容器与安全级别支持');expect(group.rows).toHaveLength(83);
+    for (const [key, text] of [['entries[0].supported', 'false'], ['entries[19].securityLevel', '5'], ['entries[19].mimeType', '"audio/webm"']]) expect(group.rows.find(row => row.key === key)?.value).toBe(text);
+    for (const raw of [false, 0, null, [], {}, { future: true }] as Json[]) {
+      const a = section({ entries: [{ supported: raw }], future: raw }), b = section({ entries: [{ supported: JSON.stringify(raw) }], future: JSON.stringify(raw) });
+      expect(mergeDisplaySections(a, b).rows.every(row => row.state !== 'same')).toBe(true);
+    }
+    expect(section({ status: 'error', entries: null }).rows.find(row => row.key === 'entries')?.value).toBe('null');
+    expect(section({ entries: [] }).rows.find(row => row.key === 'entries')?.value).toBe('[]');
+    expect(mergeDisplaySections(undefined, group).rows.every(row => row.state === 'right-only')).toBe(true);
+    for (const raw of [null, [], {}, 'old']) expect(section(raw).rows.length).toBeGreaterThan(0);
+    expect(JSON.stringify(value)).toBe(before);
+  });
   it('热阈值完整字段保留原始类型、非有限值、空集合与错误，不补写旧报告', () => {
     const key = 'environment/thermal-headroom-thresholds';
     const section = (value: Json) => buildSections(item(key, 'environment', value))[0];
