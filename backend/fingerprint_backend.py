@@ -34,6 +34,30 @@ def envelope(data=None, message="", code=0):
     return {"data": data, "message": message, "code": code}
 
 
+def resolve_adb(config: Path, override: str | None = None) -> str:
+    # 业务块：启动时读取有界配置；命令行优先，其次配置，再沿用环境变量与PATH。
+    with config.open("rb") as source:
+        raw = source.read(64 * 1024 + 1)
+    if len(raw) > 64 * 1024:
+        raise ValueError("配置文件不能超过64 KiB")
+    settings = json.loads(raw.decode("utf-8"))
+    if not isinstance(settings, dict):
+        raise ValueError("配置文件必须是JSON对象")
+    configured = settings.get("adb_path")
+    if configured is not None and not isinstance(configured, str):
+        raise ValueError("adb_path 必须为字符串或null")
+    for name, candidate in (("--adb", override), ("adb_path", configured), ("FINGERLENS_ADB", os.environ.get("FINGERLENS_ADB"))):
+        if candidate is None or not candidate.strip():
+            continue
+        candidate = candidate.strip()
+        if len(candidate) > 32767 or any(char in candidate for char in "\0\r\n"):
+            raise ValueError(f"{name} 路径无效")
+        if name == "adb_path" and ("/" in candidate or "\\" in candidate):
+            return str((config.parent / candidate).resolve())
+        return candidate
+    return "adb"
+
+
 def exact_int(value: object, name: str) -> int:
     """兼容契约中的 int64 包装，同时拒绝普通浮点和超范围输入。"""
     if isinstance(value, dict) and value.get("$type") == "int64":
@@ -67,7 +91,7 @@ class Bridge:
         except subprocess.TimeoutExpired as exc:
             raise ApiError("ADB 命令超时，请确认设备连接", 504) from exc
         except OSError as exc:
-            raise ApiError("无法启动 ADB，请检查 --adb 路径", 503) from exc
+            raise ApiError("无法启动 ADB，请检查配置文件的 adb_path、--adb 或环境变量 PATH", 503) from exc
         if len(proc.stdout) > limit or len(proc.stderr) > limit:
             raise ApiError("ADB 返回内容超限", 502)
         out = proc.stdout.decode("utf-8", "replace")
@@ -387,11 +411,16 @@ class Server(ThreadingHTTPServer):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=8765)
-    parser.add_argument("--adb", default=os.environ.get("FINGERLENS_ADB", "adb"))
+    parser.add_argument("--config", type=Path, default=ROOT / "backend/config.json", help="配置文件路径，默认backend/config.json")
+    parser.add_argument("--adb", help="覆盖配置文件中的ADB路径")
     args = parser.parse_args()
     if not 1024 <= args.port <= 65535:
         parser.error("port 必须为 1024..65535")
-    bridge = Bridge(args.adb, ROOT / ".codex/tmp/backend/jobs")
+    try:
+        adb = resolve_adb(args.config, args.adb)
+    except (OSError, ValueError) as exc:
+        parser.error(f"读取ADB配置失败（{args.config}）：{exc}")
+    bridge = Bridge(adb, ROOT / ".codex/tmp/backend/jobs")
     with Server(args.port, bridge) as server:
         print(f"FingerLens backend http://127.0.0.1:{args.port}", flush=True)
         try:

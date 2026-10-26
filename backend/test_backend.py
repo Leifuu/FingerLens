@@ -3,17 +3,66 @@ import gzip
 import hashlib
 import http.client
 import json
+import os
 from pathlib import Path
+import subprocess
 import tempfile
 import threading
 import time
 import unittest
 from unittest.mock import patch
 
-from fingerprint_backend import ApiError, Bridge, EXPORT_DIR, MAX_JSON, Server
+from fingerprint_backend import ApiError, Bridge, EXPORT_DIR, MAX_JSON, Server, resolve_adb
 
 TMP = Path(__file__).resolve().parents[1] / ".codex/tmp/backend-tests"
 TMP.mkdir(parents=True, exist_ok=True)
+
+
+class ConfigTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(dir=TMP)
+        self.config = Path(self.temp.name) / "config.json"
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def write(self, value):
+        self.config.write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
+
+    def test_explicit_config_and_cli_override_environment(self):
+        self.write({"adb_path": "./Android 工具/adb.exe"})
+        with patch.dict(os.environ, {"FINGERLENS_ADB": "environment-adb"}):
+            expected = str((self.config.parent / "Android 工具/adb.exe").resolve())
+            self.assertEqual(resolve_adb(self.config), expected)
+            self.assertEqual(resolve_adb(self.config, "cli-adb"), "cli-adb")
+
+    def test_null_empty_whitespace_and_missing_key_use_environment_or_path(self):
+        for settings in [{}, {"adb_path": None}, {"adb_path": ""}, {"adb_path": "  \t "}]:
+            self.write(settings)
+            with patch.dict(os.environ, {"FINGERLENS_ADB": "environment-adb"}):
+                self.assertEqual(resolve_adb(self.config), "environment-adb")
+            with patch.dict(os.environ, {}, clear=True):
+                self.assertEqual(resolve_adb(self.config), "adb")
+            with patch.dict(os.environ, {"FINGERLENS_ADB": "  "}):
+                self.assertEqual(resolve_adb(self.config), "adb")
+
+    def test_invalid_type_path_json_and_oversized_file_fail_clearly(self):
+        for value in [[], None, {"adb_path": False}, {"adb_path": 123}, {"adb_path": []}, {"adb_path": "adb\0.exe"}, {"adb_path": "a" * 32768}]:
+            self.write(value)
+            with self.assertRaises(ValueError):
+                resolve_adb(self.config)
+        for data in [b"{", b"\xff", b" " * (64 * 1024 + 1)]:
+            self.config.write_bytes(data)
+            with self.assertRaises(ValueError):
+                resolve_adb(self.config)
+
+    def test_path_with_spaces_is_one_subprocess_argument(self):
+        self.write({"adb_path": "./Android 工具/adb.exe"})
+        adb = resolve_adb(self.config)
+        with patch("fingerprint_backend.subprocess.run", return_value=subprocess.CompletedProcess([], 0, b"ok", b"")) as run:
+            self.assertEqual(Bridge(adb, self.config.parent).command(["version"]), "ok")
+            self.assertEqual(run.call_args.args[0], [adb, "version"])
+            self.assertNotIn("shell", run.call_args.kwargs)
 
 
 class FakeBridge(Bridge):

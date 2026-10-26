@@ -124,6 +124,18 @@ python .\backend\fingerprint_backend.py --port 8765
 
 网关只监听 `127.0.0.1:8765`。如果 `python` 未加入 PATH，请替换为本机 Python 解释器的完整路径。
 
+ADB 路径在 `backend/config.json` 中设置，例如：
+
+```json
+{
+  "adb_path": "D:/AndroidSDK/platform-tools/adb.exe"
+}
+```
+
+默认值为 `null`。设为 `null`、空字符串或纯空白时，优先使用已有环境变量 `FINGERLENS_ADB`，未设置或为空则从 `PATH` 查找 `adb`。路径中可以有空格，不要在字符串内再加引号；相对路径以配置文件所在目录为基准。修改后重启后端生效。
+
+原有 `--adb` 参数仍可覆盖配置；也可用 `--config 配置文件路径` 指定另一份 JSON。优先级：`--adb` → 配置文件非空 `adb_path` → `FINGERLENS_ADB` → `PATH`。无效 JSON、非字符串路径或配置文件不存在会在启动时明确报错。
+
 在第二个终端安装依赖并启动 Vite：
 
 ```powershell
