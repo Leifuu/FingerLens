@@ -7,6 +7,18 @@ const raw = { semantic: false, ignoreDynamic: false }, semantic = { semantic: tr
 const find = (rows: ReturnType<typeof compare>, key: string) => rows.find(x => x.key === key)!;
 
 describe('原始与语义比较', () => {
+  it('NFC Observe Mode兼容旧JSON，独立状态、false/null和原始类型不混淆', () => {
+    const key = 'hardware/nfc-observe-mode', old = fixture([fixtureItem('hardware/nfc', { available: true, enabled: false })]);
+    const value = { available: true, supported: { status: 'ok', value: false }, enabled: { status: 'ok', value: true } };
+    const current = fixture([...old.data.items, fixtureItem(key, value)]), before = JSON.stringify(current);
+    for (const rules of [raw, semantic, smart]) {
+      expect(find(compare(old, current, rules), key).state).toBe('right-only');
+      expect(find(compare(current, current, rules), key).state).toBe('same');
+      const alternatives: Json[] = [{ ...value, supported: { status: 'ok', value: 'false' } }, { ...value, supported: { status: 'error', value: null } }, { ...value, enabled: { status: 'ok', value: false } }, { ...value, supported: { status: 'unavailable', value: null } }];
+      for (const next of alternatives) expect(find(compare(current, fixture([...old.data.items, fixtureItem(key, next)]), rules), key).state).toBe('different');
+    }
+    expect(JSON.stringify(current)).toBe(before);
+  });
   it('USB端点兼容旧接口，完整哈希/原序/重复/原始类型和状态参与比较', () => {
     const key = 'hardware/usb', endpoint = { address: 129, endpointNumber: 1, direction: 128, attributes: 2, type: 2, maxPacketSize: 512, interval: 0 };
     const old = { count: 1, devices: [{ interfaces: [{ id: 0, endpointCount: 2 }] }] };

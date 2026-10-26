@@ -451,6 +451,10 @@ public final class HardwareCollector implements Collector {
     }
     // 业务块：只读取 NFC 适配器公开能力，不启停适配器、不读取标签内容。
     private void nfc(ItemSink s){
+        s.read("hardware","hardware/nfc-observe-mode","NFC Observe Mode 能力与状态","NfcAdapter.isObserveModeSupported / isObserveModeEnabled",()->{
+            NfcAdapter adapter=NfcAdapter.getDefaultAdapter(s.context);
+            return nfcObserveMode(adapter!=null,Build.VERSION.SDK_INT,()->adapter.isObserveModeSupported(),()->adapter.isObserveModeEnabled());
+        });
         s.read("hardware","hardware/nfc","NFC 能力","NfcAdapter",()->{
             NfcAdapter adapter=NfcAdapter.getDefaultAdapter(s.context);
             if(adapter==null)return Json.obj("available",false,"enabled",false);
@@ -459,6 +463,15 @@ public final class HardwareCollector implements Collector {
             if(Build.VERSION.SDK_INT>=34){NfcAntennaInfo antenna=adapter.getNfcAntennaInfo();Json.put(value,"antennaInfoAvailable",antenna!=null);if(antenna!=null)Json.put(value,"antennaCount",antenna.getAvailableNfcAntennas()==null?0:antenna.getAvailableNfcAntennas().size());Json.put(value,"deviceWidth",antenna==null?null:antenna.getDeviceWidth());Json.put(value,"deviceHeight",antenna==null?null:antenna.getDeviceHeight());Json.put(value,"deviceFoldable",antenna==null?null:antenna.isDeviceFoldable());}
             return value;
         });
+    }
+    // 业务块：API35+只读Observe Mode能力及状态；两个查询独立，旧API/缺适配器不调用新getter。
+    static JSONObject nfcObserveMode(boolean available,int sdk,java.util.function.BooleanSupplier supported,java.util.function.BooleanSupplier enabled){
+        return Json.obj("available",available,"supported",nfcObserveQuery(available,sdk,supported),"enabled",nfcObserveQuery(available,sdk,enabled));
+    }
+    private static JSONObject nfcObserveQuery(boolean available,int sdk,java.util.function.BooleanSupplier query){
+        if(sdk<35||!available)return Json.obj("status",sdk<35?"unsupported":"unavailable","value",null);
+        try{return Json.obj("status","ok","value",Objects.requireNonNull(query,"missing NFC observe query").getAsBoolean());}
+        catch(Exception|LinkageError e){return Json.obj("status",e instanceof SecurityException?"denied":"error","value",null,"errorClass",e.getClass().getName());}
     }
     // 业务块：枚举平台 DRM 方案并保留既有 Widevine 能力，绝不输出原始 DRM deviceUniqueId。
     private void drm(ItemSink s){

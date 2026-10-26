@@ -21,6 +21,30 @@ public class CollectionChecks {
     private Context context;
     private final ArrayList<CollectionController> controllers=new ArrayList<>();
     @Before public void setup(){context=InstrumentationRegistry.getInstrumentation().getTargetContext();}
+    @Test public void nfcObserveModeKeepsIndependentBooleanResults()throws Exception{
+        JSONObject value=HardwareCollector.nfcObserveMode(true,35,()->false,()->true);
+        assertEquals("ok",value.getJSONObject("supported").getString("status"));assertEquals(Boolean.FALSE,value.getJSONObject("supported").get("value"));assertEquals(Boolean.TRUE,value.getJSONObject("enabled").get("value"));
+        value=HardwareCollector.nfcObserveMode(true,36,()->{throw new SecurityException("SYNTHETIC");},()->false);
+        assertEquals("denied",value.getJSONObject("supported").getString("status"));assertTrue(value.getJSONObject("supported").isNull("value"));assertEquals("ok",value.getJSONObject("enabled").getString("status"));assertEquals(Boolean.FALSE,value.getJSONObject("enabled").get("value"));
+        value=HardwareCollector.nfcObserveMode(true,35,()->true,()->{throw new NoSuchMethodError("SYNTHETIC");});
+        assertEquals(Boolean.TRUE,value.getJSONObject("supported").get("value"));assertEquals("error",value.getJSONObject("enabled").getString("status"));assertEquals(NoSuchMethodError.class.getName(),value.getJSONObject("enabled").getString("errorClass"));
+    }
+    @Test public void nfcObserveModeSkipsUnsupportedOrMissingAdapter()throws Exception{
+        int[] calls={0};java.util.function.BooleanSupplier query=()->{calls[0]++;throw new AssertionError("不应调用");};
+        for(int sdk:new int[]{24,34}){JSONObject value=HardwareCollector.nfcObserveMode(true,sdk,query,query);for(String field:new String[]{"supported","enabled"}){assertEquals("unsupported",value.getJSONObject(field).getString("status"));assertTrue(value.getJSONObject(field).isNull("value"));}}
+        JSONObject missing=HardwareCollector.nfcObserveMode(false,35,query,query);assertFalse(missing.getBoolean("available"));for(String field:new String[]{"supported","enabled"}){assertEquals("unavailable",missing.getJSONObject(field).getString("status"));assertTrue(missing.getJSONObject(field).isNull("value"));}assertEquals(0,calls[0]);
+    }
+    @Test public void nfcObserveModeMatchesPublicGetters()throws Exception{
+        android.nfc.NfcAdapter adapter=android.nfc.NfcAdapter.getDefaultAdapter(context);
+        JSONObject expected=HardwareCollector.nfcObserveMode(adapter!=null,Build.VERSION.SDK_INT,()->adapter.isObserveModeSupported(),()->adapter.isObserveModeEnabled());
+        ItemSink sink=new ItemSink(context,"nfc-observe-api");new HardwareCollector("hardware").collect(sink);JSONObject item=null;boolean old=false;
+        for(int i=0;i<sink.items.length();i++){JSONObject current=sink.items.getJSONObject(i);if(current.getString("key").equals("hardware/nfc-observe-mode"))item=current;if(current.getString("key").equals("hardware/nfc"))old=true;}
+        assertNotNull(item);assertTrue(old);assertEquals("ok",item.getString("status"));assertEquals(expected.toString(),item.getJSONObject("value").toString());
+        System.out.println("NFC observe public evidence="+expected);
+        android.content.pm.PackageInfo info=context.getPackageManager().getPackageInfo(context.getPackageName(),0);String now=CollectionController.now();
+        JSONObject data=Json.obj("schemaVersion","1.0","collectorVersion",info.versionName,"sessionId",UUID.randomUUID().toString(),"startedAt",now,"finishedAt",now,"state","complete","config",Json.obj("instrumentation",true,"scope","独立NFC Observe Mode API验证，非正式全量采集"),"permissions",CollectionController.permissions(context),"app",Json.obj("packageName",context.getPackageName(),"versionName",info.versionName,"androidSdk",Build.VERSION.SDK_INT),"items",new JSONArray().put(item));
+        Bundle bundle=new Bundle();bundle.putString("nfcObserveReport",Json.obj("data",data,"message","独立NFC Observe Mode API验证报告","code",0).toString());InstrumentationRegistry.getInstrumentation().sendStatus(0,bundle);
+    }
     private static android.hardware.usb.UsbEndpoint endpointFixture(int address,int attributes,int packet,int interval){
         Parcel parcel=Parcel.obtain();try{parcel.writeInt(address);parcel.writeInt(attributes);parcel.writeInt(packet);parcel.writeInt(interval);parcel.setDataPosition(0);return android.hardware.usb.UsbEndpoint.CREATOR.createFromParcel(parcel);}finally{parcel.recycle();}
     }
