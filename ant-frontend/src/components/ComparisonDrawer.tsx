@@ -20,17 +20,19 @@ import { SecurityStateOverview } from './SecurityStateOverview';
 import { AudioOverview } from './AudioOverview';
 import { MicrophoneOverview } from './MicrophoneOverview';
 
-function itemMeta(item?: Item) {
+function itemMeta(item: Item | undefined, collected: boolean) {
+  if (!collected) return [['状态', '等待采集']];
   if (!item) return [['状态', '此侧没有采集项']];
   return [['采集状态', statusLabels[item.status]], ['来源', item.source.api], ['执行身份', `UID ${item.source.uid} · PID ${item.source.pid}`], ['SELinux', item.source.selinux], ['数据类型', item.dataType]];
 }
 
-function cell(value: string | null, side: 'A' | 'B', label: string) {
+function cell(value: string | null, side: 'A' | 'B', label: string, collected: boolean) {
+  if (!collected) return <Typography.Text type="secondary">等待采集</Typography.Text>;
   if (value === null) return <Typography.Text type="secondary">—</Typography.Text>;
   return <Typography.Paragraph className="device-value copyable-value" title="双击复制" onDoubleClick={event => { event.stopPropagation(); void copyText(value, `设备 ${side} · ${label}`); }} ellipsis={{ rows: 4, expandable: true, symbol: '展开' }}>{value}</Typography.Paragraph>;
 }
 
-export function ComparisonDrawer({ row, open, onClose }: { row?: CompareRow; open: boolean; onClose: () => void }) {
+export function ComparisonDrawer({ row, open, collected, onClose }: { row?: CompareRow; open: boolean; collected: { left: boolean; right: boolean }; onClose: () => void }) {
   const [onlyDiffRows, setOnlyDiffRows] = useState(false);
   const sections = useMemo(() => {
     if (!row) return [];
@@ -43,7 +45,7 @@ export function ComparisonDrawer({ row, open, onClose }: { row?: CompareRow; ope
   const hasTableSections = sections.some(section => section.table);
   return <Drawer open={open} onClose={onClose} width="min(1180px, 100vw)" title={<div><Typography.Title level={4} style={{ margin: 0 }}>{row.name}</Typography.Title><Typography.Text type="secondary">{row.key}</Typography.Text></div>} extra={<Space size={8}>{hasTableSections && <Button size="small" type={onlyDiffRows ? 'primary' : 'default'} onClick={() => setOnlyDiffRows(value => !value)}>只展示差异</Button>}<Tag color={row.state === 'same' ? 'success' : row.state === 'incomparable' ? 'default' : 'error'}>{diffLabels[row.state]}</Tag></Space>} className="comparison-drawer" destroyOnHidden>
     <Space direction="vertical" size={16} style={{ display: 'flex' }}>
-      <Descriptions size="small" bordered column={{ xs: 1, sm: 2 }} items={[{ key: 'a', label: '设备 A', children: <Descriptions size="small" column={1} items={itemMeta(row.left).map(([label, value]) => ({ key: label, label, children: value }))} /> }, { key: 'b', label: '设备 B', children: <Descriptions size="small" column={1} items={itemMeta(row.right).map(([label, value]) => ({ key: label, label, children: value }))} /> }]} />
+      <Descriptions size="small" bordered column={{ xs: 1, sm: 2 }} items={[{ key: 'a', label: '设备 A', children: <Descriptions size="small" column={1} items={itemMeta(row.left, collected.left).map(([label, value]) => ({ key: label, label, children: value }))} /> }, { key: 'b', label: '设备 B', children: <Descriptions size="small" column={1} items={itemMeta(row.right, collected.right).map(([label, value]) => ({ key: label, label, children: value }))} /> }]} />
       {[row.left, row.right].map((item, index) => {
         if (!item) return null;
         const device = `设备 ${index === 0 ? 'A' : 'B'}`;
@@ -80,7 +82,7 @@ export function ComparisonDrawer({ row, open, onClose }: { row?: CompareRow; ope
         <SecurityStateOverview itemKey={row.key} sectionKey={section.key} left={row.left?.value} right={row.right?.value} rows={section.rows} onlyDiffRows={onlyDiffRows}>
         <AudioOverview itemKey={row.key} sectionKey={section.key} left={row.left?.value} right={row.right?.value} rows={section.rows} onlyDiffRows={onlyDiffRows}>
         <MicrophoneOverview itemKey={row.key} sectionKey={section.key} left={row.left?.value} right={row.right?.value} rows={section.rows} onlyDiffRows={onlyDiffRows}>
-        <Table<MergedDisplayRow> rowKey="key" size="small" bordered pagination={(onlyDiffRows ? section.rows.filter(record => record.state !== 'same').length : section.rows.length) > 50 ? { pageSize: 50, showSizeChanger: false, showQuickJumper: true } : false} dataSource={onlyDiffRows ? section.rows.filter(record => record.state !== 'same') : section.rows} rowClassName={record => `row-${record.state}`} columns={[{ title: '字段', dataIndex: 'label', key: 'label', width: 220, fixed: 'left', render: value => <Typography.Text className="field-label">{value}</Typography.Text> }, { title: '设备 A', dataIndex: 'left', key: 'left', render: (value, record) => cell(value, 'A', record.label) }, { title: '设备 B', dataIndex: 'right', key: 'right', render: (value, record) => cell(value, 'B', record.label) }, { title: '对比', key: 'state', width: 110, render: (_, record) => <Tag color={record.state === 'same' ? 'success' : record.state === 'changed' ? 'error' : 'warning'}>{record.state === 'same' ? '相同' : record.state === 'changed' ? '差异' : record.state === 'left-only' ? '仅 A' : '仅 B'}</Tag> }] as ColumnsType<MergedDisplayRow>} scroll={{ x: 760 }} />
+        <Table<MergedDisplayRow> rowKey="key" size="small" bordered pagination={(onlyDiffRows ? section.rows.filter(record => record.state !== 'same').length : section.rows.length) > 50 ? { pageSize: 50, showSizeChanger: false, showQuickJumper: true } : false} dataSource={onlyDiffRows ? section.rows.filter(record => record.state !== 'same') : section.rows} rowClassName={record => `row-${record.state}`} columns={[{ title: '字段', dataIndex: 'label', key: 'label', width: 220, fixed: 'left', render: value => <Typography.Text className="field-label">{value}</Typography.Text> }, { title: collected.left ? '设备 A' : '设备 A · 等待采集', dataIndex: 'left', key: 'left', render: (value, record) => cell(value, 'A', record.label, collected.left) }, { title: collected.right ? '设备 B' : '设备 B · 等待采集', dataIndex: 'right', key: 'right', render: (value, record) => cell(value, 'B', record.label, collected.right) }, { title: '对比', key: 'state', width: 110, render: (_, record) => <Tag color={record.state === 'same' ? 'success' : record.state === 'changed' ? 'error' : 'warning'}>{record.state === 'same' ? '相同' : record.state === 'changed' ? '差异' : record.state === 'left-only' ? '仅 A' : '仅 B'}</Tag> }] as ColumnsType<MergedDisplayRow>} scroll={{ x: 760 }} />
         </MicrophoneOverview>
         </AudioOverview>
         </SecurityStateOverview>

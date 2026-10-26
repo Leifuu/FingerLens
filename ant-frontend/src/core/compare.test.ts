@@ -7,6 +7,25 @@ const raw = { semantic: false, ignoreDynamic: false }, semantic = { semantic: tr
 const find = (rows: ReturnType<typeof compare>, key: string) => rows.find(x => x.key === key)!;
 
 describe('原始与语义比较', () => {
+  it('任意单侧可比较，保留真实元数据、重复项及失败状态，不补造另一侧', () => {
+    const report = fixture([fixtureItem('present', 1), fixtureItem('denied', null, { status: 'denied' })]);
+    const before = JSON.stringify(report);
+    for (const rules of [raw, semantic, smart]) {
+      expect(compare(undefined, undefined, rules)).toEqual([]);
+      for (const side of ['left', 'right'] as const) {
+        const rows = compare(side === 'left' ? report : undefined, side === 'right' ? report : undefined, rules);
+        expect(rows).toHaveLength(3);
+        expect(rows.every(row => row.state === `${side}-only` && row[side] && !row[side === 'left' ? 'right' : 'left'])).toBe(true);
+        expect(rows.map(row => row.id)).toEqual(['collection/session-metadata#0', 'present#0', 'denied#0']);
+        expect(rows[2][side]?.status).toBe('denied');
+        expect(rows.every(row => row.changedPaths.length === 0 && row.ignored === 0)).toBe(true);
+      }
+      expect(compare(report, report, rules).map(row => row.state)).toEqual(['same', 'same', 'incomparable']);
+    }
+    const directories = fixture([fixtureItem('directories/chunk/00000', [{ path: '/same' }, { path: '/same' }])]);
+    expect(compare(directories, undefined, semantic).map(row => row.id)).toEqual(['collection/session-metadata#0', 'directories/path//same#0', 'directories/path//same#1']);
+    expect(JSON.stringify(report)).toBe(before);
+  });
   it('逐麦克风元数据兼容旧JSON，区分哨兵/零/失败和原始类型，保留频响及集合哈希差异', () => {
     const key = 'hardware/microphones', summary = fixtureItem('hardware/microphone-summary', { count: 1 });
     const value = { status: 'ok', microphonesSha256: 'a', microphones: [{ id: 0, group: -1, positionMeters: { status: 'ok', value: { x: 0, y: 0, z: 0, kind: 'finite' } }, calibration: { status: 'ok', value: { sensitivityDbfs: { raw: -3.4028235e38, kind: 'unknown-sentinel' } } }, frequencyResponse: { status: 'ok', value: { pointsSha256: 'a', points: [{ frequencyHz: 1000, responseDb: 0 }, { frequencyHz: 1000, responseDb: 0 }] } } }] };

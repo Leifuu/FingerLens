@@ -67,6 +67,7 @@ export default function App() {
   }, []);
   const epoch = useRef({ left: 0, right: 0, compare: 0 });
   const ready = !!files.left && !!files.right;
+  const hasEvidence = !!files.left || !!files.right;
   const busy = Object.values(loading).some(Boolean);
   const compareRules = status === 'different' && smartFilter ? smartRules : rawRules;
 
@@ -82,7 +83,7 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (!files.left || !files.right) return;
+    if (!files.left && !files.right) return;
     const token = ++epoch.current.compare;
     setLoading(value => ({ ...value, compare: true }));
     request('compare', { rules: compareRules }).then(result => { if (token === epoch.current.compare) { setRows(result.rows); setWarnings(result.conditions); } }).catch(cause => { if (token === epoch.current.compare) message.error(cause instanceof Error ? cause.message : String(cause)); }).finally(() => { if (token === epoch.current.compare) setLoading(value => ({ ...value, compare: false })); });
@@ -119,10 +120,13 @@ export default function App() {
   }, [rows, category, search, status]);
 
   const menuItems = [{ key: 'all', icon: <FileSearchOutlined />, label: <Space>全部信息<Badge count={rows.length} overflowCount={100000} showZero color="#1677ff" /></Space> }, ...Object.entries(categories).map(([key, label]) => ({ key, icon: categoryIcons[key] || <FileSearchOutlined />, label: <Space>{label}<Badge count={counts.get(key) || 0} overflowCount={100000} showZero color="#434343" /></Space> }))];
+  function devicePreview(row: CompareRow, side: 'left' | 'right') {
+    return files[side] ? preview(row, side) : '等待采集';
+  }
   const columns: ColumnsType<CompareRow> = [
     { title: '信息名称', dataIndex: 'name', key: 'name', width: 270, fixed: 'left', render: (value: string, row) => <Space direction="vertical" size={0}><Typography.Text strong ellipsis={{ tooltip: value }}>{value}</Typography.Text><Typography.Text type="secondary" ellipsis>{row.key}</Typography.Text></Space> },
-    { title: '设备 A · 原始值', key: 'left', render: (_, row) => <Typography.Text className="table-preview copyable-value" title="双击复制" onDoubleClick={event => { event.stopPropagation(); void copyText(preview(row, 'left'), '设备 A 原始显示值'); }} ellipsis={{ tooltip: preview(row, 'left') }}>{preview(row, 'left')}</Typography.Text> },
-    { title: '设备 B · 原始值', key: 'right', render: (_, row) => <Typography.Text className="table-preview copyable-value" title="双击复制" onDoubleClick={event => { event.stopPropagation(); void copyText(preview(row, 'right'), '设备 B 原始显示值'); }} ellipsis={{ tooltip: preview(row, 'right') }}>{preview(row, 'right')}</Typography.Text> },
+    { title: '设备 A · 原始值', key: 'left', render: (_, row) => <Typography.Text className="table-preview copyable-value" title="双击复制" onDoubleClick={event => { event.stopPropagation(); void copyText(devicePreview(row, 'left'), '设备 A 原始显示值'); }} ellipsis={{ tooltip: devicePreview(row, 'left') }}>{devicePreview(row, 'left')}</Typography.Text> },
+    { title: '设备 B · 原始值', key: 'right', render: (_, row) => <Typography.Text className="table-preview copyable-value" title="双击复制" onDoubleClick={event => { event.stopPropagation(); void copyText(devicePreview(row, 'right'), '设备 B 原始显示值'); }} ellipsis={{ tooltip: devicePreview(row, 'right') }}>{devicePreview(row, 'right')}</Typography.Text> },
     { title: '结果', dataIndex: 'state', key: 'state', width: 130, render: (value: CompareRow['state']) => <Tag color={value === 'same' ? 'success' : value === 'incomparable' ? 'default' : 'error'}>{value === 'status' ? '状态不同' : diffLabels[value]}</Tag> },
   ];
 
@@ -136,16 +140,16 @@ export default function App() {
           <Space wrap className="action-row"><Button type="primary" disabled={!ready || busy} onClick={() => exportHtmlReport('current')}>导出 HTML 报告</Button><Button disabled={!ready || busy} onClick={() => exportHtmlReport('all-diff')}>导出完整差异</Button><Button disabled={!ready || busy} onClick={exportJsonReport}>导出 JSON 摘要</Button><Button disabled={!ready || busy} onClick={() => setAttestationOpen(true)}>离线认证检查</Button>{busy && <Button onClick={stopProcessing}>取消处理</Button>}</Space>
           <StatCards stats={stats} />
           </>}
-          <Card className="results-card" title={<Space><span>{category === 'all' ? '信息对照' : categories[category]}</span><Tag>{filtered.length}</Tag></Space>} extra={<Typography.Text type="secondary">{ready ? `显示 ${filtered.length} / ${rows.length} 项` : '等待导入两份指纹'}</Typography.Text>}>
+          <Card className="results-card" title={<Space><span>{category === 'all' ? '信息对照' : categories[category]}</span><Tag>{filtered.length}</Tag></Space>} extra={<Typography.Text type="secondary">{hasEvidence ? `显示 ${filtered.length} / ${rows.length} 项` : '等待采集'}</Typography.Text>}>
             {category === 'webview' && <Typography.Paragraph type="secondary">WebView 提供方、版本、安装环境、当前签名及签名轮换历史，以及默认 User-Agent。旧版文件缺少的采集项会保留为单侧数据。</Typography.Paragraph>}
             {category === 'root' && <Typography.Paragraph type="secondary">汇总 su 与 /data/adb 路径、构建属性、SELinux、挂载和进程映射证据；相关条目也保留在原模块中。路径读取受限、单项命中或未命中均不能单独证明设备是否 Root。</Typography.Paragraph>}
             <Space className="filter-row" wrap size={[12, 12]}><Input prefix={<SearchOutlined />} placeholder="搜索名称、字段或来源" value={search} onChange={event => setSearch(event.target.value)} allowClear style={{ width: 320 }} /><Select aria-label="筛选对比状态" value={status} onChange={value => { setStatus(value); if (value !== 'different') setSmartFilter(false); }} style={{ width: 170 }} options={[{ value: 'all', label: '全部状态' }, { value: 'different', label: '值不同' }, { value: 'same', label: '相同' }, { value: 'left-only', label: '仅左侧' }, { value: 'right-only', label: '仅右侧' }, { value: 'incomparable', label: '不可比较' }]} />{status === 'different' && <Checkbox aria-label="智能过滤" checked={smartFilter} onChange={event => setSmartFilter(event.target.checked)}>智能过滤</Checkbox>}</Space>
-            <Table<CompareRow> className="comparison-table" rowKey="id" loading={loading.compare || !ready && busy} dataSource={filtered} columns={columns} pagination={{ pageSize: 50, showSizeChanger: false, showQuickJumper: true, showTotal: total => `共 ${total} 项` }} scroll={{ x: 1060, y: 'calc(100vh - 440px)' }} onRow={row => ({ onClick: () => setSelected(row), tabIndex: 0, onKeyDown: event => { if (event.key === 'Enter' || event.key === ' ') setSelected(row); } })} locale={{ emptyText: ready ? <Empty description="当前条件下没有结果" /> : <Empty description="请先导入两份设备指纹" /> }} />
+            <Table<CompareRow> className="comparison-table" rowKey="id" loading={loading.compare || !hasEvidence && busy} dataSource={filtered} columns={columns} pagination={{ pageSize: 50, showSizeChanger: false, showQuickJumper: true, showTotal: total => `共 ${total} 项` }} scroll={{ x: 1060, y: 'calc(100vh - 440px)' }} onRow={row => ({ onClick: () => setSelected(row), tabIndex: 0, onKeyDown: event => { if (event.key === 'Enter' || event.key === ' ') setSelected(row); } })} locale={{ emptyText: hasEvidence ? <Empty description="当前条件下没有结果" /> : <Empty description="请先采集或导入任意一侧设备指纹" /> }} />
           </Card>
         </div></Content>
       </Layout>
     </Layout>
-    <ComparisonDrawer row={selected} open={!!selected} onClose={() => setSelected(undefined)} />
+    <ComparisonDrawer row={selected} open={!!selected} collected={{ left: !!files.left, right: !!files.right }} onClose={() => setSelected(undefined)} />
     <AttestationDrawer open={attestationOpen} onClose={() => setAttestationOpen(false)} request={request} />
   </ConfigProvider>;
 }

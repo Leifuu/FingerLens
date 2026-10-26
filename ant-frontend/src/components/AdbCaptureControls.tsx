@@ -20,6 +20,6 @@ export function AdbCaptureControls(props: Props) {
       disabled={props.disabled || !selectedDevice || selectedDevice.status !== 'device' || selectedDevice.busy}
       onClick={props.onStart}>采集</Button>
     <Tooltip title="刷新 ADB 设备"><Button icon={<ReloadOutlined />} aria-label={`刷新设备 ${props.side} 的 ADB 列表`} loading={props.refreshing} onClick={props.onRefresh} /></Tooltip>
-    <Tag className="capture-status-tag" color={props.active ? 'processing' : props.loaded ? 'success' : 'default'}>{props.active ? '采集中' : props.loaded ? '已载入' : '等待文件'}</Tag>
+    <Tag className="capture-status-tag" color={props.active ? 'processing' : props.loaded ? 'success' : 'default'}>{props.active ? '采集中' : props.loaded ? '已载入' : '等待采集'}</Tag>
   </div>;
 }

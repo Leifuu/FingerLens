@@ -69,8 +69,10 @@ function expand(fp: Fingerprint, semantic: boolean): Map<string, Item[]> {
   }
   return groups;
 }
-export function compare(left: Fingerprint, right: Fingerprint, rules: Rules): Row[] {
-  const a = expand(left, rules.semantic), b = expand(right, rules.semantic); const rows: Row[] = [];
+export function compare(left: Fingerprint | undefined, right: Fingerprint | undefined, rules: Rules): Row[] {
+  // 未采集侧没有条目，也不生成虚构的会话元数据。
+  const a = left ? expand(left, rules.semantic) : new Map<string, Item[]>();
+  const b = right ? expand(right, rules.semantic) : new Map<string, Item[]>(); const rows: Row[] = [];
   for (const key of new Set([...a.keys(), ...b.keys()])) {
     const aa = a.get(key) || [], bb = b.get(key) || [];
     for (let i = 0; i < Math.max(aa.length, bb.length); i++) {
