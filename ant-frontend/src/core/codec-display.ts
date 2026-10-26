@@ -1,5 +1,7 @@
 import type { MergedDisplayRow } from './display-compare';
 import { codecEncoderDisplayRows, type CodecEncoderDisplayRow } from './codec-encoder-display';
+import { codecPerformanceRows, type CodecPerformanceRow } from './codec-performance-display';
+import type { Json } from './types';
 
 export interface CodecDisplayRow {
   key: string;
@@ -11,11 +13,12 @@ export interface CodecDisplayRow {
   vendor?: MergedDisplayRow;
   supportedTypes: MergedDisplayRow[];
   encoderControls: CodecEncoderDisplayRow[];
+  performancePoints: CodecPerformanceRow[];
   state: MergedDisplayRow['state'];
 }
 
 // 业务块：按原始数组序号聚合，保留别名与重复条目；任何完整字段差异都影响概览状态。
-export function codecDisplayRows(rows: MergedDisplayRow[]): CodecDisplayRow[] | undefined {
+export function codecDisplayRows(rows: MergedDisplayRow[], leftCodecs?: Json[], rightCodecs?: Json[]): CodecDisplayRow[] | undefined {
   const groups = new Map<string, MergedDisplayRow[]>();
   for (const row of rows) {
     const match = /^\[(\d+)\]\./.exec(row.label);
@@ -34,10 +37,12 @@ export function codecDisplayRows(rows: MergedDisplayRow[]): CodecDisplayRow[] | 
     for (const side of ['left', 'right'] as const) {
       if (present(side) && (name[side] === null || encoder[side] === null)) return undefined;
     }
+    const performancePoints = codecPerformanceRows(leftCodecs?.[Number(key)], rightCodecs?.[Number(key)]);
     result.push({ key, name, encoder, canonicalName: field('canonicalName'), hardwareAccelerated: field('hardwareAccelerated'), softwareOnly: field('softwareOnly'), vendor: field('vendor'),
       supportedTypes: fields.filter(row => /^\[\d+\]\.supportedTypes(?:\[\d+\])?$/.test(row.label)),
       encoderControls: codecEncoderDisplayRows(fields, key),
-      state: !left ? 'right-only' : !right ? 'left-only' : fields.some(row => row.state !== 'same') ? 'changed' : 'same' });
+      performancePoints,
+      state: !left ? 'right-only' : !right ? 'left-only' : fields.some(row => row.state !== 'same') || performancePoints.some(row => row.state !== 'same') ? 'changed' : 'same' });
   }
   return result.length ? result : undefined;
 }

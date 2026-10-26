@@ -102,6 +102,7 @@
 
 ## 视频性能点补充
 
+- 展示采用编解码器“能力”入口、5项MIME分页和10点明细分页，原序/重复及单侧状态保留；直接区分九参考点的覆盖/不覆盖/原始类型。完整对象、未知字段和完整哈希决定MIME与外层行差异；三层差异筛选不补造旧字段，异构/超256个MIME或每项64点回退完整字段，原编码参数和50字段分页保留，窄屏可独立横向查看B侧。本轮新字段浏览器样本仍为HYBRID或SYNTHETIC，不冒充新正式报告。
 - `hardware/codecs[*].capabilities[*].performancePoints`使用API29+公开性能点清单、描述原文和对HD/FHD/UHD各30/60/120fps共9个参考点的covers结果；区分unsupported、not-video、not-published/null、ok/[]及denied/error。最多256输入/64明细/2048字符描述，保留原序、重复和完整数组SHA256，截断外变化仍参与比较；旧能力与旧JSON保持兼容。
 - 只读取平台声明，不创建编解码器、不调用隐藏getter，也不将覆盖结果当成实测性能、任意格式组合支持或真机结论。Pixel6/API36独立公开API测试为79个MIME中17项/36点、28项未发布、34项非视频；新字段浏览器样本是旧正式报告加独立API证据的HYBRID，空/失败/截断样本为SYNTHETIC，本轮未验证新正式Release整轮报告。详见[来源与边界](android-risk-fingerprint-sources.md#视频编解码器的公开性能点)。
 

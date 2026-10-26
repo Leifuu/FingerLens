@@ -166,6 +166,7 @@
 
 ## 视频编解码器的公开性能点
 
+- 展示补充：编解码器概览的“能力”入口保留原编码参数，并增加性能点双侧状态与MIME原序清单，每页5项；继续展开后按原始序号展示描述及HD/FHD/UHD三组参考规格覆盖，每页10点。覆盖、不覆盖、缺失、null和布尔/字符串等原始类型分别呈现，描述长原文可展开；未发布信息、无声明的成功空清单、旧版未采集及失败状态不互相补推。完整性能点原对象决定MIME差异，未知字段/完整哈希/类型变化继续使外层编解码器行标差异，三层筛选保留单侧项；仅哈希变化时允许明细显示无差异并引导核对完整字段。最多256个MIME、每项64点进入概览；异构MIME/性能点或超边界的项留给原完整字段，不隐藏正常兄弟项，不根据总数补造明细。保留原50字段分页及编码参数功能，390px下两层表格可独立横向查看B侧；本轮只改展示，未重建APK或新建正式采集任务。
 - [getSupportedPerformancePoints](https://developer.android.com/reference/android/media/MediaCodecInfo.VideoCapabilities#getSupportedPerformancePoints()) 和 [PerformancePoint](https://developer.android.com/reference/android/media/MediaCodecInfo.VideoCapabilities.PerformancePoint) 自API29公开。2026-10-26核对SDK37.0版本表及[固定AOSP源码](https://github.com/aosp-mirror/platform_frameworks_base/blob/1cdfff555f4a21f71ccc978290e2e212e2f8b168/media/java/android/media/MediaCodecInfo.java)，下载源码SHA256为 `8cf43cec28a0e7c81984cfb5c1ba2d5920efeef2e54396c161cd2e9f91d16acc`。`null` 表示未发布性能点信息，空列表表示没有声明性能点保证，两者不能混同。声明以单个活动编解码器为前提，不等同实际测得帧率；32位进程也可能受分辨率限制。
 - `hardware/codecs[*].capabilities[*].performancePoints` 独立保存状态、总数、返回数、上限、截断标志、完整哈希及明细。API29以下为unsupported/null，非视频为not-video/null，未发布为not-published/null，成功空列表为ok/[]；异常为denied/error/null及errorClass，不丢失原视频、音频、编码器能力和特性字段。
 - 每点保存公开 `toString()` 的description原文及公开 `covers()` 对9个固定参考点的布尔结果：HD为1280×720、FHD为1920×1080、UHD为3840×2160，各取30/60/120fps。description仅为调试描述，不解析为结构化分辨率或稳定标识；`getMaxMacroBlocks/getMaxFrameRate/getMaxMacroBlockRate` 属于隐藏/TestApi方法，本工程不调用。覆盖参考点不保证任意格式组合可用，不覆盖原视频范围，不创建编解码实例或运行媒体负载，也不据此判定设备真实性。

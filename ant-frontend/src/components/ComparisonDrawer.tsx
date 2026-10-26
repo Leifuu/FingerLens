@@ -67,7 +67,7 @@ export function ComparisonDrawer({ row, open, onClose }: { row?: CompareRow; ope
       {row.category === 'collection' ? <Alert type="info" showIcon message="采集会话元数据" description="该项用于解释两份指纹的采集条件，不属于设备原始字段，因此详情不展开会话时间、配置或权限包装。" /> : sections.map(section => <Card key={section.key} title={section.title} size="small" className="comparison-section">
         <RootPathOverview itemKey={row.key} sectionKey={section.key} rows={section.rows} onlyDiffRows={onlyDiffRows}>
         <FontOverview itemKey={row.key} sectionKey={section.key} rows={section.rows} onlyDiffRows={onlyDiffRows}>
-        <CodecOverview itemKey={row.key} sectionKey={section.key} rows={section.rows} onlyDiffRows={onlyDiffRows}>
+        <CodecOverview itemKey={row.key} sectionKey={section.key} left={row.left?.value} right={row.right?.value} rows={section.rows} onlyDiffRows={onlyDiffRows}>
         <SensorOverview itemKey={row.key} sectionKey={section.key} left={row.left?.value} right={row.right?.value} rows={section.rows} onlyDiffRows={onlyDiffRows}>
         <TlsOverview itemKey={row.key} sectionKey={section.key} rows={section.rows} onlyDiffRows={onlyDiffRows}>
         <ApexOverview itemKey={row.key} sectionKey={section.key} rows={section.rows} onlyDiffRows={onlyDiffRows}>
