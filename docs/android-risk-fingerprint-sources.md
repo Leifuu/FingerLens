@@ -13,6 +13,8 @@
 
 ## Android 安全环境资料
 
+- 基础振动单元展示补充（2026-10-26）：`hardware/vibrator` 在原始 `vibrators` 字段组中增加对照概览，每页5个振动器，按原始数组序号保留重复振动器和重复基础单元。各侧逐项显示公开名称及原始编号、支持标志与平台估算时长（毫秒），不把0改成未知或从时长推导支持；未知编号、字符串编号、null、false、空列表、未采集与查询失败分别保留。完整振动器对象（含未知字段、类型变化）决定整行差异，对象键书写顺序不作为差异；原始逐字段表默认折叠且保留50字段分页。旧JSON无基础单元对象时沿用原表，一侧新一侧旧时明确显示未采集，不补写原值；结构不完整、超过概览上限（32个振动器或每侧64个单元）时回退完整字段，不截断原始数据。390px窄屏可独立横向查看两侧。此轮只调整浏览层，不修改采集、比较规则、JSON输入或导出。
+
 - 显示模式展示补充（2026-10-26）：`display/*` 的 `supportedModes` 采用每页20项概览，按原始序号逐行显示模式ID、原始分辨率/刷新率及HDR查询状态、类型名称与原始编号（Dolby Vision=1、HDR10=2、HLG=3、HDR10+=4，来自下述固定AOSP源码）。保留重复模式；HDR概览最多列前8项并明确省略，完整字段默认折叠且保留50字段分页。完整哈希和未知字段变化仍标记整行差异，旧JSON缺少每模式HDR时显示未采集，不从整体HDR列表补值；缺项、null、空字符串、失败及未知值保持区别，结构不完整时回退原表。本次只优化浏览，不修改采集、比较规则、JSON原值或导出。
 
 - 显示模式 HDR 类型补充（2026-10-26）：[Display.Mode.getSupportedHdrTypes](https://developer.android.com/reference/android/view/Display.Mode#getSupportedHdrTypes()) 自 API 34 返回某个显示模式支持的 HDR 类型；已核对本机 SDK 37 API 版本表和[固定 AOSP 实现](https://github.com/aosp-mirror/platform_frameworks_base/blob/1cdfff555f4a21f71ccc978290e2e212e2f8b168/core/java/android/view/Display.java#L2516-L2523)。`display/*` 的 `supportedModes[*].hdrTypeSupport` 保存查询状态、原始整数类型及数量，保留 API 返回顺序、重复与未知值；最多接受 20000 项、保存 64 项明细，完整返回数组的 JSON 文本 UTF-8 SHA-256 保存为 `typeListSha256`，包含截断外变化。有效空数组为 `ok + []`，旧系统为 `unsupported + null`，异常为 `denied/error + null` 及异常类；不把未查询当作模式不支持 HDR。原模式 ID、分辨率、刷新率和屏幕整体 `hdr` 均保留，旧 JSON 不补写新字段，既有工作台支持模式表可直接查看、分页和比较新增字段。只读元数据，不切换显示模式、不播放或捕获画面；整体 HDR 列表不代表每种模式均支持相同类型，模式能力也不保证当前播放链路或许可证可用。

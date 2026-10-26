@@ -27,3 +27,5 @@
 .codec-encoder-details{padding:8px 0;max-width:calc(min(1180px,100vw) - 104px)}.codec-encoder-facts{margin:0}.codec-encoder-facts>div{display:grid;grid-template-columns:minmax(88px,auto) 1fr;gap:8px;padding:3px 0}.codec-encoder-facts dt{color:#a6b5b0}.codec-encoder-facts dd{min-width:0;margin:0}.codec-overview .ant-table-row-expand-icon-cell .ant-btn{min-width:44px;min-height:44px}
 .codec-encoder-details .ant-table{margin:0!important}
 .display-mode-overview-section .ant-typography-secondary{color:#a6b5b0}.display-mode-scroll-hint{display:none}@media(max-width:768px){.display-mode-scroll-hint{display:block}}
+
+.vibrator-overview-section .ant-typography-secondary{color:#a6b5b0}.vibrator-facts{display:flex;flex-direction:column;gap:6px}.vibrator-primitives{margin:0}.vibrator-primitives>div{display:grid;grid-template-columns:minmax(120px,1fr) minmax(140px,1.2fr);gap:8px;padding:3px 0}.vibrator-primitives dt{font:13px/1.7 Consolas,"Microsoft YaHei",monospace}.vibrator-primitives dd{margin:0;font-variant-numeric:tabular-nums}.vibrator-scroll-hint{display:none}@media(max-width:768px){.vibrator-scroll-hint{display:block}}
