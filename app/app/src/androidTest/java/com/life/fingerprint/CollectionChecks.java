@@ -561,6 +561,43 @@ public class CollectionChecks {
         JSONObject summary=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("hardware/microphone-summary")){summary=item;break;}}
         assertNotNull("应生成麦克风阵列摘要",summary);String status=summary.getString("status");assertTrue("麦克风状态应明确: "+status,status.equals("ok")||status.equals("unsupported")||status.equals("denied")||status.equals("unavailable")||status.equals("error"));if(status.equals("ok")){JSONObject value=summary.getJSONObject("value");assertTrue(value.getBoolean("available"));assertTrue(value.getInt("count")>=0);assertTrue(value.getInt("returnedCount")<=256);assertTrue(value.getJSONArray("microphoneIds").length()<=64);assertTrue(value.has("typeCounts"));assertTrue(value.has("locationValues"));assertTrue(value.has("directionalityValues"));assertFalse(summary.toString().contains("MicrophoneInfo{"));}
     }
+    @Test public void vibratorPrimitivesGuardApiBoundaries()throws Exception{
+        for(int sdk:new int[]{24,29}){
+            JSONObject value=HardwareCollector.vibratorPrimitiveCapabilities(null,sdk);
+            assertEquals("[1,4,5,6,7]",value.getJSONArray("primitiveIds").toString());
+            for(String name:new String[]{"support","durationsMs"}){assertEquals("unsupported",value.getJSONObject(name).getString("status"));assertTrue(value.getJSONObject(name).has("values"));assertTrue(value.getJSONObject(name).isNull("values"));}
+        }
+        try{HardwareCollector.vibratorPrimitiveCapabilities(null,30);fail("API30查询必须有振动器实例");}catch(NullPointerException expected){}
+        if(Build.VERSION.SDK_INT>=30){
+            android.os.Vibrator vibrator=context.getSystemService(android.os.Vibrator.class);assertNotNull(vibrator);
+            JSONObject value=HardwareCollector.vibratorPrimitiveCapabilities(vibrator,30);
+            assertEquals("[1,4,5,6,7]",value.getJSONArray("primitiveIds").toString());
+            assertEquals("ok",value.getJSONObject("support").getString("status"));
+            boolean[] expected=vibrator.arePrimitivesSupported(1,4,5,6,7);JSONArray actual=value.getJSONObject("support").getJSONArray("values");assertEquals(expected.length,actual.length());for(int i=0;i<expected.length;i++)assertEquals(expected[i],actual.getBoolean(i));
+            assertEquals("unsupported",value.getJSONObject("durationsMs").getString("status"));assertTrue(value.getJSONObject("durationsMs").isNull("values"));
+        }
+    }
+    @Test public void vibratorPrimitivesMatchPublicApiAndKeepOldCapabilities()throws Exception{
+        ItemSink sink=new ItemSink(context,"vibrator-primitives-test");new HardwareCollector("hardware").collect(sink);
+        JSONObject item=null;for(int i=0;i<sink.items.length();i++)if(sink.items.getJSONObject(i).getString("key").equals("hardware/vibrator"))item=sink.items.getJSONObject(i);
+        assertNotNull(item);assertEquals("ok",item.getString("status"));JSONArray devices=item.getJSONObject("value").getJSONArray("vibrators");
+        for(int i=0;i<devices.length();i++){
+            JSONObject device=devices.getJSONObject(i),value=device.getJSONObject("primitiveCapabilities");
+            assertTrue(device.has("hasAmplitudeControl"));assertTrue(device.has("frequencyCharacteristics"));if(Build.VERSION.SDK_INT>=30)assertTrue(device.has("effectSupportCodes"));
+            int[] ids=Build.VERSION.SDK_INT>=31?new int[]{1,2,3,4,5,6,7,8}:new int[]{1,4,5,6,7};
+            assertEquals(Json.value(ids).toString(),value.getJSONArray("primitiveIds").toString());
+            android.os.Vibrator vibrator=Build.VERSION.SDK_INT>=31?context.getSystemService(android.os.VibratorManager.class).getVibrator(device.getInt("id")):context.getSystemService(android.os.Vibrator.class);
+            for(String name:new String[]{"support","durationsMs"}){
+                JSONObject query=value.getJSONObject(name);boolean support=name.equals("support");
+                if(Build.VERSION.SDK_INT<(support?30:31)){assertEquals("unsupported",query.getString("status"));assertTrue(query.isNull("values"));continue;}
+                Object expected;
+                try{expected=support?vibrator.arePrimitivesSupported(ids):vibrator.getPrimitiveDurations(ids);}
+                catch(Exception|LinkageError e){assertEquals(e instanceof SecurityException?"denied":"error",query.getString("status"));assertTrue(query.isNull("values"));assertEquals(e.getClass().getName(),query.getString("errorClass"));continue;}
+                assertEquals("ok",query.getString("status"));assertFalse(query.has("errorClass"));assertEquals(Json.value(expected).toString(),query.getJSONArray("values").toString());assertEquals(ids.length,query.getJSONArray("values").length());
+            }
+            Bundle evidence=new Bundle();evidence.putString("vibratorPrimitives"+device.getInt("id"),value.toString());InstrumentationRegistry.getInstrumentation().sendStatus(0,evidence);
+        }
+    }
     @Test public void vibratorAmplitudeGuardsOldApiAndPreservesUnknown()throws Exception{
         for(int sdk:new int[]{24,25}){
             JSONObject query=HardwareCollector.vibratorAmplitudeControl(null,sdk);

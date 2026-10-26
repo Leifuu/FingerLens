@@ -209,7 +209,25 @@ public final class HardwareCollector implements Collector {
         if(amplitude.has("errorClass"))Json.put(value,"amplitudeControlErrorClass",amplitude.opt("errorClass"));
         if(Build.VERSION.SDK_INT>=30)try{Json.put(value,"effectSupportCodes",vibrator.areEffectsSupported(VibrationEffect.EFFECT_CLICK,VibrationEffect.EFFECT_DOUBLE_CLICK,VibrationEffect.EFFECT_HEAVY_CLICK,VibrationEffect.EFFECT_TICK));}catch(Exception e){Json.put(value,"effectSupportCodes",null);Json.put(value,"effectSupportStatus","error");}
         Json.put(value,"frequencyCharacteristics",vibratorFrequencyCharacteristics(vibrator));
+        Json.put(value,"primitiveCapabilities",vibratorPrimitiveCapabilities(vibrator,Build.VERSION.SDK_INT));
         return value;
+    }
+    // 业务块：仅查询当前版本公开的5或8个基础单元；支持与时长独立记录，不播放振动。
+    static JSONObject vibratorPrimitiveCapabilities(Vibrator vibrator,int sdk){
+        if(sdk>=30)Objects.requireNonNull(vibrator,"missing vibrator");
+        int[] ids=sdk>=31?new int[]{VibrationEffect.Composition.PRIMITIVE_CLICK,VibrationEffect.Composition.PRIMITIVE_THUD,VibrationEffect.Composition.PRIMITIVE_SPIN,VibrationEffect.Composition.PRIMITIVE_QUICK_RISE,VibrationEffect.Composition.PRIMITIVE_SLOW_RISE,VibrationEffect.Composition.PRIMITIVE_QUICK_FALL,VibrationEffect.Composition.PRIMITIVE_TICK,VibrationEffect.Composition.PRIMITIVE_LOW_TICK}:new int[]{VibrationEffect.Composition.PRIMITIVE_CLICK,VibrationEffect.Composition.PRIMITIVE_QUICK_RISE,VibrationEffect.Composition.PRIMITIVE_SLOW_RISE,VibrationEffect.Composition.PRIMITIVE_QUICK_FALL,VibrationEffect.Composition.PRIMITIVE_TICK};
+        JSONObject support=Json.obj("status","unsupported","values",null),durations=Json.obj("status","unsupported","values",null);
+        if(sdk>=30)try{
+            boolean[] values=vibrator.arePrimitivesSupported(ids);
+            if(values==null||values.length!=ids.length)throw new IllegalStateException("primitive support length mismatch");
+            Json.put(support,"values",values);Json.put(support,"status","ok");
+        }catch(Exception|LinkageError e){Json.put(support,"status",e instanceof SecurityException?"denied":"error");Json.put(support,"errorClass",e.getClass().getName());}
+        if(sdk>=31)try{
+            int[] values=vibrator.getPrimitiveDurations(ids);
+            if(values==null||values.length!=ids.length)throw new IllegalStateException("primitive duration length mismatch");
+            Json.put(durations,"values",values);Json.put(durations,"status","ok");
+        }catch(Exception|LinkageError e){Json.put(durations,"status",e instanceof SecurityException?"denied":"error");Json.put(durations,"errorClass",e.getClass().getName());}
+        return Json.obj("primitiveIds",ids,"support",support,"durationsMs",durations);
     }
     // 业务块：API24/25不调用API26接口；查询失败保留未知，避免抹去存在性和其它能力。
     static JSONObject vibratorAmplitudeControl(Vibrator vibrator,int sdk){

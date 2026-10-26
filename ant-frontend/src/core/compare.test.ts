@@ -7,6 +7,21 @@ const raw = { semantic: false, ignoreDynamic: false }, semantic = { semantic: tr
 const find = (rows: ReturnType<typeof compare>, key: string) => rows.find(x => x.key === key)!;
 
 describe('原始与语义比较', () => {
+  it('基础振动单元兼容旧JSON，保留编号顺序、false、零时长、缺项与独立失败', () => {
+    const key = 'hardware/vibrator', device = { id: 0, hasVibrator: true, hasAmplitudeControl: true, amplitudeControlStatus: 'ok', effectSupportCodes: [1, 1, 1, 1] };
+    const report = (primitiveCapabilities?: Json) => fixture([fixtureItem(key, { vibrators: [{ ...device, ...(primitiveCapabilities === undefined ? {} : { primitiveCapabilities }) }] }, { category: 'hardware' })]);
+    const capabilities = { primitiveIds: [1, 4], support: { status: 'ok', values: [true, false] }, durationsMs: { status: 'ok', values: [12, 0] } };
+    const legacy = report(), current = report(capabilities);
+    const variants = [report({ ...capabilities, support: { status: 'ok', values: [true, true] } }), report({ ...capabilities, durationsMs: { status: 'ok', values: [12, -1] } }), report({ ...capabilities, durationsMs: { status: 'unsupported', values: null } }), report({ ...capabilities, durationsMs: { status: 'error', values: null, errorClass: 'synthetic' } }), report({ ...capabilities, primitiveIds: [4, 1] }), report({ ...capabilities, primitiveIds: [1, 999], future: false }), report(null)];
+    const before = JSON.stringify([legacy, current, ...variants]);
+    for (const rules of [raw, semantic, smart]) {
+      expect(find(compare(legacy, current, rules), key).changedPaths).toEqual(['/value/vibrators/0/primitiveCapabilities']);
+      expect(find(compare(current, current, rules), key).state).toBe('same');
+      for (const next of variants) expect(find(compare(current, next, rules), key).state).toBe('different');
+      expect(find(compare(variants[2], variants[3], rules), key).state).toBe('different');
+    }
+    expect(JSON.stringify([legacy, current, ...variants])).toBe(before);
+  });
   it('振幅能力兼容旧JSON，区分未知/null/false/缺项及查询失败且不改写原始数据', () => {
     const key = 'hardware/vibrator', device = { id: 0, hasVibrator: true, hasAmplitudeControl: false };
     const report = (fields: Record<string, Json>, summary: Record<string, Json> = {}) => fixture([fixtureItem(key, { ...summary, vibrators: [{ id: 0, hasVibrator: true, ...fields }] }, { category: 'hardware' })]);
