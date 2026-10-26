@@ -279,6 +279,41 @@ public class CollectionChecks {
         }
         assertTrue(evidence.length()>0||Build.VERSION.SDK_INT<31);Bundle result=new Bundle();result.putString("alternativeRefreshRates",evidence.toString());InstrumentationRegistry.getInstrumentation().sendStatus(0,result);
     }
+    @Test public void displayProductInfoBoundsAndQueryStates()throws Exception{
+        assertNull(PackageInputCollector.displayProductInfoValues(null));
+        for(int sdk:new int[]{24,30}){JSONObject old=PackageInputCollector.displayProductInfo(sdk,()->{throw new AssertionError("旧API不可执行查询");});assertEquals("unsupported",old.getString("status"));assertTrue(old.isNull("value"));}
+        JSONObject absent=PackageInputCollector.displayProductInfo(31,()->null);assertEquals("ok",absent.getString("status"));assertTrue(absent.isNull("value"));
+        for(Throwable failure:new Throwable[]{new SecurityException("synthetic"),new IOException("synthetic"),new NoSuchMethodError("synthetic")}){
+            JSONObject result=PackageInputCollector.displayProductInfo(31,()->{if(failure instanceof Exception)throw (Exception)failure;throw (LinkageError)failure;});
+            assertEquals(failure instanceof SecurityException?"denied":"error",result.getString("status"));assertTrue(result.isNull("value"));assertEquals(failure.getClass().getName(),result.getString("errorClass"));
+        }
+        if(Build.VERSION.SDK_INT<31)return;
+        android.hardware.display.DeviceProductInfo product=new android.hardware.display.DeviceProductInfo(null,"SYN","0007",-1,999);
+        JSONObject value=PackageInputCollector.displayProductInfoValues(product);assertEquals(7,value.length());assertTrue(value.isNull("name"));assertEquals("SYN",value.getString("manufacturerPnpId"));assertEquals("0007",value.getString("productId"));assertEquals(-1,value.getInt("modelYear"));assertEquals(-1,value.getInt("manufactureYear"));assertEquals(-1,value.getInt("manufactureWeek"));assertEquals(999,value.getInt("connectionToSinkType"));
+        String maximum=new String(new char[2048]).replace('\0','x');
+        for(int field=0;field<3;field++){
+            String[] strings={"", "SYN", "0007"};strings[field]=maximum;
+            JSONObject full=PackageInputCollector.displayProductInfoValues(new android.hardware.display.DeviceProductInfo(strings[0],strings[1],strings[2],2026,0));assertEquals(maximum,full.getString(new String[]{"name","manufacturerPnpId","productId"}[field]));
+            strings[field]=maximum+"x";try{PackageInputCollector.displayProductInfoValues(new android.hardware.display.DeviceProductInfo(strings[0],strings[1],strings[2],2026,0));fail("字符串最多2048字符");}catch(IllegalArgumentException expected){}
+        }
+        JSONObject empty=PackageInputCollector.displayProductInfoValues(new android.hardware.display.DeviceProductInfo("","","",0,-1));assertEquals("",empty.getString("name"));assertEquals("",empty.getString("productId"));assertEquals(0,empty.getInt("modelYear"));assertEquals(-1,empty.getInt("connectionToSinkType"));
+    }
+    @Test public void displayProductInfoMatchesPublicApiAndPreservesDisplay()throws Exception{
+        ItemSink sink=new ItemSink(context,"display-product-test");new PackageInputCollector("display").collect(sink);JSONArray evidence=new JSONArray();
+        android.hardware.display.DisplayManager manager=context.getSystemService(android.hardware.display.DisplayManager.class);
+        for(android.view.Display display:manager.getDisplays()){
+            JSONObject item=null;for(int i=0;i<sink.items.length();i++)if(sink.items.getJSONObject(i).getString("key").equals("display/"+display.getDisplayId()))item=sink.items.getJSONObject(i);
+            assertNotNull(item);assertEquals("ok",item.getString("status"));JSONObject value=item.getJSONObject("value"),query=value.getJSONObject("deviceProductInfo");
+            if(Build.VERSION.SDK_INT<31){assertEquals("unsupported",query.getString("status"));assertTrue(query.isNull("value"));}else{
+                assertEquals("ok",query.getString("status"));android.hardware.display.DeviceProductInfo product=display.getDeviceProductInfo();
+                if(product==null)assertTrue(query.isNull("value"));else{
+                    JSONObject actual=query.getJSONObject("value");assertEquals(product.getName(),actual.isNull("name")?null:actual.getString("name"));assertEquals(product.getManufacturerPnpId(),actual.getString("manufacturerPnpId"));assertEquals(product.getProductId(),actual.getString("productId"));assertEquals(product.getModelYear(),actual.getInt("modelYear"));assertEquals(product.getManufactureYear(),actual.getInt("manufactureYear"));assertEquals(product.getManufactureWeek(),actual.getInt("manufactureWeek"));assertEquals(product.getConnectionToSinkType(),actual.getInt("connectionToSinkType"));
+                }
+            }
+            assertEquals(display.getSupportedModes().length,value.getJSONArray("supportedModes").length());assertTrue(value.has("colorCapabilities"));if(display.getHdrCapabilities()!=null)assertTrue(value.has("hdr"));evidence.put(Json.obj("displayId",display.getDisplayId(),"deviceProductInfo",query));
+        }
+        assertTrue(evidence.length()>0);Bundle result=new Bundle();result.putString("displayProductEvidence",evidence.toString());InstrumentationRegistry.getInstrumentation().sendStatus(0,result);
+    }
     @Test public void displayColorValuesAndQueryStates()throws Exception{
         assertNull(PackageInputCollector.displayColorSpaceValues(null));
         for(android.graphics.ColorSpace.Named named:new android.graphics.ColorSpace.Named[]{android.graphics.ColorSpace.Named.SRGB,android.graphics.ColorSpace.Named.DISPLAY_P3,android.graphics.ColorSpace.Named.LINEAR_EXTENDED_SRGB,android.graphics.ColorSpace.Named.CIE_LAB}){

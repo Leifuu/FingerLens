@@ -7,6 +7,21 @@ function item(key: string, category: string, value: Json): Item {
 }
 
 describe('设备格式化展示边界', () => {
+  it('显示产品独立分组保留字符串ID、null、-1和未知字段，旧JSON不补写', () => {
+    const old = { displayId: 0, hdr: { types: [2, 3] }, supportedModes: [{ modeId: 1 }] };
+    const product = { status: 'ok', value: { name: null, manufacturerPnpId: 'SYN', productId: '0007', modelYear: 2026, manufactureYear: -1, manufactureWeek: -1, connectionToSinkType: 999, future: false } };
+    const baseline = buildSections(item('display/0', 'display', old)), current = buildSections(item('display/0', 'display', { ...old, deviceProductInfo: product }));
+    expect(baseline.some(group => group.key === 'product')).toBe(false);
+    for (const group of baseline) expect(current.find(section => section.key === group.key)).toEqual(group);
+    const group = current.find(section => section.key === 'product')!;
+    expect(group.title).toBe('显示设备产品信息');expect(group.table).toBe(true);expect(group.rows).toHaveLength(9);
+    for (const [key, value] of [['status', '"ok"'], ['value.name', 'null'], ['value.productId', '"0007"'], ['value.manufactureWeek', '-1'], ['value.connectionToSinkType', '999'], ['value.future', 'false']]) expect(group.rows.find(row => row.key === `deviceProductInfo.${key}`)?.value).toBe(value);
+    expect(current.filter(section => section.key !== 'product').flatMap(section => section.rows).some(row => row.key.startsWith('deviceProductInfo'))).toBe(false);
+    for (const status of ['ok', 'unsupported', 'denied', 'error']) {
+      const section = buildSections(item('display/0', 'display', { ...old, deviceProductInfo: { status, value: null } })).find(section => section.key === 'product')!;
+      expect(section.rows.map(row => row.value)).toEqual([JSON.stringify(status), 'null']);
+    }
+  });
   it('显示色彩元数据保留原始范围与成功null，旧HDR/模式分组及缺失字段不补写', () => {
     const old = { displayId: 0, name: 'display', hdr: { types: [2, 3] }, supportedModes: [{ modeId: 1, physicalWidth: 1080, physicalHeight: 2400, refreshRate: 60 }] };
     const colorCapabilities = { wideColorGamut: { status: 'ok', value: false }, preferredWideGamutColorSpace: { status: 'ok', value: { name: '合成色彩空间', id: -1, model: 'LAB', componentCount: 3, wideGamut: true, srgb: false, componentRanges: [{ index: 0, min: 0, max: 100 }, { index: 1, min: -128, max: 128 }], future: false } } };

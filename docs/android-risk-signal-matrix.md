@@ -122,6 +122,11 @@
 - `display/ID.colorCapabilities`分别通过API26+宽色域标志及API29+偏好宽色域空间查询，记录独立status/value；保留false、成功null、unsupported、denied/error与错误类型。空间包含原始name/id/model/分量数、wideGamut/srgb及最多4个原序分量min/max，名称最多2048字符；负ID、负范围与超过1的范围不归一化。旧HDR、模式、替代刷新率及旧JSON不改写，完整字段分页继续保留未知字段与原文。
 - 偏好空间属于系统合成管线声明，不代表当前窗口色彩模式或完整空间清单，不读取画面/ICC或修改配置。Pixel6/API36独立公开API返回Display P3（id7/RGB/3分量0–1），宽色域true；新字段浏览器验证使用明确HYBRID与SYNTHETIC样本，本轮未验证新正式Release整轮报告。详见[来源与边界](android-risk-fingerprint-sources.md#显示宽色域与偏好色彩空间)。
 
+## 显示设备产品信息补充
+
+- 新增 `display/ID.deviceProductInfo`，API31+公开Display/DeviceProductInfo的独立status/value，保存名称、厂商PnP ID、字符串产品ID、型号年份、制造年/周与连接类型。三个字符串最多2048字符，保留null/空字符串/前导零/-1及未知整数；低API、不提供、拒绝和异常分开，旧模式/HDR/色彩与旧JSON保留。
+- 前端独立产品信息分组按JSON类型展示，50字段分页/差异筛选保留未知字段；三种比较区分类型和状态变化。数据可能属于显示链路中间设备，不能当作已验证的实际制造日期或原装面板证明；不读取EDID文件/序列号或改变显示配置。Pixel6/API36独立API对照及新Release安装完成，新字段展示样本为HYBRID/SYNTHETIC，未生成新正式整轮报告，详见[来源与边界](android-risk-fingerprint-sources.md#显示设备产品信息)。
+
 ## 当前缺口与下一步候选
 
 - TLS 参数已增加紧凑摘要：已知17字段合并为9行，完整字段折叠保留；完整列表哈希和未知元数据变化仍参与概览差异，旧结构回退原字段表。四组协议/密码套件原序清单、schema1.0和比较器不变。

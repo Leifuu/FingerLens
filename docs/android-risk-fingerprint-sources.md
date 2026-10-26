@@ -51,6 +51,13 @@
 - Pixel6/Android16/API36独立公开API测试：display0的wideColorGamut为true；偏好 `Display P3`、id7、RGB、3分量，wideGamut=true、srgb=false，各分量范围0–1。两项新测试及原HDR/替代刷新率回归共4项通过，新Release APK已安装；本轮未验证新的正式Release整轮报告。API24/25/28门槛、失败、成功null、自定义负ID/负范围及2048/2049名称边界是合成测试，不声称对应真机实际返回。
 - 浏览器新字段样本明确标为HYBRID（旧正式报告加本轮独立API证据），18个色彩字段逐值双侧核对通过；四份SYNTHETIC状态样本分别78/5/4/5字段，其中78字段跨两页，包含未知字段、HTML名称只作文本、不支持/拒绝/异常和成功null。旧真实报告缺对象不补写，原模式/HDR/分页与窄屏回归保持通过；合成及HYBRID样本均不是新正式采集报告。
 
+## 显示设备产品信息
+
+- [Display.getDeviceProductInfo](https://developer.android.com/reference/android/view/Display#getDeviceProductInfo()) 与 [DeviceProductInfo](https://developer.android.com/reference/android/hardware/display/DeviceProductInfo) 自API31公开。已核对SDK37.0版本表、公开android.jar签名，以及[固定AOSP DeviceProductInfo.java](https://github.com/aosp-mirror/platform_frameworks_base/blob/1cdfff555f4a21f71ccc978290e2e212e2f8b168/core/java/android/hardware/display/DeviceProductInfo.java)（SHA256 `d577fe54d92bec84cccf5a1780bd9ad1eda9ce83f321b6bfc828d7a671113a58`）和Display.java的公开查询契约。显示链路有中间设备时，信息可能属于直接连接的中间设备；平台没有信息时返回null。
+- 每个 `display/ID.deviceProductInfo` 独立保存status/value。API31以下unsupported/null，成功未提供为ok/null；异常为denied/error/null及errorClass，不抹去原模式/HDR/色彩数据。成功对象仅记录7项公开getter：name、manufacturerPnpId、productId、modelYear、manufactureYear、manufactureWeek、connectionToSinkType。三个字符串最多2048字符，name允许null；空字符串、产品ID前导零、年份/周数-1和未知整数原样保留，不按PnP格式纠正厂商ID，不将产品ID转数字，不从型号年份补制造年份。没有读取隐藏ManufactureDate接口或新增API37属性。
+- 前端独立“显示设备产品信息”分组按原始JSON类型展示，保留50字段分页与差异筛选；旧JSON缺对象不补写。未知字段、成功null/失败和字符串/数字类型变化参与原始、语义、智能三种比较。只读取平台元数据，不读EDID文件/序列号，不改变显示配置、不新增权限；不能据此确认实际生产日期、原装面板或设备真实性。
+- Pixel6/Android16/API36独立公开API与采集sink逐项对照：Common Panel、GGL、产品ID字符串"0"、modelYear=-1、manufactureYear=1990、manufactureWeek=1、connectionToSinkType=1。这些是平台返回值，不当作已确认的实际制造信息。新增状态/字符串边界与公开API测试，加原色彩及替代刷新率回归共4项通过；低API、失败、null、2048/2049字符及未知连接类型是合成测试。新版Release已安装并冷启动，本轮未请求正式采集任务；浏览器使用HYBRID旧报告加独立API证据和明确SYNTHETIC边界夹具，均非新正式整轮报告。
+
 ## 显示模式替代刷新率
 
 - 展示补充（2026-10-26）：20项显示模式概览直接显示两侧替代刷新率（Hz）、查询状态、总数、返回数和截断状态，长内容默认3行并可展开原文。概览按原序最多列8项并明确提示转到完整字段，不补充当前刷新率、不合并重复值；字符串带引号，NaN/Infinity保留float类型，数字/文字计数与截断标志也不归一化。旧JSON缺对象明确未采集，空数组、null、失败/错误类型、未知状态和异构结构保持区别；20项分页、完整字段折叠及50字段分页、完整原对象差异和390px独立横向查看设备B继续保留。仅优化浏览层，不修改采集或导出。

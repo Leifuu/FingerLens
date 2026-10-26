@@ -140,8 +140,10 @@ function displaySections(value: Json): DisplaySection[] {
   if (sync.length) sections.push(section('sync', '同步参数', sync));
   if (object(value.hdr)) sections.push(section('hdr', 'HDR', flattenRows(value.hdr, 'hdr'), false));
   if (Object.hasOwn(value, 'colorCapabilities')) sections.push(section('color', '色彩能力', flattenRows(value.colorCapabilities, 'colorCapabilities', true), true));
+  if (Object.hasOwn(value, 'deviceProductInfo')) sections.push(section('product', '显示设备产品信息', flattenRows(value.deviceProductInfo, 'deviceProductInfo', true), true));
   const covered = new Set(['displayId', 'name', 'flags', 'state', 'rotation', 'widthPixels', 'heightPixels', 'density', 'densityDpi', 'scaledDensity', 'xdpi', 'ydpi', 'refreshRate', 'supportedModes', 'presentationDeadlineNanos', 'appVsyncOffsetNanos', 'hdr']);
   covered.add('colorCapabilities');
+  covered.add('deviceProductInfo');
   const extra = Object.fromEntries(Object.entries(value).filter(([key]) => !covered.has(key)));
   if (Object.keys(extra).length) sections.push(...genericSections(extra).map(item => ({ ...item, key: `extra-${item.key}` })));
   return sections.length ? sections : [section('value', '显示器数据', objectRows(value))];

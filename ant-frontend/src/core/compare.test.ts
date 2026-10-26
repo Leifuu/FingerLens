@@ -122,6 +122,19 @@ describe('原始与语义比较', () => {
     }
     expect(JSON.stringify([old, current, ...variants])).toBe(before);
   });
+  it('显示产品信息兼容旧JSON，成功null/失败/原始类型与未知字段参与三种比较', () => {
+    const report = (product?: Json) => fixture([fixtureItem('display/0', { displayId: 0, ...(product === undefined ? {} : { deviceProductInfo: product }) }, { category: 'display' })]);
+    const base = { name: null, manufacturerPnpId: 'SYN', productId: '0007', modelYear: -1, manufactureYear: -1, manufactureWeek: -1, connectionToSinkType: 999 };
+    const current = report({ status: 'ok', value: base });
+    const variants = [report({ status: 'ok', value: { ...base, productId: 7 } }), report({ status: 'ok', value: { ...base, future: false } }), report({ status: 'ok', value: null }), report({ status: 'unsupported', value: null }), report({ status: 'denied', value: null, errorClass: 'SyntheticException' })];
+    const before = JSON.stringify([current, ...variants]);
+    for (const rules of [raw, semantic, smart]) {
+      expect(find(compare(report(), current, rules), 'display/0').changedPaths).toEqual(['/value/deviceProductInfo']);
+      for (const next of variants) expect(find(compare(current, next, rules), 'display/0').state).toBe('different');
+      expect(find(compare(variants[2], variants[3], rules), 'display/0').state).toBe('different');
+    }
+    expect(JSON.stringify([current, ...variants])).toBe(before);
+  });
   it('显示模式HDR兼容旧字段并区分未知/空集/失败及截断外变化', () => {
     const mode = { modeId: 1, physicalWidth: 1080, physicalHeight: 2400, refreshRate: 60 };
     const report = (support?: Json) => fixture([fixtureItem('display/0', { supportedModes: [{ ...mode, ...(support === undefined ? {} : { hdrTypeSupport: support }) }], hdr: { types: [2, 3] } }, { category: 'display' })]);
