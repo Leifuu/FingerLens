@@ -13,6 +13,8 @@
 
 ## Android 安全环境资料
 
+- 音频能力展示补充（2026-10-26）：`hardware/audio` 采用每页5设备的双侧概览，保留ID/类型/输入输出原值、旧聚合数组及关联查询状态、总数/返回数/截断标志。关联格式按原始序号展开，每页5项显示编码、采样率、声道位置/索引掩码及封装；不合并重复格式，不从旧数组补写关联数据。设备行与格式行均比较完整原始对象，完整哈希、未知字段及原始类型变化仍标差异；“只展示差异”同时作用于设备、关联格式和完整字段。旧JSON显示未采集，空数组、null、失败和缺失保持区别；异构结构或超过概览边界（256设备/64格式/数组1024项）回退原字段表。保留完整字段折叠及50字段分页，窄屏可独立横向查看设备B；不改写采集/导出或通用比较规则。
+
 - 音频设备关联格式能力（2026-10-26）：[AudioDeviceInfo.getAudioProfiles](https://developer.android.com/reference/android/media/AudioDeviceInfo#getAudioProfiles()) 与 [AudioProfile](https://developer.android.com/reference/android/media/AudioProfile) 自API31公开。已核对SDK37版本表和[固定AOSP AudioProfile.java](https://github.com/aosp-mirror/platform_frameworks_base/blob/1cdfff555f4a21f71ccc978290e2e212e2f8b168/media/java/android/media/AudioProfile.java)、[AudioDeviceInfo.java](https://github.com/aosp-mirror/platform_frameworks_base/blob/1cdfff555f4a21f71ccc978290e2e212e2f8b168/media/java/android/media/AudioDeviceInfo.java)：profile按编码格式关联采样率及声道掩码，相同编码可因封装方式不同而有多条记录。封装类型公开值0=NONE、1=IEC61937、2=PCM，采集保留整数，不丢弃未知值；仅使用公开getter，未使用SystemApi构造器。
 - `hardware/audio[*].audioProfiles` 新增原序profiles，每项包含format、sampleRatesHz、channelMasks、channelIndexMasks及encapsulationType。最多接受256项、每个整数数组最多1024项，保留前64项明细和完整原序JSON集合的UTF8 SHA256；不排序、去重或合并相同格式，保留空数组、零和有符号掩码。有效空清单为ok/[]，API31以下unsupported/null，读取失败denied/error/null及errorClass，不把缺失数组/清单当成空集合，也不从旧聚合数组重建profile。查询独立于原有设备字段，旧JSON无新对象继续导入比较；通用字段表保留50字段分页。只读能力元数据，不打开音频设备、不播放/录制、不新增权限；不由多个聚合列表推导所有组合可用，也不把profile声明当作当前路由或录放音成功证明。旧API目前通过分支模拟，尚无对应真机验证。
 
