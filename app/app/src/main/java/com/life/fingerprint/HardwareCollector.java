@@ -157,10 +157,11 @@ public final class HardwareCollector implements Collector {
     // 业务块：只读取音频设备能力元数据，不获取音频样本；原始清单与摘要并存。
     private void audio(ItemSink s){
         AudioManager manager=s.context.getSystemService(AudioManager.class);
-        if(manager==null){s.ok("hardware","hardware/audio-summary","音频能力摘要","AudioManager","AudioManager unavailable",Json.obj("available",false,"count",0,"productNames",new JSONArray()));s.ok("hardware","hardware/microphone-summary","麦克风阵列能力摘要","AudioManager.getMicrophones","AudioManager unavailable",microphoneUnavailable("unavailable"));return;}
+        if(manager==null){s.ok("hardware","hardware/audio-summary","音频能力摘要","AudioManager","AudioManager unavailable",Json.obj("available",false,"count",0,"productNames",new JSONArray()));s.ok("hardware","hardware/microphone-summary","麦克风阵列能力摘要","AudioManager.getMicrophones","AudioManager unavailable",microphoneUnavailable("unavailable"));s.read("hardware","hardware/microphones","麦克风声学与阵列元数据","AudioManager.getMicrophones / MicrophoneInfo",()->microphoneDetails(null,Build.VERSION.SDK_INT));return;}
         s.read("hardware","hardware/audio","音频设备公开清单","AudioManager.getDevices",()->audioDevices(manager));
         s.read("hardware","hardware/audio-summary","音频能力摘要","AudioManager.getDevices",()->audioSummary(manager));
         s.read("hardware","hardware/microphone-summary","麦克风阵列能力摘要","AudioManager.getMicrophones",()->microphoneSummary(manager));
+        s.read("hardware","hardware/microphones","麦克风声学与阵列元数据","AudioManager.getMicrophones / MicrophoneInfo",()->microphoneDetails(manager,Build.VERSION.SDK_INT));
     }
     private static JSONArray audioDevices(AudioManager manager){
         JSONArray devices=new JSONArray();for(AudioDeviceInfo device:manager.getDevices(AudioManager.GET_DEVICES_ALL)){CharSequence productName=device.getProductName();devices.put(Json.obj("id",device.getId(),"type",device.getType(),"productName",productName==null?null:productName.toString(),"isSource",device.isSource(),"isSink",device.isSink(),"addressPresent",device.getAddress()!=null&&!device.getAddress().isEmpty(),"channelCounts",device.getChannelCounts(),"sampleRates",device.getSampleRates(),"encodings",device.getEncodings(),"audioProfiles",audioDeviceProfiles(device,Build.VERSION.SDK_INT)));}return devices;
@@ -193,6 +194,47 @@ public final class HardwareCollector implements Collector {
         for(AudioDeviceInfo device:devices){if(device.isSource())sourceCount++;if(device.isSink())sinkCount++;count(typeCounts,String.valueOf(device.getType()));CharSequence productName=device.getProductName();String product=productName==null?"":productName.toString();if(product.length()>0&&!productNames.contains(product)){if(productNames.size()<128)productNames.add(product);else productNamesTruncated=true;}int[] rates=device.getSampleRates();if(rates!=null)for(int rate:rates)sampleRates.add(rate);int[] formats=device.getEncodings();if(formats!=null)for(int encoding:formats)encodings.add(encoding);}
         JSONArray names=new JSONArray();for(String name:productNames)names.put(name);JSONArray rates=new JSONArray();for(Integer rate:sampleRates)rates.put(rate);JSONArray formats=new JSONArray();for(Integer encoding:encodings)formats.put(encoding);
         return Json.obj("available",true,"count",devices.length,"sourceCount",sourceCount,"sinkCount",sinkCount,"typeCounts",typeCounts,"productNames",names,"productNamesTruncated",productNamesTruncated,"sampleRates",rates,"encodings",formats);
+    }
+    // 业务块：独立记录API28+逐麦克风声学/几何元数据；未知哨兵与非有限数不冒充真实测量。
+    static JSONObject microphoneDetails(AudioManager manager,int sdk){
+        JSONObject missing=Json.obj("status",sdk<28?"unsupported":"unavailable","count",null,"microphones",null);
+        if(sdk<28||manager==null)return missing;
+        try{return microphoneValues(manager.getMicrophones());}
+        catch(Exception|LinkageError e){Json.put(missing,"status",e instanceof SecurityException?"denied":"error");Json.put(missing,"errorClass",e.getClass().getName());return missing;}
+    }
+    static JSONObject microphoneValues(List<MicrophoneInfo> microphones)throws Exception{
+        Objects.requireNonNull(microphones,"missing microphones");if(microphones.size()>256)throw new IllegalArgumentException("microphones exceeds 256");
+        ArrayList<MicrophoneInfo> snapshot=new ArrayList<>(microphones);if(snapshot.size()>256)throw new IllegalArgumentException("microphones exceeds 256");
+        JSONArray all=new JSONArray(),returned=new JSONArray();
+        for(MicrophoneInfo microphone:snapshot){JSONObject value=microphoneValue(Objects.requireNonNull(microphone,"missing microphone"));all.put(value);if(returned.length()<64)returned.put(value);}
+        return Json.obj("status",snapshot.size()>64?"partial":"ok","count",snapshot.size(),"returnedCount",returned.length(),"microphoneLimit",64,"truncated",snapshot.size()>64,"microphonesSha256",PackageInputCollector.sha(all.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)),"microphones",returned);
+    }
+    static JSONObject microphoneValue(MicrophoneInfo microphone){
+        Objects.requireNonNull(microphone,"missing microphone");
+        return Json.obj("id",microphone.getId(),"type",microphone.getType(),"location",microphone.getLocation(),"directionality",microphone.getDirectionality(),"group",microphone.getGroup(),"indexInGroup",microphone.getIndexInTheGroup(),
+            "calibration",microphoneQuery(()->Json.obj("sensitivityDbfs",microphoneFloatValue(microphone.getSensitivity()),"maxSplDb",microphoneFloatValue(microphone.getMaxSpl()),"minSplDb",microphoneFloatValue(microphone.getMinSpl()))),
+            "positionMeters",microphoneQuery(()->{MicrophoneInfo.Coordinate3F p=Objects.requireNonNull(microphone.getPosition(),"missing position");return microphoneCoordinateValue(p.x,p.y,p.z,true);}),
+            "orientation",microphoneQuery(()->{MicrophoneInfo.Coordinate3F p=Objects.requireNonNull(microphone.getOrientation(),"missing orientation");return microphoneCoordinateValue(p.x,p.y,p.z,false);}),
+            "frequencyResponse",microphoneQuery(()->microphoneResponseValues(microphone.getFrequencyResponse())));
+    }
+    static JSONObject microphoneQuery(ItemSink.Read read){
+        try{return Json.obj("status","ok","value",read.get());}
+        catch(Exception|LinkageError e){return Json.obj("status",e instanceof SecurityException?"denied":"error","value",null,"errorClass",e.getClass().getName());}
+    }
+    static JSONObject microphoneFloatValue(float value){
+        return Json.obj("raw",value,"kind",value==-Float.MAX_VALUE?"unknown-sentinel":Float.isFinite(value)?"finite":"non-finite");
+    }
+    static JSONObject microphoneCoordinateValue(float x,float y,float z,boolean position){
+        boolean unknown=position?x==-Float.MAX_VALUE&&y==-Float.MAX_VALUE&&z==-Float.MAX_VALUE:x==0f&&y==0f&&z==0f;
+        return Json.obj("x",x,"y",y,"z",z,"kind",unknown?"unknown-sentinel":Float.isFinite(x)&&Float.isFinite(y)&&Float.isFinite(z)?"finite":"non-finite");
+    }
+    // 业务块：频响最多4096输入/128点明细；完整原序JSON哈希保留截断外变化，不排序或推导录音通道。
+    static JSONObject microphoneResponseValues(List<android.util.Pair<Float,Float>> response)throws Exception{
+        Objects.requireNonNull(response,"missing frequency response");if(response.size()>4096)throw new IllegalArgumentException("frequency response exceeds 4096");
+        ArrayList<android.util.Pair<Float,Float>> snapshot=new ArrayList<>(response);if(snapshot.size()>4096)throw new IllegalArgumentException("frequency response exceeds 4096");
+        JSONArray all=new JSONArray(),returned=new JSONArray();
+        for(android.util.Pair<Float,Float> point:snapshot){Objects.requireNonNull(point,"missing response point");JSONObject value=Json.obj("frequencyHz",Objects.requireNonNull(point.first,"missing frequency"),"responseDb",Objects.requireNonNull(point.second,"missing response"));all.put(value);if(returned.length()<128)returned.put(value);}
+        return Json.obj("pointCount",snapshot.size(),"returnedCount",returned.length(),"pointLimit",128,"truncated",snapshot.size()>128,"pointsSha256",PackageInputCollector.sha(all.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)),"points",returned);
     }
     // 业务块：读取公开麦克风阵列能力，限制集合规模，不导出地址/描述或任何音频样本。
     private static JSONObject microphoneSummary(AudioManager manager)throws Exception{

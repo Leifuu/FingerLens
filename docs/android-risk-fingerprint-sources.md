@@ -174,6 +174,15 @@
 
 - [SystemFonts.getAvailableFonts](https://developer.android.com/reference/android/graphics/fonts/SystemFonts#getAvailableFonts())、[Font](https://developer.android.com/reference/android/graphics/fonts/Font) 和 [AOSP SystemFonts](https://android.googlesource.com/platform/frameworks/base/+/refs/heads/main/graphics/java/android/graphics/fonts/SystemFonts.java)（2026-10-26 已核对源码与 SDK）：API 29 起提供当前进程可见的系统字体集合。新增 `environment/system-fonts`，记录字体数量、文件来源数量、斜体/配置变体轴数量，以及文件 basename、TTC 索引、字重、倾斜、语言标签和排序后的变体设置；最多保存 128 项明细，并对完整元数据多重集合计算 SHA-256，保留无文件字体的 null。规范化记录为上述六字段的 JSON 数组，按字符串排序、每条追加 LF，再以 UTF-8 哈希；相同元数据不去重，避免无序 Set 导致差异。仅使用公开元数据 API，不调用 `getBuffer` 或读取字体正文，不导出完整路径、不改变字体配置；相同 basename 不证明来源相同，元数据哈希不等同字体文件哈希，不证明字形或实际渲染一致，也不是永久设备 ID。API 29 以下明确 unsupported，原始语言/字体缩放条目与旧 JSON 不变。
 
+## 麦克风声学与阵列元数据
+
+- [MicrophoneInfo](https://developer.android.com/reference/android/media/MicrophoneInfo) 及其 `Coordinate3F` 自API28公开；已核对本机SDK37版本表和固定AOSP提交 `1cdfff555f4a21f71ccc978290e2e212e2f8b168` 的 [MicrophoneInfo.java](https://github.com/aosp-mirror/platform_frameworks_base/blob/1cdfff555f4a21f71ccc978290e2e212e2f8b168/media/java/android/media/MicrophoneInfo.java) 与 [AudioManager.java](https://github.com/aosp-mirror/platform_frameworks_base/blob/1cdfff555f4a21f71ccc978290e2e212e2f8b168/media/java/android/media/AudioManager.java)。前者SHA256为 `6b4385c3474bbb36578a86dc58e11d104bf67eedba742d1303ea2b4945b3c531`，后者为 `7d3230e01dfd8bb8007fe53b01700364dc2189fc1132e5a8e485aac0118a640a`。
+- 新增 `hardware/microphones`，保留每个条目的id、type、location、directionality、group和indexInGroup；校准、位置、朝向与频响四个查询块独立记录status/value。灵敏度是在1000Hz、94dB SPL输入下的dBFS，最大/最小SPL是在1000Hz下的dB值；位置单位为米，朝向保留原始三轴向量，不重新归一化。频响点分别为frequencyHz和responseDb，不排序、去重或插值。
+- 灵敏度/SPL的 `-Float.MAX_VALUE`、位置三轴均为该值、朝向全零向量是平台定义的未知哨兵。保留原数值并标记 `kind:unknown-sentinel`；其它有限数仅标finite，不作物理有效性判断；NaN/Infinity标non-finite并沿用公共Json的带类型编码。位置的零向量保持finite，不能套用朝向的未知规则；group/index的-1原样保存。
+- 麦克风清单最多256输入/64条明细，频响每条最多4096输入/128点明细；分别保存原始数量、返回数、上限、截断标志和完整原序JSON数组的UTF8 SHA256。麦克风集合哈希覆盖全部条目的已采集元数据及频响完整哈希；频响哈希覆盖截断之外的点。成功空集合与缺失/null/失败分开；API28以下unsupported/null，服务缺失unavailable/null；读取异常denied/error/null/errorClass。校准、位置、朝向或频响的一块失败不丢失其它块或旧摘要。
+- `getMicrophones()` 的框架实现可能在HAL查询失败或补充非内置输入时从AudioDeviceInfo合成未知特征，故这些是平台声明的元数据，不能证明已做声学校准、实际录音性能、所有物理麦克风库存或永久设备身份。本轮不读取地址/描述，不打开AudioRecord、不录音，不新增权限；该入口的通道映射按公开契约为空，不将其冒充活动录音通道。原麦克风摘要及其它音频字段不改动，旧JSON缺新条目正常比较；完整字段继续50行分页。
+- Pixel6/API36已与独立公开API读取逐项核对：4个条目，共185个频响点，其中两个条目的校准/位置/朝向为未知哨兵；有效值和未知值均保留。API24/27只验证了模拟分支，尚无API28以下真机；异常状态为合成故障测试，不当作本机实际返回。
+
 ## GitHub 上的公开 SDK/实现
 
 - [scottyab/rootbeer](https://github.com/scottyab/rootbeer)：README 列出 root 管理应用、危险应用、root cloaking、test-keys、危险属性、BusyBox、`su` 等检查，并明确说明这些规则有漏报和绕过限制。本工程只复用可观察证据（构建标记、属性、路径），不扫描或上传第三方应用清单作为结论。

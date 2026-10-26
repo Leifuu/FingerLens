@@ -7,6 +7,20 @@ const raw = { semantic: false, ignoreDynamic: false }, semantic = { semantic: tr
 const find = (rows: ReturnType<typeof compare>, key: string) => rows.find(x => x.key === key)!;
 
 describe('原始与语义比较', () => {
+  it('逐麦克风元数据兼容旧JSON，区分哨兵/零/失败和原始类型，保留频响及集合哈希差异', () => {
+    const key = 'hardware/microphones', summary = fixtureItem('hardware/microphone-summary', { count: 1 });
+    const value = { status: 'ok', microphonesSha256: 'a', microphones: [{ id: 0, group: -1, positionMeters: { status: 'ok', value: { x: 0, y: 0, z: 0, kind: 'finite' } }, calibration: { status: 'ok', value: { sensitivityDbfs: { raw: -3.4028235e38, kind: 'unknown-sentinel' } } }, frequencyResponse: { status: 'ok', value: { pointsSha256: 'a', points: [{ frequencyHz: 1000, responseDb: 0 }, { frequencyHz: 1000, responseDb: 0 }] } } }] };
+    const report = (v: Json) => fixture([summary, fixtureItem(key, v)]), old = fixture([summary]), current = report(value);
+    const mic = value.microphones[0];
+    const variants: Json[] = [{ ...value, microphonesSha256: 'b' }, { ...value, microphones: [{ ...mic, id: '0' }] }, { ...value, microphones: [{ ...mic, calibration: { status: 'ok', value: { sensitivityDbfs: { raw: 0, kind: 'finite' } } } }] }, { ...value, microphones: [{ ...mic, frequencyResponse: { status: 'error', value: null } }] }, { ...value, microphones: [{ ...mic, future: false }] }, { status: 'ok', microphones: [] }, { status: 'unsupported', microphones: null }];
+    const inputs = [old, current, ...variants.map(report)], before = JSON.stringify(inputs);
+    for (const rules of [raw, semantic, smart]) {
+      expect(find(compare(old, current, rules), key).state).toBe('right-only');expect(find(compare(old, current, rules), summary.key).state).toBe('same');
+      expect(find(compare(current, current, rules), key).state).toBe('same');
+      for (const next of inputs.slice(2)) expect(find(compare(current, next, rules), key).state).toBe('different');
+    }
+    expect(JSON.stringify(inputs)).toBe(before);
+  });
   it('音频关联profile兼容旧JSON，保留原序/重复、掩码、空集合及截断外哈希', () => {
     const key = 'hardware/audio', device = { id: 1, type: 2, encodings: [2], sampleRates: [48000], channelCounts: [2] };
     const report = (profiles?: Json) => fixture([fixtureItem(key, [{ ...device, ...(profiles === undefined ? {} : { audioProfiles: profiles }) }], { category: 'hardware' })]);
