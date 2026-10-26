@@ -80,6 +80,22 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.map(row => row.key)).toContain('virtualCount');
     expect(sections[0].rows.map(row => row.key)).toContain('keyboardTypeCounts.1');
   });
+  it('振动器频率保留NaN类型、原始数值和未知字段，旧JSON不填充', () => {
+    const legacy = { available: true, vibrators: [{ id: 0, effectSupportCodes: [1, 2, 0, 1] }] };
+    const query = { status: 'unknown', value: { $type: 'float', value: 'NaN' }, future: false };
+    const current = { ...legacy, vibrators: [{ ...legacy.vibrators[0], frequencyCharacteristics: { resonantFrequencyHz: query, qFactor: { status: 'ok', value: 0 } } }] };
+    const before = JSON.stringify([legacy, current]);
+    const old = buildSections(item('hardware/vibrator', 'hardware', legacy)).find(section => section.key === 'vibrators')!.rows, rows = buildSections(item('hardware/vibrator', 'hardware', current)).find(section => section.key === 'vibrators')!.rows;
+    expect(old.some(row => row.key.includes('frequencyCharacteristics'))).toBe(false);
+    const prefix = '[0].frequencyCharacteristics.';
+    expect(rows.find(row => row.key === prefix + 'resonantFrequencyHz.status')?.value).toBe('unknown');
+    expect(rows.find(row => row.key === prefix + 'resonantFrequencyHz.value.$type')?.value).toBe('float');
+    expect(rows.find(row => row.key === prefix + 'resonantFrequencyHz.value.value')?.value).toBe('NaN');
+    expect(rows.find(row => row.key === prefix + 'resonantFrequencyHz.future')?.value).toBe('false');
+    expect(rows.find(row => row.key === prefix + 'qFactor.value')?.value).toBe('0');
+    expect(rows.filter(row => row.key.startsWith('[0].effectSupportCodes')).map(row => row.value)).toEqual(['1', '2', '0', '1']);
+    expect(JSON.stringify([legacy, current])).toBe(before);
+  });
   it('显示摘要展示能力计数并保留尺寸数组', () => {
     const sections = buildSections(item('display/summary', 'display', { count: 2, validCount: 2, secureCount: 2, presentationCount: 0, presentationCategoryCount: 0, hdrCount: 1, widths: [1080, 1920], heights: [2400, 1080], densityDpi: [420], refreshRates: [60, 120] }));
     expect(sections[0].title).toBe('显示能力摘要');

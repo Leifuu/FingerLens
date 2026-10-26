@@ -206,7 +206,22 @@ public final class HardwareCollector implements Collector {
     private static JSONObject vibratorValue(Vibrator vibrator,int id){
         JSONObject value=Json.obj("id",id,"hasVibrator",vibrator.hasVibrator(),"hasAmplitudeControl",vibrator.hasAmplitudeControl());
         if(Build.VERSION.SDK_INT>=30)try{Json.put(value,"effectSupportCodes",vibrator.areEffectsSupported(VibrationEffect.EFFECT_CLICK,VibrationEffect.EFFECT_DOUBLE_CLICK,VibrationEffect.EFFECT_HEAVY_CLICK,VibrationEffect.EFFECT_TICK));}catch(Exception e){Json.put(value,"effectSupportCodes",null);Json.put(value,"effectSupportStatus","error");}
+        Json.put(value,"frequencyCharacteristics",vibratorFrequencyCharacteristics(vibrator));
         return value;
+    }
+    // 业务块：只读两个公开频率特性；NaN按平台语义保留为未知，单项异常不丢失其它振动器能力。
+    static JSONObject vibratorFrequencyCharacteristics(Vibrator vibrator){
+        Objects.requireNonNull(vibrator,"missing vibrator");JSONObject out=new JSONObject();
+        for(String name:new String[]{"resonantFrequencyHz","qFactor"}){
+            JSONObject query=Json.obj("status",Build.VERSION.SDK_INT<34?"unsupported":"error","value",null);
+            if(Build.VERSION.SDK_INT>=34)try{query=vibratorFrequencyValue(name.equals("resonantFrequencyHz")?vibrator.getResonantFrequency():vibrator.getQFactor());}
+            catch(Exception|LinkageError e){Json.put(query,"status",e instanceof SecurityException?"denied":"error");Json.put(query,"errorClass",e.getClass().getName());}
+            Json.put(out,name,query);
+        }
+        return out;
+    }
+    static JSONObject vibratorFrequencyValue(float value){
+        return Json.obj("status",Float.isNaN(value)?"unknown":Float.isInfinite(value)?"non-finite":"ok","value",value);
     }
     // 业务块：只读取 UsbManager 已公开的设备描述符，不申请 USB 权限、不读取序列号。
     private void usb(ItemSink s){

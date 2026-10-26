@@ -7,6 +7,19 @@ const raw = { semantic: false, ignoreDynamic: false }, semantic = { semantic: tr
 const find = (rows: ReturnType<typeof compare>, key: string) => rows.find(x => x.key === key)!;
 
 describe('原始与语义比较', () => {
+  it('振动器频率兼容旧数据，区分NaN未知/零/失败及新状态而不改变原效果码', () => {
+    const device = { id: 0, hasVibrator: true, hasAmplitudeControl: true, effectSupportCodes: [1, 1, 1, 2] };
+    const report = (frequency?: Json) => fixture([fixtureItem('hardware/vibrator', { vibrators: [{ ...device, ...(frequency === undefined ? {} : { frequencyCharacteristics: { resonantFrequencyHz: frequency } }) }] }, { category: 'hardware' })]);
+    const legacy = report(), unknown = report({ status: 'unknown', value: { $type: 'float', value: 'NaN' } });
+    const variants = [report({ status: 'ok', value: 0 }), report({ status: 'unsupported', value: null }), report({ status: 'error', value: null, errorClass: 'synthetic' }), report({ status: 'non-finite', value: { $type: 'float', value: 'Infinity' } }), report({ status: 'future', value: false })];
+    const before = JSON.stringify([legacy, unknown, ...variants]);
+    for (const rules of [raw, semantic, smart]) {
+      expect(find(compare(legacy, unknown, rules), 'hardware/vibrator').changedPaths).toEqual(['/value/vibrators/0/frequencyCharacteristics']);
+      for (const next of variants) expect(find(compare(unknown, next, rules), 'hardware/vibrator').state).toBe('different');
+      expect(find(compare(variants[1], variants[2], rules), 'hardware/vibrator').state).toBe('different');
+    }
+    expect(JSON.stringify([legacy, unknown, ...variants])).toBe(before);
+  });
   it('显示模式HDR兼容旧字段并区分未知/空集/失败及截断外变化', () => {
     const mode = { modeId: 1, physicalWidth: 1080, physicalHeight: 2400, refreshRate: 60 };
     const report = (support?: Json) => fixture([fixtureItem('display/0', { supportedModes: [{ ...mode, ...(support === undefined ? {} : { hdrTypeSupport: support }) }], hdr: { types: [2, 3] } }, { category: 'display' })]);
