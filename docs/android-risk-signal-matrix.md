@@ -95,6 +95,8 @@
 | --- | --- | --- |
 | [MediaDrm.isCryptoSchemeSupported(UUID,String,int)](https://developer.android.com/reference/android/media/MediaDrm#isCryptoSchemeSupported(java.util.UUID,java.lang.String,int))，API29+；[固定源码与版本依据](android-risk-fingerprint-sources.md#widevine-容器与安全级别查询) | `hardware/drm/widevine-capabilities` | 四种MP4/WebM音视频容器×1..5具体安全级别，共20项独立status/supported；false、API不足、拒绝与异常null分开。旧JSON缺项兼容，JSON类型与未知字段不丢失；不打开会话、不取标识，不推导许可证、L1/L3或实际播放成功。 |
 
+工作台提供原序逐查询双侧概览，每页10行；元数据及查询完整原对象决定差异，成功false、失败null、旧缺项与未采集分开。仅数值1..5附级别常量名，未知值保留；完整字段折叠/50行分页，异构或超过20项回退原字段。原始JSON与导出不改写。
+
 ## Mainline 关联包版本补充
 
 - `build/modules.modules[*].packageVersion` 通过API29+的 [MATCH_APEX](https://developer.android.com/reference/android/content/pm/PackageManager#MATCH_APEX) 查询模块关联包，保存版本名、int64版本号、APEX标志与独立查询状态；最多512个模块，同包名查询复用。未找到或不可见不冒充版本0/非APEX，原模块元数据、旧集合哈希与旧JSON保留。版本变化在完整模块清单比较，不将关联包版本当作所有内部组件版本或风险结论。

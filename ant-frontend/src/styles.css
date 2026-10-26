@@ -43,3 +43,5 @@
 .comparison-drawer .sensor-privacy-overview-section .ant-table-placeholder .ant-table-cell{color:#a6b5b0}
 .thermal-threshold-overview-section .ant-typography-secondary{color:#a6b5b0}.thermal-threshold-facts{display:flex;flex-direction:column;gap:4px;min-width:0;overflow-wrap:anywhere}.thermal-threshold-facts .ant-typography{margin-bottom:0;white-space:pre-wrap}.thermal-threshold-scroll-hint{display:none}@media(max-width:768px){.thermal-threshold-scroll-hint{display:block}}
 .comparison-drawer .thermal-threshold-overview-section .ant-table-placeholder .ant-table-cell{color:#a6b5b0}
+.widevine-capabilities-overview-section .ant-typography-secondary{color:#a6b5b0}.widevine-capabilities-facts{display:flex;flex-direction:column;gap:4px;min-width:0;overflow-wrap:anywhere}.widevine-capabilities-facts .ant-typography{margin-bottom:0;white-space:pre-wrap}.widevine-capabilities-scroll-hint{display:none}@media(max-width:768px){.widevine-capabilities-scroll-hint{display:block}}
+.comparison-drawer .widevine-capabilities-overview-section .ant-table-placeholder .ant-table-cell{color:#a6b5b0}
