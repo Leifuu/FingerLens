@@ -141,6 +141,10 @@ public final class NetworkCollector implements Collector {
         s.read("network","network/bluetooth","蓝牙及已配对设备","BluetoothManager / BluetoothAdapter.getBondedDevices",()->{BluetoothManager m=s.context.getSystemService(BluetoothManager.class);BluetoothAdapter b=m==null?null:m.getAdapter();if(b==null)return null;JSONArray devices=new JSONArray();for(BluetoothDevice d:b.getBondedDevices())devices.put(Json.obj("address",d.getAddress(),"name",d.getName(),"type",d.getType(),"bondState",d.getBondState()));return Json.obj("name",b.getName(),"address",b.getAddress(),"state",b.getState(),"pairedDevices",devices);});
         s.read("network","network/bluetooth-summary","蓝牙能力摘要","BluetoothManager / BluetoothAdapter",()->bluetoothSummary(s.context));
         s.read("network","network/bluetooth-capabilities","蓝牙 LE 能力","BluetoothAdapter LE capability APIs",()->bluetoothCapabilities(s.context));
+        s.read("network","network/bluetooth-le-audio","蓝牙 LE Audio 能力结果码","BluetoothAdapter.isLeAudioSupported / isLeAudioBroadcastSourceSupported / isLeAudioBroadcastAssistantSupported",()->{
+            BluetoothManager manager=s.context.getSystemService(BluetoothManager.class);BluetoothAdapter adapter=manager==null?null:manager.getAdapter();
+            return bluetoothLeAudioDetails(adapter!=null,Build.VERSION.SDK_INT,()->adapter.isLeAudioSupported(),()->adapter.isLeAudioBroadcastSourceSupported(),()->adapter.isLeAudioBroadcastAssistantSupported());
+        });
         for(String p:new String[]{"/proc/net/route","/proc/net/ipv6_route","/proc/net/if_inet6","/proc/net/arp","/proc/net/dev"})s.file("network","network/file"+p,p);
     }
     // 业务块：保留公开 NetworkCapabilities 的版本边界；不支持的能力返回 null 而不是 false。
@@ -224,6 +228,15 @@ public final class NetworkCollector implements Collector {
         try{return Json.obj("available",true,"access","allowed","adapterState",adapter.getState(),"le2MPhySupported",adapter.isLe2MPhySupported(),"leCodedPhySupported",adapter.isLeCodedPhySupported(),"leExtendedAdvertisingSupported",adapter.isLeExtendedAdvertisingSupported(),"leMaximumAdvertisingDataLength",adapter.getLeMaximumAdvertisingDataLength());}
         catch(SecurityException e){return Json.obj("available",true,"access","denied","adapterState",null,"le2MPhySupported",null,"leCodedPhySupported",null,"leExtendedAdvertisingSupported",null,"leMaximumAdvertisingDataLength",null);}
         catch(RuntimeException e){return Json.obj("available",true,"access","error","adapterState",null,"le2MPhySupported",null,"leCodedPhySupported",null,"leExtendedAdvertisingSupported",null,"leMaximumAdvertisingDataLength",null,"error",e.getClass().getName());}
+    }
+    // 业务块：API33+三个LE Audio能力独立查询，保留原始结果码；未启用和不支持不是同一个结果。
+    static JSONObject bluetoothLeAudioDetails(boolean available,int sdk,java.util.function.IntSupplier audio,java.util.function.IntSupplier source,java.util.function.IntSupplier assistant){
+        return Json.obj("adapterAvailable",available,"leAudio",bluetoothLeAudioQuery(available,sdk,audio),"broadcastSource",bluetoothLeAudioQuery(available,sdk,source),"broadcastAssistant",bluetoothLeAudioQuery(available,sdk,assistant));
+    }
+    private static JSONObject bluetoothLeAudioQuery(boolean available,int sdk,java.util.function.IntSupplier query){
+        if(sdk<33||!available)return Json.obj("status",sdk<33?"unsupported":"unavailable","code",null);
+        try{return Json.obj("status","ok","code",Objects.requireNonNull(query,"missing LE Audio query").getAsInt());}
+        catch(Exception|LinkageError e){return Json.obj("status",e instanceof SecurityException?"denied":e instanceof UnsupportedOperationException||e instanceof NoSuchMethodError?"unsupported":"error","code",null,"errorClass",e.getClass().getName());}
     }
     private static void count(JSONObject counts,String key){Json.put(counts,key,counts.optInt(key,0)+1);}
     // 业务块：Wi-Fi 摘要只记录连接/频段元数据，不导出 SSID、BSSID 或主动发起扫描。

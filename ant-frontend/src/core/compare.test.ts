@@ -7,6 +7,19 @@ const raw = { semantic: false, ignoreDynamic: false }, semantic = { semantic: tr
 const find = (rows: ReturnType<typeof compare>, key: string) => rows.find(x => x.key === key)!;
 
 describe('原始与语义比较', () => {
+  it('LE Audio兼容旧JSON，三查询独立，原始码/类型/失败与未知字段不丢失', () => {
+    const key = 'network/bluetooth-le-audio', old = fixture([fixtureItem('network/bluetooth-capabilities', { available: true })]);
+    const value = { adapterAvailable: true, leAudio: { status: 'ok', code: 10 }, broadcastSource: { status: 'ok', code: 1 }, broadcastAssistant: { status: 'error', code: null, errorClass: 'java.lang.IllegalStateException' } };
+    const report = (next: Json) => fixture([...old.data.items, fixtureItem(key, next, { category: 'network' })]);
+    const current = report(value), before = JSON.stringify(current);
+    const changes: Json[] = [{ ...value, leAudio: { status: 'ok', code: 11 } }, { ...value, leAudio: { status: 'ok', code: '10' } }, { ...value, broadcastSource: { status: 'unsupported', code: null } }, { ...value, broadcastSource: { status: 'ok', code: 2147483647 } }, { ...value, broadcastAssistant: { status: 'denied', code: null, errorClass: 'java.lang.SecurityException' } }, { ...value, future: false }];
+    for (const rules of [raw, semantic, smart]) {
+      expect(find(compare(old, current, rules), key).state).toBe('right-only');
+      expect(find(compare(current, current, rules), key).state).toBe('same');
+      for (const next of changes) expect(find(compare(current, report(next), rules), key).state).toBe('different');
+    }
+    expect(JSON.stringify(current)).toBe(before);
+  });
   it('NFC天线兼容旧JSON，坐标原序/重复/哈希/失败和原始类型继续比较', () => {
     const key = 'hardware/nfc-antennas', old = fixture([fixtureItem('hardware/nfc', { available: true, antennaCount: 2 })]);
     const a = { locationXmm: 0, locationYmm: -1 }, b = { locationXmm: 1, locationYmm: 2 };

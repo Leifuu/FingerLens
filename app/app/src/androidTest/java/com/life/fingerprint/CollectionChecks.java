@@ -21,6 +21,39 @@ public class CollectionChecks {
     private Context context;
     private final ArrayList<CollectionController> controllers=new ArrayList<>();
     @Before public void setup(){context=InstrumentationRegistry.getInstrumentation().getTargetContext();}
+    private void emitBluetoothLeAudioReport(String field,JSONObject item,boolean synthetic)throws Exception{
+        android.content.pm.PackageInfo info=context.getPackageManager().getPackageInfo(context.getPackageName(),0);String now=CollectionController.now();
+        JSONObject data=Json.obj("schemaVersion","1.0","collectorVersion",info.versionName,"sessionId",UUID.randomUUID().toString(),"startedAt",now,"finishedAt",now,"state","complete","config",Json.obj("instrumentation",true,"fixture",synthetic,"scope",synthetic?"SYNTHETIC LE Audio结果码夹具，非设备能力":"独立LE Audio公开API验证，非正式全量报告"),"permissions",CollectionController.permissions(context),"app",Json.obj("packageName",context.getPackageName(),"versionName",info.versionName,"androidSdk",Build.VERSION.SDK_INT),"items",new JSONArray().put(item));
+        Bundle bundle=new Bundle();bundle.putString(field,Json.obj("data",data,"message",synthetic?"SYNTHETIC LE Audio测试报告":"独立LE Audio公开API验证报告","code",0).toString());InstrumentationRegistry.getInstrumentation().sendStatus(0,bundle);
+    }
+    @Test public void bluetoothLeAudioKeepsRawCodesAndIndependentFailures()throws Exception{
+        for(int code:new int[]{10,11,1,0,30,Integer.MIN_VALUE,Integer.MAX_VALUE}){
+            JSONObject value=NetworkCollector.bluetoothLeAudioDetails(true,33,()->code,()->code,()->code);
+            for(String key:new String[]{"leAudio","broadcastSource","broadcastAssistant"}){assertEquals("ok",value.getJSONObject(key).getString("status"));assertEquals(code,value.getJSONObject(key).getInt("code"));assertTrue(value.getJSONObject(key).get("code") instanceof Integer);}
+        }
+        int[] calls={0};JSONObject value=NetworkCollector.bluetoothLeAudioDetails(true,33,()->{calls[0]++;throw new SecurityException("SYNTHETIC");},()->{calls[0]++;return 10;},()->{calls[0]++;return 11;});
+        assertEquals(3,calls[0]);assertEquals("denied",value.getJSONObject("leAudio").getString("status"));assertTrue(value.getJSONObject("leAudio").isNull("code"));assertEquals(SecurityException.class.getName(),value.getJSONObject("leAudio").getString("errorClass"));assertEquals(10,value.getJSONObject("broadcastSource").getInt("code"));assertEquals(11,value.getJSONObject("broadcastAssistant").getInt("code"));
+        JSONObject unsupported=NetworkCollector.bluetoothLeAudioDetails(true,33,()->{throw new UnsupportedOperationException();},()->{throw new NoSuchMethodError();},()->{throw new LinkageError();});
+        assertEquals("unsupported",unsupported.getJSONObject("leAudio").getString("status"));assertEquals("unsupported",unsupported.getJSONObject("broadcastSource").getString("status"));assertEquals("error",unsupported.getJSONObject("broadcastAssistant").getString("status"));assertTrue(unsupported.getJSONObject("broadcastAssistant").isNull("code"));
+        JSONObject fixture=NetworkCollector.bluetoothLeAudioDetails(true,33,()->10,()->1,()->{throw new IllegalStateException("SYNTHETIC");});ItemSink sink=new ItemSink(context,"SYNTHETIC-le-audio");sink.ok("network","network/bluetooth-le-audio","SYNTHETIC LE Audio能力结果码","collector","SYNTHETIC IntSupplier fixture",fixture);emitBluetoothLeAudioReport("bluetoothLeAudioSyntheticReport",sink.items.getJSONObject(0),true);
+    }
+    @Test public void bluetoothLeAudioSkipsOldApiAndAbsentAdapter()throws Exception{
+        int[] calls={0};java.util.function.IntSupplier never=()->{calls[0]++;throw new AssertionError("不应调用");};
+        for(boolean available:new boolean[]{true,false}){
+            JSONObject old=NetworkCollector.bluetoothLeAudioDetails(available,32,never,never,never);assertEquals(available,old.getBoolean("adapterAvailable"));
+            for(String key:new String[]{"leAudio","broadcastSource","broadcastAssistant"}){assertEquals("unsupported",old.getJSONObject(key).getString("status"));assertTrue(old.getJSONObject(key).isNull("code"));}
+        }
+        JSONObject missing=NetworkCollector.bluetoothLeAudioDetails(false,33,never,never,never);assertFalse(missing.getBoolean("adapterAvailable"));for(String key:new String[]{"leAudio","broadcastSource","broadcastAssistant"}){assertEquals("unavailable",missing.getJSONObject(key).getString("status"));assertTrue(missing.getJSONObject(key).isNull("code"));}assertEquals(0,calls[0]);
+    }
+    @Test public void bluetoothLeAudioMatchesPublicGetters()throws Exception{
+        android.bluetooth.BluetoothManager manager=context.getSystemService(android.bluetooth.BluetoothManager.class);android.bluetooth.BluetoothAdapter adapter=manager==null?null:manager.getAdapter();
+        ItemSink sink=new ItemSink(context,"le-audio-api");new NetworkCollector("network").collect(sink);JSONObject item=null;boolean old=false,capabilities=false;
+        for(int i=0;i<sink.items.length();i++){JSONObject value=sink.items.getJSONObject(i);String key=value.getString("key");if(key.equals("network/bluetooth-le-audio"))item=value;if(key.equals("network/bluetooth-summary"))old=true;if(key.equals("network/bluetooth-capabilities"))capabilities=true;}
+        assertNotNull(item);assertTrue(old);assertTrue(capabilities);assertEquals("ok",item.getString("status"));JSONObject value=item.getJSONObject("value");assertEquals(adapter!=null,value.getBoolean("adapterAvailable"));
+        String[] keys={"leAudio","broadcastSource","broadcastAssistant"};java.util.function.IntSupplier[] queries={()->adapter.isLeAudioSupported(),()->adapter.isLeAudioBroadcastSourceSupported(),()->adapter.isLeAudioBroadcastAssistantSupported()};
+        for(int i=0;i<keys.length;i++){JSONObject actual=value.getJSONObject(keys[i]);if(Build.VERSION.SDK_INT<33||adapter==null){assertEquals(Build.VERSION.SDK_INT<33?"unsupported":"unavailable",actual.getString("status"));assertTrue(actual.isNull("code"));continue;}try{int code=queries[i].getAsInt();assertEquals("ok",actual.getString("status"));assertEquals(code,actual.getInt("code"));}catch(Exception|LinkageError e){assertTrue(actual.isNull("code"));assertEquals(e.getClass().getName(),actual.getString("errorClass"));}}
+        System.out.println("LE Audio public evidence="+value);emitBluetoothLeAudioReport("bluetoothLeAudioReport",item,false);
+    }
     private void emitNfcAntennaReport(String field,JSONObject item,boolean synthetic)throws Exception{
         android.content.pm.PackageInfo info=context.getPackageManager().getPackageInfo(context.getPackageName(),0);String now=CollectionController.now();
         JSONObject data=Json.obj("schemaVersion","1.0","collectorVersion",info.versionName,"sessionId",UUID.randomUUID().toString(),"startedAt",now,"finishedAt",now,"state","complete","config",Json.obj("instrumentation",true,"fixture",synthetic,"scope",synthetic?"SYNTHETIC NFC天线夹具，非真机天线位置":"独立NFC天线API验证，非正式全量报告"),"permissions",CollectionController.permissions(context),"app",Json.obj("packageName",context.getPackageName(),"versionName",info.versionName,"androidSdk",Build.VERSION.SDK_INT),"items",new JSONArray().put(item));
