@@ -4,6 +4,7 @@
 
 | 信号方向 | 公开来源与可核验事实 | 当前采集映射 | 状态与边界 |
 |---|---|---|---|
+| 音频设备支持的混音属性 | [AudioManager.getSupportedMixerAttributes](https://developer.android.com/reference/android/media/AudioManager#getSupportedMixerAttributes(android.media.AudioDeviceInfo))、[AudioMixerAttributes](https://developer.android.com/reference/android/media/AudioMixerAttributes)（API34+）公开可配置格式与混音行为。 | `hardware/audio[*].supportedMixerAttributes` | 六个原始整数、原序/重复，最多256输入/64明细，完整集合哈希保留截断外变化；空列表仅表示公共getter返回为空，不证明硬件不支持（固定AOSP底层失败亦可返回空列表）。旧API/服务缺失/异常单独保留，不设置偏好、不播放录音；旧JSON缺字段仍可比较。 |
 | Root / 提权线索 | [RootBeer](https://github.com/scottyab/rootbeer) README 公开列出 test-keys、危险系统属性、`su`/BusyBox、Root 管理应用和可写系统分区等检查类别，并说明存在漏报和绕过限制。 | `virtualization/path*`、`virtualization/build-evidence`、`virtualization/build-markers`、`build/native-property/*`、`build/risk-properties-summary` | 已有证据采集；不扫描第三方应用清单形成结论，不输出“已 root”判定。 |
 | Root 固定路径可观察性 | [RootBeer `Const.java`](https://github.com/scottyab/rootbeer/blob/cc996259929da1e24bd0a7d017c818fd91910d17/rootbeerlib/src/main/java/com/scottyab/rootbeer/Const.java) 公开 15 个 su/BusyBox 候选目录。 | `security/root-path-summary`；Root 检测导航 | 检查 32 个固定路径元数据，逐项保留 errno、类型及存在/缺失/受限/未解析/错误状态；不执行二进制，不跟随父级符号链接，不合并动态 PATH；旧 JSON 保持兼容。 |
 | 系统路径挂载标志 | RootBeer 的固定 7 个系统路径，以及 Android [Os.statvfs](https://developer.android.com/reference/android/system/Os#statvfs(java.lang.String))、StructStatVfs 和 OsConstants 的公开挂载标志。 | `security/root-mount-summary`；Root 检测导航 | 记录当前 App 视角的只读/nosuid/nodev/noexec 与 errno；内核解析符号链接和实际挂载，不写入、不 remount。缺失、拒绝和无法解析时标志为 null；未设置只读标志不代表 App 能写入，不生成 Root 判定。 |

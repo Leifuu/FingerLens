@@ -21,6 +21,22 @@ describe('原始与语义比较', () => {
     }
     expect(JSON.stringify(inputs)).toBe(before);
   });
+  it('音频混音属性兼容旧JSON，保留原序重复、类型、空与失败及截断外哈希差异', () => {
+    const key = 'hardware/audio', device = { id: 1, type: 2, sampleRates: [48000], audioProfiles: { status: 'ok', profiles: [] } };
+    const report = (supportedMixerAttributes?: Json) => fixture([fixtureItem(key, [{ ...device, ...(supportedMixerAttributes === undefined ? {} : { supportedMixerAttributes }) }], { category: 'hardware' })]);
+    const attribute = { mixerBehavior: 0, sampleRateHz: 48000, encoding: 2, channelMask: 12, channelIndexMask: 0, channelCount: 2 };
+    const value = { status: 'partial', attributeCount: 65, returnedCount: 64, attributeLimit: 64, attributesTruncated: true, attributesSha256: 'a', attributes: Array.from({ length: 64 }, () => attribute) };
+    const variants: Json[] = [{ ...value, attributesSha256: 'b' }, { ...value, attributes: [{ ...attribute, mixerBehavior: 1 }, ...value.attributes.slice(1)] }, { ...value, attributes: [{ ...attribute, sampleRateHz: '48000' }, ...value.attributes.slice(1)] }, { ...value, future: false }, { status: 'ok', attributes: [] }, { status: 'unsupported', attributes: null }, { status: 'error', attributes: null, errorClass: 'synthetic' }, null];
+    const old = report(), current = report(value), inputs = [old, current, ...variants.map(report)], before = JSON.stringify(inputs);
+    for (const rules of [raw, semantic, smart]) {
+      expect(find(compare(old, current, rules), key).state).toBe('different');
+      expect(find(compare(old, current, rules), key).changedPaths).toContain('/value/0/supportedMixerAttributes');
+      expect(find(compare(current, current, rules), key).state).toBe('same');
+      for (const next of inputs.slice(2)) expect(find(compare(current, next, rules), key).state).toBe('different');
+      expect(find(compare(report({ status: 'ok', attributes: [] }), report({ status: 'ok', attributes: null }), rules), key).state).toBe('different');
+    }
+    expect(JSON.stringify(inputs)).toBe(before);
+  });
   it('音频关联profile兼容旧JSON，保留原序/重复、掩码、空集合及截断外哈希', () => {
     const key = 'hardware/audio', device = { id: 1, type: 2, encodings: [2], sampleRates: [48000], channelCounts: [2] };
     const report = (profiles?: Json) => fixture([fixtureItem(key, [{ ...device, ...(profiles === undefined ? {} : { audioProfiles: profiles }) }], { category: 'hardware' })]);

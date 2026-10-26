@@ -193,7 +193,29 @@ public final class HardwareCollector implements Collector {
         s.read("hardware","hardware/microphones","麦克风声学与阵列元数据","AudioManager.getMicrophones / MicrophoneInfo",()->microphoneDetails(manager,Build.VERSION.SDK_INT));
     }
     private static JSONArray audioDevices(AudioManager manager){
-        JSONArray devices=new JSONArray();for(AudioDeviceInfo device:manager.getDevices(AudioManager.GET_DEVICES_ALL)){CharSequence productName=device.getProductName();devices.put(Json.obj("id",device.getId(),"type",device.getType(),"productName",productName==null?null:productName.toString(),"isSource",device.isSource(),"isSink",device.isSink(),"addressPresent",device.getAddress()!=null&&!device.getAddress().isEmpty(),"channelCounts",device.getChannelCounts(),"sampleRates",device.getSampleRates(),"encodings",device.getEncodings(),"audioProfiles",audioDeviceProfiles(device,Build.VERSION.SDK_INT)));}return devices;
+        JSONArray devices=new JSONArray();for(AudioDeviceInfo device:manager.getDevices(AudioManager.GET_DEVICES_ALL)){CharSequence productName=device.getProductName();devices.put(Json.obj("id",device.getId(),"type",device.getType(),"productName",productName==null?null:productName.toString(),"isSource",device.isSource(),"isSink",device.isSink(),"addressPresent",device.getAddress()!=null&&!device.getAddress().isEmpty(),"channelCounts",device.getChannelCounts(),"sampleRates",device.getSampleRates(),"encodings",device.getEncodings(),"audioProfiles",audioDeviceProfiles(device,Build.VERSION.SDK_INT),"supportedMixerAttributes",audioMixerAttributes(manager,device,Build.VERSION.SDK_INT)));}return devices;
+    }
+    static JSONObject audioMixerAttributes(AudioManager manager,AudioDeviceInfo device,int sdk){
+        // 业务块：API34+只读支持的混音配置；公开API空清单也可能表示底层查询失败，不据此断言硬件不支持。
+        JSONObject missing=Json.obj("status",sdk<34?"unsupported":"unavailable","attributeCount",null,"returnedCount",0,
+                "attributeLimit",64,"attributesTruncated",null,"attributesSha256",null,"attributes",null);
+        if(sdk<34||manager==null)return missing;
+        try{return audioMixerAttributeValues(manager.getSupportedMixerAttributes(Objects.requireNonNull(device,"missing audio device")));}
+        catch(Exception|LinkageError e){Json.put(missing,"status",e instanceof SecurityException?"denied":"error");Json.put(missing,"errorClass",e.getClass().getName());return missing;}
+    }
+    // 业务块：最多256输入/64明细；原序与重复配置均进入完整哈希，不设置偏好或打开音频流。
+    static JSONObject audioMixerAttributeValues(List<AudioMixerAttributes> attributes)throws Exception{
+        Objects.requireNonNull(attributes,"missing mixer attributes");if(attributes.size()>256)throw new IllegalArgumentException("mixer attributes exceeds 256");
+        ArrayList<AudioMixerAttributes> snapshot=new ArrayList<>(attributes);if(snapshot.size()>256)throw new IllegalArgumentException("mixer attributes exceeds 256");
+        JSONArray all=new JSONArray(),entries=new JSONArray();
+        for(AudioMixerAttributes attribute:snapshot){
+            Objects.requireNonNull(attribute,"missing mixer attribute");AudioFormat format=Objects.requireNonNull(attribute.getFormat(),"missing mixer format");
+            JSONObject value=Json.obj("mixerBehavior",attribute.getMixerBehavior(),"sampleRateHz",format.getSampleRate(),"encoding",format.getEncoding(),
+                    "channelMask",format.getChannelMask(),"channelIndexMask",format.getChannelIndexMask(),"channelCount",format.getChannelCount());
+            all.put(value);if(entries.length()<64)entries.put(value);
+        }
+        return Json.obj("status",snapshot.size()>64?"partial":"ok","attributeCount",snapshot.size(),"returnedCount",entries.length(),"attributeLimit",64,
+                "attributesTruncated",snapshot.size()>64,"attributesSha256",PackageInputCollector.sha(all.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)),"attributes",entries);
     }
     // 业务块：API31+按格式读取采样率/声道/封装的关联能力，不打开音频设备；新增查询失败不丢失旧字段。
     static JSONObject audioDeviceProfiles(AudioDeviceInfo device,int sdk){
