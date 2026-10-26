@@ -53,6 +53,8 @@
 
 ## 显示设备产品信息
 
+- 展示补充（2026-10-26）：双侧摘要直接显示查询状态、名称、厂商PnP ID、产品ID、型号年份、制造年/周与连接类型；完整字段默认折叠并保留50字段分页。仅数值-1附“平台未提供”，连接整数0/1/2/3分别附未知/内置/直接/经中间设备连接含义，未知值保留原编号，字符串编号不套整数标签。产品ID前导零、空字符串、成功null、读取失败与未采集保持区别；年份/周互不补推，也不推导实际日期。完整查询原对象决定摘要差异，未知字段另提示转到完整字段核对，复杂已知字段或数组回退原表；长原文可展开，390px可独立横向完整查看设备B。仅调整展示，不改采集/导出或原始报告。
+
 - [Display.getDeviceProductInfo](https://developer.android.com/reference/android/view/Display#getDeviceProductInfo()) 与 [DeviceProductInfo](https://developer.android.com/reference/android/hardware/display/DeviceProductInfo) 自API31公开。已核对SDK37.0版本表、公开android.jar签名，以及[固定AOSP DeviceProductInfo.java](https://github.com/aosp-mirror/platform_frameworks_base/blob/1cdfff555f4a21f71ccc978290e2e212e2f8b168/core/java/android/hardware/display/DeviceProductInfo.java)（SHA256 `d577fe54d92bec84cccf5a1780bd9ad1eda9ce83f321b6bfc828d7a671113a58`）和Display.java的公开查询契约。显示链路有中间设备时，信息可能属于直接连接的中间设备；平台没有信息时返回null。
 - 每个 `display/ID.deviceProductInfo` 独立保存status/value。API31以下unsupported/null，成功未提供为ok/null；异常为denied/error/null及errorClass，不抹去原模式/HDR/色彩数据。成功对象仅记录7项公开getter：name、manufacturerPnpId、productId、modelYear、manufactureYear、manufactureWeek、connectionToSinkType。三个字符串最多2048字符，name允许null；空字符串、产品ID前导零、年份/周数-1和未知整数原样保留，不按PnP格式纠正厂商ID，不将产品ID转数字，不从型号年份补制造年份。没有读取隐藏ManufactureDate接口或新增API37属性。
 - 前端独立“显示设备产品信息”分组按原始JSON类型展示，保留50字段分页与差异筛选；旧JSON缺对象不补写。未知字段、成功null/失败和字符串/数字类型变化参与原始、语义、智能三种比较。只读取平台元数据，不读EDID文件/序列号，不改变显示配置、不新增权限；不能据此确认实际生产日期、原装面板或设备真实性。
