@@ -19,6 +19,7 @@ import { VibratorOverview } from './VibratorOverview';
 import { SecurityStateOverview } from './SecurityStateOverview';
 import { AudioOverview } from './AudioOverview';
 import { MicrophoneOverview } from './MicrophoneOverview';
+import { UsbOverview } from './UsbOverview';
 
 function itemMeta(item: Item | undefined, collected: boolean) {
   if (!collected) return [['状态', '等待采集']];
@@ -82,7 +83,9 @@ export function ComparisonDrawer({ row, open, collected, onClose }: { row?: Comp
         <SecurityStateOverview itemKey={row.key} sectionKey={section.key} left={row.left?.value} right={row.right?.value} rows={section.rows} onlyDiffRows={onlyDiffRows}>
         <AudioOverview itemKey={row.key} sectionKey={section.key} left={row.left?.value} right={row.right?.value} rows={section.rows} onlyDiffRows={onlyDiffRows}>
         <MicrophoneOverview itemKey={row.key} sectionKey={section.key} left={row.left?.value} right={row.right?.value} rows={section.rows} onlyDiffRows={onlyDiffRows}>
+        <UsbOverview itemKey={row.key} sectionKey={section.key} left={row.left?.value} right={row.right?.value} rows={section.rows} onlyDiffRows={onlyDiffRows} collected={collected}>
         <Table<MergedDisplayRow> rowKey="key" size="small" bordered pagination={(onlyDiffRows ? section.rows.filter(record => record.state !== 'same').length : section.rows.length) > 50 ? { pageSize: 50, showSizeChanger: false, showQuickJumper: true } : false} dataSource={onlyDiffRows ? section.rows.filter(record => record.state !== 'same') : section.rows} rowClassName={record => `row-${record.state}`} columns={[{ title: '字段', dataIndex: 'label', key: 'label', width: 220, fixed: row.key === 'hardware/usb' && section.key === 'descriptors' ? undefined : 'left', render: value => <Typography.Text className="field-label">{value}</Typography.Text> }, { title: collected.left ? '设备 A' : '设备 A · 等待采集', dataIndex: 'left', key: 'left', render: (value, record) => cell(value, 'A', record.label, collected.left) }, { title: collected.right ? '设备 B' : '设备 B · 等待采集', dataIndex: 'right', key: 'right', render: (value, record) => cell(value, 'B', record.label, collected.right) }, { title: '对比', key: 'state', width: 110, render: (_, record) => <Tag color={record.state === 'same' ? 'success' : record.state === 'changed' ? 'error' : 'warning'}>{record.state === 'same' ? '相同' : record.state === 'changed' ? '差异' : record.state === 'left-only' ? '仅 A' : '仅 B'}</Tag> }] as ColumnsType<MergedDisplayRow>} scroll={{ x: 760 }} />
+        </UsbOverview>
         </MicrophoneOverview>
         </AudioOverview>
         </SecurityStateOverview>
