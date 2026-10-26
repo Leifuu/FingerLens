@@ -31,6 +31,7 @@ public final class SecurityCollector implements Collector {
         if(module.equals("attestation")){attestation(s);return;}
         if(module.equals("virtualization")){virtualization(s);return;}
         s.read("security","security/summary","安全环境摘要","Debug / DevicePolicyManager / AppOpsManager / KeyguardManager",()->securitySummary(s.context));
+        s.read("security","security/platform-security-state","平台补丁与组件版本状态","SecurityStateManager.getGlobalSecurityState",()->globalSecurityState(s.context,Build.VERSION.SDK_INT));
         s.read("security","security/selinux-summary","SELinux 环境摘要","/sys/fs/selinux/enforce / /proc/self/attr/current",SecurityCollector::selinuxSummary);
         try{s.ok("security","security/root-path-summary","Root 相关路径检查摘要","jni","openat(O_PATH|O_NOFOLLOW) + fstatat(AT_SYMLINK_NOFOLLOW)",rootPathSummary());}
         catch(Exception|LinkageError e){s.failed("security","security/root-path-summary","Root 相关路径检查摘要","jni","openat + fstatat","error",e);}
@@ -52,6 +53,28 @@ public final class SecurityCollector implements Collector {
         s.read("security","security/tls-parameters","默认 TLS 上下文参数","SSLContext.getDefault / getSupportedSSLParameters / getDefaultSSLParameters",SecurityCollector::tlsParameters);
         s.read("security","security/trust-store","当前 App 可见 CA 信任库","KeyStore AndroidCAStore",()->{KeyStore store=KeyStore.getInstance("AndroidCAStore");store.load(null);JSONArray a=new JSONArray();Enumeration<String> names=store.aliases();int count=0;while(names.hasMoreElements()){String name=names.nextElement();if(++count>4096)throw new IllegalStateException("CA 数量超过 4096");Certificate cert=store.getCertificate(name);a.put(Json.obj("alias",name,"derBase64",cert==null?null:Base64.encodeToString(cert.getEncoded(),Base64.NO_WRAP),"sha256",cert==null?null:PackageInputCollector.sha(cert.getEncoded())));}return a;});
         s.read("security","security/trust-store-summary","CA 信任库摘要","KeyStore AndroidCAStore",SecurityCollector::trustStoreSummary);
+    }
+    // 业务块：读取API35+平台声明的补丁/组件版本映射；服务缺失与有效空集合分开，不回填其它来源。
+    static JSONObject globalSecurityState(Context context,int sdk)throws Exception{
+        if(sdk<35)throw new UnsupportedOperationException("requires API 35");
+        Objects.requireNonNull(context,"missing context");
+        SecurityStateManager manager=context.getSystemService(SecurityStateManager.class);
+        if(manager==null)return Json.obj("available",false,"status","unavailable","scope","platform-reported-global-security-state","entryCount",null,"entries",null);
+        return globalSecurityStateValues(manager.getGlobalSecurityState());
+    }
+    // 业务块：公开契约是字符串映射；最多512项、键1024/值8192字符，展示128项且完整原文参与哈希。
+    static JSONObject globalSecurityStateValues(Bundle state)throws Exception{
+        Bundle snapshot=new Bundle(Objects.requireNonNull(state,"missing security state"));
+        if(snapshot.size()>512)throw new IllegalArgumentException("security state exceeds 512 entries");
+        ArrayList<String> keys=new ArrayList<>(snapshot.keySet());
+        for(String key:keys)if(key==null||key.isEmpty()||key.length()>1024)throw new IllegalArgumentException("invalid security state key");
+        Collections.sort(keys);JSONArray all=new JSONArray(),entries=new JSONArray();
+        for(String key:keys){
+            Object value=snapshot.get(key);
+            if(value!=null&&(!(value instanceof String)||((String)value).length()>8192))throw new IllegalArgumentException("invalid security state string value");
+            JSONObject entry=Json.obj("key",key,"value",value);all.put(entry);if(entries.length()<128)entries.put(entry);
+        }
+        return Json.obj("available",true,"status",keys.size()>128?"partial":"ok","scope","platform-reported-global-security-state","entryCount",keys.size(),"returnedCount",entries.length(),"entryLimit",128,"entriesTruncated",keys.size()>128,"entriesSha256",PackageInputCollector.sha(all.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)),"entries",entries);
     }
     // 业务块：只读当前进程默认 TLS 参数，不连接端点、不握手或修改默认上下文；保留列表顺序和重复项。
     static JSONObject tlsParameters()throws Exception{

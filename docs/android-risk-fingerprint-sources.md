@@ -13,6 +13,9 @@
 
 ## Android 安全环境资料
 
+- 平台补丁与组件版本状态（2026-10-26）：[SecurityStateManager.getGlobalSecurityState](https://developer.android.com/reference/android/os/SecurityStateManager#getGlobalSecurityState()) 自API35返回平台声明的字符串映射。已核对SDK37版本表与[固定AOSP接口](https://github.com/aosp-mirror/platform_frameworks_base/blob/1cdfff555f4a21f71ccc978290e2e212e2f8b168/core/java/android/os/SecurityStateManager.java)、[服务实现](https://github.com/aosp-mirror/platform_frameworks_base/blob/1cdfff555f4a21f71ccc978290e2e212e2f8b168/services/core/java/com/android/server/SecurityStateManagerService.java)：已知system_spl/vendor_spl/kernel_version键，以及模块元数据、WebView和config_securityStatePackages配置包的版本映射。该上游实现会清除调用方身份后查询，不等同于当前App单独枚举包的结果；不假定设备运行这个固定提交。
+- 新增 `security/platform-security-state`：按原始键排序记录entries，保留补丁日期、版本尾部零、空字符串、显式null与未知键，不从Build、属性或其它包条目回填缺项。最多接受512项、键1..1024字符、字符串值最多8192字符；符合当前公开字符串契约的映射保留前128项明细，完整排序数组JSON的UTF-8 SHA-256保留截断外变化。有效空Bundle为ok/[]，服务缺失为unavailable/null，API35以下为条目unsupported/null，异常沿用ItemSink的denied/error/null；返回Bundle缺失、非字符串非null值或越界明确报错，不猜测类型/版本。旧JSON缺此条目仍可导入比较，通用字段表保留分页；既有Build补丁、内核、包版本及WebView条目不变。不联网、不安装更新、不新增权限；仅是平台返回的证据，内核版本可能已由服务裁剪，包版本可为空，不能替代补丁漏洞覆盖或设备真实性证明。老API采用分支模拟，尚无对应真机验证。
+
 - 基础振动单元展示补充（2026-10-26）：`hardware/vibrator` 在原始 `vibrators` 字段组中增加对照概览，每页5个振动器，按原始数组序号保留重复振动器和重复基础单元。各侧逐项显示公开名称及原始编号、支持标志与平台估算时长（毫秒），不把0改成未知或从时长推导支持；未知编号、字符串编号、null、false、空列表、未采集与查询失败分别保留。完整振动器对象（含未知字段、类型变化）决定整行差异，对象键书写顺序不作为差异；原始逐字段表默认折叠且保留50字段分页。旧JSON无基础单元对象时沿用原表，一侧新一侧旧时明确显示未采集，不补写原值；结构不完整、超过概览上限（32个振动器或每侧64个单元）时回退完整字段，不截断原始数据。390px窄屏可独立横向查看两侧。此轮只调整浏览层，不修改采集、比较规则、JSON输入或导出。
 
 - 显示模式展示补充（2026-10-26）：`display/*` 的 `supportedModes` 采用每页20项概览，按原始序号逐行显示模式ID、原始分辨率/刷新率及HDR查询状态、类型名称与原始编号（Dolby Vision=1、HDR10=2、HLG=3、HDR10+=4，来自下述固定AOSP源码）。保留重复模式；HDR概览最多列前8项并明确省略，完整字段默认折叠且保留50字段分页。完整哈希和未知字段变化仍标记整行差异，旧JSON缺少每模式HDR时显示未采集，不从整体HDR列表补值；缺项、null、空字符串、失败及未知值保持区别，结构不完整时回退原表。本次只优化浏览，不修改采集、比较规则、JSON原值或导出。

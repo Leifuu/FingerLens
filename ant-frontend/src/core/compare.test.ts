@@ -7,6 +7,23 @@ const raw = { semantic: false, ignoreDynamic: false }, semantic = { semantic: tr
 const find = (rows: ReturnType<typeof compare>, key: string) => rows.find(x => x.key === key)!;
 
 describe('原始与语义比较', () => {
+  it('平台安全状态兼容旧JSON，保留补丁/版本原文、空值及截断外变化', () => {
+    const key = 'security/platform-security-state';
+    const report = (value: Json) => fixture([fixtureItem(key, value, { category: 'security' })]);
+    const value = { available: true, status: 'ok', entries: [{ key: 'system_spl', value: '2026-02-05' }, { key: 'future.package', value: '1.0.0.0' }], entriesSha256: 'a' };
+    const legacy = fixture([]), current = report(value);
+    const variants = [report({ ...value, entriesSha256: 'b' }), report({ ...value, entries: [{ key: 'system_spl', value: '' }] }), report({ ...value, entries: [{ key: 'system_spl', value: null }] }), report({ available: true, status: 'ok', entries: [] }), report({ available: false, status: 'unavailable', entries: null }), report({ ...value, future: false })];
+    const before = JSON.stringify([legacy, current, ...variants]);
+    for (const rules of [raw, semantic, smart]) {
+      expect(find(compare(legacy, current, rules), key).state).toBe('right-only');
+      expect(find(compare(current, current, rules), key).state).toBe('same');
+      for (const next of variants) expect(find(compare(current, next, rules), key).state).toBe('different');
+      expect(find(compare(variants[1], variants[2], rules), key).state).toBe('different');
+      const failed = fixture([fixtureItem(key, null, { category: 'security', status: 'denied' })]);
+      expect(find(compare(current, failed, rules), key).state).toBe('status');
+    }
+    expect(JSON.stringify([legacy, current, ...variants])).toBe(before);
+  });
   it('基础振动单元兼容旧JSON，保留编号顺序、false、零时长、缺项与独立失败', () => {
     const key = 'hardware/vibrator', device = { id: 0, hasVibrator: true, hasAmplitudeControl: true, amplitudeControlStatus: 'ok', effectSupportCodes: [1, 1, 1, 1] };
     const report = (primitiveCapabilities?: Json) => fixture([fixtureItem(key, { vibrators: [{ ...device, ...(primitiveCapabilities === undefined ? {} : { primitiveCapabilities }) }] }, { category: 'hardware' })]);

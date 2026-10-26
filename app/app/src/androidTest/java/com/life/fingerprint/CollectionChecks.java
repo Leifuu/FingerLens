@@ -78,6 +78,47 @@ public class CollectionChecks {
         }
         assertEquals(entries.toString(),new JSONArray(entries.toString()).toString());
     }
+    @Test public void globalSecurityStateValuesKeepRawStringsAndCompleteHash()throws Exception{
+        Bundle state=new Bundle();state.putString("vendor_spl","");state.putString("system_spl","2026-02-05");state.putString("future.package",null);state.putString("kernel_version","6.1.0.0");
+        JSONObject actual=SecurityCollector.globalSecurityStateValues(state);JSONArray entries=actual.getJSONArray("entries");
+        assertTrue(actual.getBoolean("available"));assertEquals("ok",actual.getString("status"));assertEquals(4,actual.getInt("entryCount"));assertFalse(actual.getBoolean("entriesTruncated"));
+        assertEquals("future.package",entries.getJSONObject(0).getString("key"));assertTrue(entries.getJSONObject(0).has("value"));assertTrue(entries.getJSONObject(0).isNull("value"));assertEquals("6.1.0.0",entries.getJSONObject(1).getString("value"));assertEquals("2026-02-05",entries.getJSONObject(2).getString("value"));assertEquals("",entries.getJSONObject(3).getString("value"));
+        assertEquals(PackageInputCollector.sha(entries.toString().getBytes(StandardCharsets.UTF_8)),actual.getString("entriesSha256"));assertEquals(4,state.size());assertTrue(state.containsKey("future.package"));
+        Bundle reversed=new Bundle();for(int i=entries.length()-1;i>=0;i--){JSONObject entry=entries.getJSONObject(i);reversed.putString(entry.getString("key"),entry.isNull("value")?null:entry.getString("value"));}assertEquals(actual.toString(),SecurityCollector.globalSecurityStateValues(reversed).toString());
+        JSONObject empty=SecurityCollector.globalSecurityStateValues(new Bundle());assertTrue(empty.getBoolean("available"));assertEquals(0,empty.getInt("entryCount"));assertEquals("[]",empty.getJSONArray("entries").toString());
+        Bundle large=new Bundle();for(int i=0;i<130;i++)large.putString(String.format(java.util.Locale.ROOT,"package.%03d",i),i==0?"中文\n  空白\u0000":"1.0.0.0");
+        JSONObject bounded=SecurityCollector.globalSecurityStateValues(large);assertEquals("partial",bounded.getString("status"));assertEquals(130,bounded.getInt("entryCount"));assertEquals(128,bounded.getInt("returnedCount"));assertTrue(bounded.getBoolean("entriesTruncated"));
+        large.putString("package.129","changed-beyond-limit");JSONObject changed=SecurityCollector.globalSecurityStateValues(large);assertEquals(bounded.getJSONArray("entries").toString(),changed.getJSONArray("entries").toString());assertNotEquals(bounded.getString("entriesSha256"),changed.getString("entriesSha256"));
+        assertEquals("中文\n  空白\u0000",changed.getJSONArray("entries").getJSONObject(0).getString("value"));assertEquals(130,large.size());
+    }
+    @Test public void globalSecurityStateGuardsVersionAndInputBounds()throws Exception{
+        try{SecurityCollector.globalSecurityState(null,34);fail("旧API不能调用新服务");}catch(UnsupportedOperationException expected){}
+        try{SecurityCollector.globalSecurityState(null,35);fail("API35必须有context");}catch(NullPointerException expected){}
+        try{SecurityCollector.globalSecurityStateValues(null);fail("缺失不能当作空集合");}catch(NullPointerException expected){}
+        Bundle maximum=new Bundle();for(int i=0;i<512;i++)maximum.putString("package."+i,"v");assertEquals(512,SecurityCollector.globalSecurityStateValues(maximum).getInt("entryCount"));maximum.putString("extra","v");
+        try{SecurityCollector.globalSecurityStateValues(maximum);fail("最多512项");}catch(IllegalArgumentException expected){}
+        Bundle limits=new Bundle();limits.putString(String.join("",Collections.nCopies(1024,"k")),String.join("",Collections.nCopies(8192,"v")));assertEquals(1,SecurityCollector.globalSecurityStateValues(limits).getInt("entryCount"));
+        Bundle wrongType=new Bundle();wrongType.putBoolean("key",false);Bundle emptyKey=new Bundle();emptyKey.putString("","v");Bundle nullKey=new Bundle();nullKey.putString(null,"v");
+        Bundle longKey=new Bundle();longKey.putString(String.join("",Collections.nCopies(1025,"k")),"v");Bundle longValue=new Bundle();longValue.putString("key",String.join("",Collections.nCopies(8193,"v")));
+        for(Bundle invalid:new Bundle[]{wrongType,emptyKey,nullKey,longKey,longValue}){
+            try{SecurityCollector.globalSecurityStateValues(invalid);fail("非法键/值不能静默变为字符串或丢弃");}catch(IllegalArgumentException expected){}
+        }
+    }
+    @Test public void globalSecurityStateMatchesPublicApiAndKeepsExistingEvidence()throws Exception{
+        ItemSink sink=new ItemSink(context,"platform-security-state-test");new SecurityCollector("security").collect(sink);
+        JSONObject item=null;boolean summary=false,providers=false;for(int i=0;i<sink.items.length();i++){JSONObject entry=sink.items.getJSONObject(i);if(entry.getString("key").equals("security/platform-security-state"))item=entry;if(entry.getString("key").equals("security/summary"))summary=true;if(entry.getString("key").equals("security/providers"))providers=true;}
+        assertNotNull(item);assertTrue(summary);assertTrue(providers);
+        if(Build.VERSION.SDK_INT<35){assertEquals("unsupported",item.getString("status"));assertTrue(item.isNull("value"));return;}
+        android.os.SecurityStateManager manager=context.getSystemService(android.os.SecurityStateManager.class);
+        if(manager==null){assertEquals("ok",item.getString("status"));JSONObject value=item.getJSONObject("value");assertFalse(value.getBoolean("available"));assertEquals("unavailable",value.getString("status"));assertTrue(value.isNull("entries"));return;}
+        Bundle expected;
+        try{expected=manager.getGlobalSecurityState();}catch(Exception|LinkageError e){assertEquals(e instanceof SecurityException?"denied":"error",item.getString("status"));assertTrue(item.isNull("value"));return;}
+        assertEquals("ok",item.getString("status"));JSONObject value=item.getJSONObject("value");assertTrue(value.getBoolean("available"));assertEquals(expected.size(),value.getInt("entryCount"));ArrayList<String> keys=new ArrayList<>(expected.keySet());Collections.sort(keys);JSONArray all=new JSONArray();
+        for(String key:keys)all.put(Json.obj("key",key,"value",expected.get(key)));
+        JSONArray entries=value.getJSONArray("entries");assertEquals(Math.min(128,keys.size()),entries.length());for(int i=0;i<entries.length();i++)assertEquals(all.getJSONObject(i).toString(),entries.getJSONObject(i).toString());
+        assertEquals(PackageInputCollector.sha(all.toString().getBytes(StandardCharsets.UTF_8)),value.getString("entriesSha256"));
+        Bundle evidence=new Bundle();evidence.putString("platformSecurityState",value.toString());InstrumentationRegistry.getInstrumentation().sendStatus(0,evidence);
+    }
     @Test public void tlsParametersMatchDefaultContextAndKeepOrderedEvidence()throws Exception{
         javax.net.ssl.SSLContext original=javax.net.ssl.SSLContext.getDefault();
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new SecurityCollector("security").collect(sink);
