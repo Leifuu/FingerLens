@@ -45,6 +45,15 @@ public final class SecurityCollector implements Collector {
         s.read("security","security/device-management","设备管理与用户环境","DevicePolicyManager / UserManager",()->managementEnvironment(s.context));
         s.read("security","security/special-access","本 App 特殊访问状态","AppOpsManager / PackageManager / NotificationManager / Environment / Settings",()->specialAccess(s.context));
         s.read("security","security/lock-biometric","锁屏与生物识别环境","KeyguardManager / BiometricManager / PackageManager.hasSystemFeature",()->lockBiometricEnvironment(s.context));
+        s.read("security","security/sensor-privacy-capabilities","摄像头与麦克风隐私开关能力","SensorPrivacyManager.supportsSensorToggle",()->{
+            if(Build.VERSION.SDK_INT<31)return sensorPrivacyCapabilities(false,Build.VERSION.SDK_INT,null,null,null,null);
+            android.hardware.SensorPrivacyManager manager=s.context.getSystemService(android.hardware.SensorPrivacyManager.class);
+            return sensorPrivacyCapabilities(manager!=null,Build.VERSION.SDK_INT,
+                    ()->manager.supportsSensorToggle(android.hardware.SensorPrivacyManager.Sensors.MICROPHONE),
+                    ()->manager.supportsSensorToggle(android.hardware.SensorPrivacyManager.TOGGLE_TYPE_HARDWARE,android.hardware.SensorPrivacyManager.Sensors.MICROPHONE),
+                    ()->manager.supportsSensorToggle(android.hardware.SensorPrivacyManager.Sensors.CAMERA),
+                    ()->manager.supportsSensorToggle(android.hardware.SensorPrivacyManager.TOGGLE_TYPE_HARDWARE,android.hardware.SensorPrivacyManager.Sensors.CAMERA));
+        });
         s.read("security","security/accessibility","启用的无障碍服务元数据","AccessibilityManager.getEnabledAccessibilityServiceList",()->accessibilityEnvironment(s.context));
         for(String p:new String[]{"/proc/self/attr/current","/proc/self/status","/sys/fs/selinux/enforce","/sys/fs/selinux/policyvers","/sys/fs/selinux/checkreqprot","/proc/cmdline","/proc/bootconfig","/system/etc/selinux/plat_sepolicy.cil","/vendor/etc/selinux/vendor_sepolicy.cil"})s.file("security","security/file"+p,p);
         s.read("security","security/buildSerial","Build 序列号（可能受限）","Build.getSerial",()->Build.VERSION.SDK_INT>=26?Build.getSerial():Build.SERIAL);
@@ -53,6 +62,17 @@ public final class SecurityCollector implements Collector {
         s.read("security","security/tls-parameters","默认 TLS 上下文参数","SSLContext.getDefault / getSupportedSSLParameters / getDefaultSSLParameters",SecurityCollector::tlsParameters);
         s.read("security","security/trust-store","当前 App 可见 CA 信任库","KeyStore AndroidCAStore",()->{KeyStore store=KeyStore.getInstance("AndroidCAStore");store.load(null);JSONArray a=new JSONArray();Enumeration<String> names=store.aliases();int count=0;while(names.hasMoreElements()){String name=names.nextElement();if(++count>4096)throw new IllegalStateException("CA 数量超过 4096");Certificate cert=store.getCertificate(name);a.put(Json.obj("alias",name,"derBase64",cert==null?null:Base64.encodeToString(cert.getEncoded(),Base64.NO_WRAP),"sha256",cert==null?null:PackageInputCollector.sha(cert.getEncoded())));}return a;});
         s.read("security","security/trust-store-summary","CA 信任库摘要","KeyStore AndroidCAStore",SecurityCollector::trustStoreSummary);
+    }
+    // 业务块：仅查询固定两种传感器的隐私开关支持能力，不读取当前开关状态或订阅事件。
+    static JSONObject sensorPrivacyCapabilities(boolean available,int sdk,java.util.function.BooleanSupplier micSoftware,java.util.function.BooleanSupplier micHardware,java.util.function.BooleanSupplier cameraSoftware,java.util.function.BooleanSupplier cameraHardware){
+        return Json.obj("managerAvailable",sdk<31?null:available,
+                "microphone",Json.obj("softwareToggle",sensorPrivacyQuery(available,sdk,31,micSoftware),"hardwareToggle",sensorPrivacyQuery(available,sdk,33,micHardware)),
+                "camera",Json.obj("softwareToggle",sensorPrivacyQuery(available,sdk,31,cameraSoftware),"hardwareToggle",sensorPrivacyQuery(available,sdk,33,cameraHardware)));
+    }
+    private static JSONObject sensorPrivacyQuery(boolean available,int sdk,int since,java.util.function.BooleanSupplier query){
+        if(sdk<since||!available)return Json.obj("status",sdk<since?"unsupported":"unavailable","value",null);
+        try{return Json.obj("status","ok","value",Objects.requireNonNull(query,"missing sensor privacy query").getAsBoolean());}
+        catch(Exception|LinkageError e){return Json.obj("status",e instanceof SecurityException?"denied":e instanceof UnsupportedOperationException||e instanceof NoSuchMethodError?"unsupported":"error","value",null,"errorClass",e.getClass().getName());}
     }
     // 业务块：读取API35+平台声明的补丁/组件版本映射；服务缺失与有效空集合分开，不回填其它来源。
     static JSONObject globalSecurityState(Context context,int sdk)throws Exception{

@@ -7,6 +7,20 @@ const raw = { semantic: false, ignoreDynamic: false }, semantic = { semantic: tr
 const find = (rows: ReturnType<typeof compare>, key: string) => rows.find(x => x.key === key)!;
 
 describe('原始与语义比较', () => {
+  it('隐私开关能力兼容旧JSON，false/未知/失败/类型和独立硬件能力继续比较', () => {
+    const key = 'security/sensor-privacy-capabilities', old = fixture([fixtureItem('security/lock-biometric', { deviceSecure: true })]);
+    const softwareToggle = { status: 'ok', value: true }, hardwareToggle = { status: 'ok', value: false };
+    const value = { managerAvailable: true, microphone: { softwareToggle, hardwareToggle }, camera: { softwareToggle, hardwareToggle } };
+    const report = (next: Json) => fixture([...old.data.items, fixtureItem(key, next, { category: 'security' })]);
+    const current = report(value), before = JSON.stringify(current);
+    const changes: Json[] = [{ ...value, microphone: { softwareToggle, hardwareToggle: { status: 'ok', value: true } } }, { ...value, camera: { softwareToggle, hardwareToggle: { status: 'ok', value: 'false' } } }, { ...value, camera: { softwareToggle, hardwareToggle: { status: 'unsupported', value: null } } }, { ...value, microphone: { softwareToggle: { status: 'denied', value: null, errorClass: 'java.lang.SecurityException' }, hardwareToggle } }, { ...value, managerAvailable: null }, { ...value, future: false }];
+    for (const rules of [raw, semantic, smart]) {
+      expect(find(compare(old, current, rules), key).state).toBe('right-only');
+      expect(find(compare(current, current, rules), key).state).toBe('same');
+      for (const next of changes) expect(find(compare(current, report(next), rules), key).state).toBe('different');
+    }
+    expect(JSON.stringify(current)).toBe(before);
+  });
   it('LE Audio兼容旧JSON，三查询独立，原始码/类型/失败与未知字段不丢失', () => {
     const key = 'network/bluetooth-le-audio', old = fixture([fixtureItem('network/bluetooth-capabilities', { available: true })]);
     const value = { adapterAvailable: true, leAudio: { status: 'ok', code: 10 }, broadcastSource: { status: 'ok', code: 1 }, broadcastAssistant: { status: 'error', code: null, errorClass: 'java.lang.IllegalStateException' } };
