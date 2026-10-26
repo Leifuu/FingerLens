@@ -117,6 +117,8 @@
 
 ## 显示色彩能力补充
 
+- 前端采用独立色彩分组与两项查询的双侧摘要，未知顶层元数据另列；原始对象决定差异，保留false/null/失败/未采集、重复index与原序负范围。完整字段默认折叠并保留50行分页，本分组按JSON类型展示，布尔/字符串等类型差异可继续筛出；异构/超过4分量回退原字段，长原文可展开，390px可横向查看设备B。旧JSON缺对象不补写，本轮仅UI改动。
+
 - `display/ID.colorCapabilities`分别通过API26+宽色域标志及API29+偏好宽色域空间查询，记录独立status/value；保留false、成功null、unsupported、denied/error与错误类型。空间包含原始name/id/model/分量数、wideGamut/srgb及最多4个原序分量min/max，名称最多2048字符；负ID、负范围与超过1的范围不归一化。旧HDR、模式、替代刷新率及旧JSON不改写，完整字段分页继续保留未知字段与原文。
 - 偏好空间属于系统合成管线声明，不代表当前窗口色彩模式或完整空间清单，不读取画面/ICC或修改配置。Pixel6/API36独立公开API返回Display P3（id7/RGB/3分量0–1），宽色域true；新字段浏览器验证使用明确HYBRID与SYNTHETIC样本，本轮未验证新正式Release整轮报告。详见[来源与边界](android-risk-fingerprint-sources.md#显示宽色域与偏好色彩空间)。
 

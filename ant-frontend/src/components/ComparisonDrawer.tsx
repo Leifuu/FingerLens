@@ -13,6 +13,7 @@ import { SensorOverview } from './SensorOverview';
 import { TlsOverview } from './TlsOverview';
 import { ApexOverview } from './ApexOverview';
 import { DisplayModeOverview } from './DisplayModeOverview';
+import { DisplayColorOverview } from './DisplayColorOverview';
 import { VibratorOverview } from './VibratorOverview';
 import { SecurityStateOverview } from './SecurityStateOverview';
 import { AudioOverview } from './AudioOverview';
@@ -72,6 +73,7 @@ export function ComparisonDrawer({ row, open, onClose }: { row?: CompareRow; ope
         <TlsOverview itemKey={row.key} sectionKey={section.key} rows={section.rows} onlyDiffRows={onlyDiffRows}>
         <ApexOverview itemKey={row.key} sectionKey={section.key} rows={section.rows} onlyDiffRows={onlyDiffRows}>
         <DisplayModeOverview itemKey={row.key} sectionKey={section.key} left={row.left?.value} right={row.right?.value} rows={section.rows} onlyDiffRows={onlyDiffRows}>
+        <DisplayColorOverview itemKey={row.key} sectionKey={section.key} left={row.left?.value} right={row.right?.value} rows={section.rows} onlyDiffRows={onlyDiffRows}>
         <VibratorOverview itemKey={row.key} sectionKey={section.key} left={row.left?.value} right={row.right?.value} rows={section.rows} onlyDiffRows={onlyDiffRows}>
         <SecurityStateOverview itemKey={row.key} sectionKey={section.key} left={row.left?.value} right={row.right?.value} rows={section.rows} onlyDiffRows={onlyDiffRows}>
         <AudioOverview itemKey={row.key} sectionKey={section.key} left={row.left?.value} right={row.right?.value} rows={section.rows} onlyDiffRows={onlyDiffRows}>
@@ -81,6 +83,7 @@ export function ComparisonDrawer({ row, open, onClose }: { row?: CompareRow; ope
         </AudioOverview>
         </SecurityStateOverview>
         </VibratorOverview>
+        </DisplayColorOverview>
         </DisplayModeOverview>
         </ApexOverview>
         </TlsOverview>

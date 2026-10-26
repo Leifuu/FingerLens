@@ -87,10 +87,11 @@ function objectRows(value: JsonObject, keys?: string[]): DisplayRow[] {
 }
 
 // 数组保留采集顺序与重复项；对象字段各占一行，不再把整条记录塞成 JSON 字符串。
-function flattenRows(value: Json, path: string): DisplayRow[] {
-  if (object(value) && value.$type !== 'int64' && Object.keys(value).length) return Object.entries(value).flatMap(([key, child]) => flattenRows(child, `${path}.${key}`));
-  if (Array.isArray(value) && value.length) return value.flatMap((child, index) => flattenRows(child, `${path}[${index}]`));
-  return [row(path, value)];
+function flattenRows(value: Json, path: string, raw = false): DisplayRow[] {
+  if (object(value) && value.$type !== 'int64' && Object.keys(value).length) return Object.entries(value).flatMap(([key, child]) => flattenRows(child, `${path}.${key}`, raw));
+  if (Array.isArray(value) && value.length) return value.flatMap((child, index) => flattenRows(child, `${path}[${index}]`, raw));
+  // 业务块：色彩完整字段保留JSON类型，避免字符串与布尔/数字/null格式化后漏标差异。
+  return [raw ? { key: path, label: path, value: JSON.stringify(value, null, 2) } : row(path, value)];
 }
 
 function arrayRows(value: Json[], label: string): DisplayRow[] {
@@ -138,7 +139,9 @@ function displaySections(value: Json): DisplaySection[] {
   const sync = objectRows(value, ['presentationDeadlineNanos', 'appVsyncOffsetNanos']);
   if (sync.length) sections.push(section('sync', '同步参数', sync));
   if (object(value.hdr)) sections.push(section('hdr', 'HDR', flattenRows(value.hdr, 'hdr'), false));
+  if (Object.hasOwn(value, 'colorCapabilities')) sections.push(section('color', '色彩能力', flattenRows(value.colorCapabilities, 'colorCapabilities', true), true));
   const covered = new Set(['displayId', 'name', 'flags', 'state', 'rotation', 'widthPixels', 'heightPixels', 'density', 'densityDpi', 'scaledDensity', 'xdpi', 'ydpi', 'refreshRate', 'supportedModes', 'presentationDeadlineNanos', 'appVsyncOffsetNanos', 'hdr']);
+  covered.add('colorCapabilities');
   const extra = Object.fromEntries(Object.entries(value).filter(([key]) => !covered.has(key)));
   if (Object.keys(extra).length) sections.push(...genericSections(extra).map(item => ({ ...item, key: `extra-${item.key}` })));
   return sections.length ? sections : [section('value', '显示器数据', objectRows(value))];

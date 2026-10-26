@@ -18,7 +18,7 @@ describe('设备格式化展示边界', () => {
     expect(read('wideColorGamut.value')).toBe('false');expect(read('preferredWideGamutColorSpace.value.id')).toBe('-1');expect(read('preferredWideGamutColorSpace.value.componentRanges[1].min')).toBe('-128');expect(read('preferredWideGamutColorSpace.value.future')).toBe('false');
     for (const status of ['ok', 'unsupported', 'denied', 'error', 'future']) {
       const groups = buildSections(item('display/0', 'display', { ...old, colorCapabilities: { preferredWideGamutColorSpace: { status, value: null, errorClass: status === 'denied' ? 'SecurityException' : null } } }));
-      const fields = groups.flatMap(group => group.rows);expect(fields.find(row => row.key.endsWith('preferredWideGamutColorSpace.value'))?.value).toBe('null');expect(fields.find(row => row.key.endsWith('preferredWideGamutColorSpace.status'))?.value).toBe(status);
+      const fields = groups.flatMap(group => group.rows);expect(fields.find(row => row.key.endsWith('preferredWideGamutColorSpace.value'))?.value).toBe('null');expect(fields.find(row => row.key.endsWith('preferredWideGamutColorSpace.status'))?.value).toBe(JSON.stringify(status));
     }
     expect(JSON.stringify(value)).toBe(before);
   });
