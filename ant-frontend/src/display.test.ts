@@ -7,6 +7,21 @@ function item(key: string, category: string, value: Json): Item {
 }
 
 describe('设备格式化展示边界', () => {
+  it('显示色彩元数据保留原始范围与成功null，旧HDR/模式分组及缺失字段不补写', () => {
+    const old = { displayId: 0, name: 'display', hdr: { types: [2, 3] }, supportedModes: [{ modeId: 1, physicalWidth: 1080, physicalHeight: 2400, refreshRate: 60 }] };
+    const colorCapabilities = { wideColorGamut: { status: 'ok', value: false }, preferredWideGamutColorSpace: { status: 'ok', value: { name: '合成色彩空间', id: -1, model: 'LAB', componentCount: 3, wideGamut: true, srgb: false, componentRanges: [{ index: 0, min: 0, max: 100 }, { index: 1, min: -128, max: 128 }], future: false } } };
+    const value = { ...old, colorCapabilities }, before = JSON.stringify(value);
+    const baseline = buildSections(item('display/0', 'display', old)), current = buildSections(item('display/0', 'display', value));
+    for (const group of baseline) expect(current.find(section => section.key === group.key)).toEqual(group);
+    expect(baseline.flatMap(group => group.rows).some(row => row.key.startsWith('colorCapabilities'))).toBe(false);
+    const rows = current.flatMap(group => group.rows), read = (key: string) => rows.find(row => row.key === `colorCapabilities.${key}`)?.value;
+    expect(read('wideColorGamut.value')).toBe('false');expect(read('preferredWideGamutColorSpace.value.id')).toBe('-1');expect(read('preferredWideGamutColorSpace.value.componentRanges[1].min')).toBe('-128');expect(read('preferredWideGamutColorSpace.value.future')).toBe('false');
+    for (const status of ['ok', 'unsupported', 'denied', 'error', 'future']) {
+      const groups = buildSections(item('display/0', 'display', { ...old, colorCapabilities: { preferredWideGamutColorSpace: { status, value: null, errorClass: status === 'denied' ? 'SecurityException' : null } } }));
+      const fields = groups.flatMap(group => group.rows);expect(fields.find(row => row.key.endsWith('preferredWideGamutColorSpace.value'))?.value).toBe('null');expect(fields.find(row => row.key.endsWith('preferredWideGamutColorSpace.status'))?.value).toBe(status);
+    }
+    expect(JSON.stringify(value)).toBe(before);
+  });
   it('APEX明细保留实际包名、重复、空值、int64和未来字段', () => {
     const source = item('build/apex-packages', 'build', { packageCount: 2, packages: [
       { packageName: 'actual.apex', versionName: '', versionCode: { $type: 'int64', value: '9007199254740993' }, future: null },

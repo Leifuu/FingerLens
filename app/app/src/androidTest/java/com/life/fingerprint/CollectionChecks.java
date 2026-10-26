@@ -279,6 +279,36 @@ public class CollectionChecks {
         }
         assertTrue(evidence.length()>0||Build.VERSION.SDK_INT<31);Bundle result=new Bundle();result.putString("alternativeRefreshRates",evidence.toString());InstrumentationRegistry.getInstrumentation().sendStatus(0,result);
     }
+    @Test public void displayColorValuesAndQueryStates()throws Exception{
+        assertNull(PackageInputCollector.displayColorSpaceValues(null));
+        for(android.graphics.ColorSpace.Named named:new android.graphics.ColorSpace.Named[]{android.graphics.ColorSpace.Named.SRGB,android.graphics.ColorSpace.Named.DISPLAY_P3,android.graphics.ColorSpace.Named.LINEAR_EXTENDED_SRGB,android.graphics.ColorSpace.Named.CIE_LAB}){
+            android.graphics.ColorSpace color=android.graphics.ColorSpace.get(named);JSONObject value=PackageInputCollector.displayColorSpaceValues(color);assertEquals(color.getName(),value.getString("name"));assertEquals(color.getId(),value.getInt("id"));assertEquals(color.getModel().name(),value.getString("model"));assertEquals(color.getComponentCount(),value.getInt("componentCount"));assertEquals(color.isWideGamut(),value.getBoolean("wideGamut"));assertEquals(color.isSrgb(),value.getBoolean("srgb"));
+            JSONArray ranges=value.getJSONArray("componentRanges");assertEquals(color.getComponentCount(),ranges.length());for(int i=0;i<ranges.length();i++){assertEquals(i,ranges.getJSONObject(i).getInt("index"));assertEquals((double)color.getMinValue(i),ranges.getJSONObject(i).getDouble("min"),0d);assertEquals((double)color.getMaxValue(i),ranges.getJSONObject(i).getDouble("max"),0d);}
+        }
+        JSONObject lab=PackageInputCollector.displayColorSpaceValues(android.graphics.ColorSpace.get(android.graphics.ColorSpace.Named.CIE_LAB));assertTrue(lab.getJSONArray("componentRanges").getJSONObject(1).getDouble("min")<0);assertTrue(lab.getJSONArray("componentRanges").getJSONObject(0).getDouble("max")>1);
+        float[] primaries={0.64f,0.33f,0.30f,0.60f,0.15f,0.06f},white={0.3127f,0.3290f};android.graphics.ColorSpace.Rgb custom=new android.graphics.ColorSpace.Rgb("合成色彩空间",primaries,white,2.2);assertEquals(-1,PackageInputCollector.displayColorSpaceValues(custom).getInt("id"));
+        String maximum=new String(new char[2048]).replace('\0','x');assertEquals(maximum,PackageInputCollector.displayColorSpaceValues(new android.graphics.ColorSpace.Rgb(maximum,primaries,white,2.2)).getString("name"));try{PackageInputCollector.displayColorSpaceValues(new android.graphics.ColorSpace.Rgb(maximum+"x",primaries,white,2.2));fail("名称最多2048字符");}catch(IllegalArgumentException expected){}
+        for(int sdk:new int[]{24,25}){JSONObject value=PackageInputCollector.displayColorCapabilities(null,sdk);for(String key:new String[]{"wideColorGamut","preferredWideGamutColorSpace"}){assertEquals("unsupported",value.getJSONObject(key).getString("status"));assertTrue(value.getJSONObject(key).isNull("value"));}}
+        JSONObject old=PackageInputCollector.displayColorQuery(28,29,()->{throw new AssertionError("不能调用旧API");});assertEquals("unsupported",old.getString("status"));
+        assertFalse(PackageInputCollector.displayColorQuery(26,26,()->false).getBoolean("value"));assertTrue(PackageInputCollector.displayColorQuery(29,29,()->null).isNull("value"));
+        JSONObject denied=PackageInputCollector.displayColorQuery(29,29,()->{throw new SecurityException("synthetic");});assertEquals("denied",denied.getString("status"));assertTrue(denied.isNull("value"));assertEquals("java.lang.SecurityException",denied.getString("errorClass"));
+        for(ItemSink.Read read:new ItemSink.Read[]{()->{throw new IOException("synthetic");},()->{throw new NoSuchMethodError("synthetic");}}){JSONObject failure=PackageInputCollector.displayColorQuery(29,29,read);assertEquals("error",failure.getString("status"));assertTrue(failure.isNull("value"));assertTrue(failure.has("errorClass"));}
+    }
+    @Test public void displayColorMatchesPublicApiAndKeepsExistingModes()throws Exception{
+        ItemSink sink=new ItemSink(context,"display-color-test");new PackageInputCollector("display").collect(sink);JSONArray evidence=new JSONArray();
+        android.hardware.display.DisplayManager manager=context.getSystemService(android.hardware.display.DisplayManager.class);
+        for(android.view.Display display:manager.getDisplays()){
+            JSONObject item=null;for(int i=0;i<sink.items.length();i++)if(sink.items.getJSONObject(i).getString("key").equals("display/"+display.getDisplayId()))item=sink.items.getJSONObject(i);assertNotNull(item);assertEquals("ok",item.getString("status"));JSONObject value=item.getJSONObject("value"),color=value.getJSONObject("colorCapabilities"),wide=color.getJSONObject("wideColorGamut"),preferred=color.getJSONObject("preferredWideGamutColorSpace");
+            if(Build.VERSION.SDK_INT>=26){assertEquals("ok",wide.getString("status"));assertEquals(display.isWideColorGamut(),wide.getBoolean("value"));}else{assertEquals("unsupported",wide.getString("status"));assertTrue(wide.isNull("value"));}
+            if(Build.VERSION.SDK_INT<29){assertEquals("unsupported",preferred.getString("status"));assertTrue(preferred.isNull("value"));}else{
+                assertEquals("ok",preferred.getString("status"));android.graphics.ColorSpace direct=display.getPreferredWideGamutColorSpace();if(direct==null)assertTrue(preferred.isNull("value"));else{
+                    JSONObject actual=preferred.getJSONObject("value");assertEquals(direct.getName(),actual.getString("name"));assertEquals(direct.getId(),actual.getInt("id"));assertEquals(direct.getModel().name(),actual.getString("model"));assertEquals(direct.isWideGamut(),actual.getBoolean("wideGamut"));assertEquals(direct.isSrgb(),actual.getBoolean("srgb"));assertEquals(direct.getComponentCount(),actual.getInt("componentCount"));JSONArray ranges=actual.getJSONArray("componentRanges");assertEquals(direct.getComponentCount(),ranges.length());for(int c=0;c<ranges.length();c++){assertEquals(c,ranges.getJSONObject(c).getInt("index"));assertEquals((double)direct.getMinValue(c),ranges.getJSONObject(c).getDouble("min"),0d);assertEquals((double)direct.getMaxValue(c),ranges.getJSONObject(c).getDouble("max"),0d);}
+                }
+            }
+            if(display.getHdrCapabilities()!=null)assertTrue(value.has("hdr"));assertEquals(display.getSupportedModes().length,value.getJSONArray("supportedModes").length());evidence.put(Json.obj("displayId",display.getDisplayId(),"colorCapabilities",color));
+        }
+        assertTrue(evidence.length()>0);Bundle result=new Bundle();result.putString("displayColorEvidence",evidence.toString());InstrumentationRegistry.getInstrumentation().sendStatus(0,result);
+    }
     @Test public void displayModeHdrKeepsUnknownValuesAndCompleteHash()throws Exception{
         int[] types={4,2,4,999,-1,0},original=types.clone();JSONObject value=PackageInputCollector.displayModeHdrValues(types);
         assertArrayEquals(original,types);assertEquals("ok",value.getString("status"));assertEquals(6,value.getInt("typeCount"));assertEquals(6,value.getInt("returnedCount"));assertFalse(value.getBoolean("typesTruncated"));

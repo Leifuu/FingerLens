@@ -115,6 +115,11 @@
 
 - [LocaleData.getCLDRVersion](https://developer.android.com/reference/android/icu/util/LocaleData#getCLDRVersion()) 自API28公开，新增 `environment/cldr-version`。独立只读查询、保留完整版本原文；API24–27明确`unsupported + null`，资源异常不影响原ICU/Unicode/时区条目。不能由其它版本推测CLDR值，也不据此判定设备真实性；旧JSON新项缺失保持单侧差异。
 
+## 显示色彩能力补充
+
+- `display/ID.colorCapabilities`分别通过API26+宽色域标志及API29+偏好宽色域空间查询，记录独立status/value；保留false、成功null、unsupported、denied/error与错误类型。空间包含原始name/id/model/分量数、wideGamut/srgb及最多4个原序分量min/max，名称最多2048字符；负ID、负范围与超过1的范围不归一化。旧HDR、模式、替代刷新率及旧JSON不改写，完整字段分页继续保留未知字段与原文。
+- 偏好空间属于系统合成管线声明，不代表当前窗口色彩模式或完整空间清单，不读取画面/ICC或修改配置。Pixel6/API36独立公开API返回Display P3（id7/RGB/3分量0–1），宽色域true；新字段浏览器验证使用明确HYBRID与SYNTHETIC样本，本轮未验证新正式Release整轮报告。详见[来源与边界](android-risk-fingerprint-sources.md#显示宽色域与偏好色彩空间)。
+
 ## 当前缺口与下一步候选
 
 - TLS 参数已增加紧凑摘要：已知17字段合并为9行，完整字段折叠保留；完整列表哈希和未知元数据变化仍参与概览差异，旧结构回退原字段表。四组协议/密码套件原序清单、schema1.0和比较器不变。

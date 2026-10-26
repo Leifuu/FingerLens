@@ -40,6 +40,15 @@
 
 - [Android SELinux](https://source.android.com/docs/security/features/selinux)：说明 Android 运行时的 enforcing/permissive 策略状态与进程安全上下文。本工程新增 `security/selinux-summary`，只保存 enforcing 状态、上下文长度和 SHA-256，原始安全文件继续保留。
 
+## 显示宽色域与偏好色彩空间
+
+- [Display.isWideColorGamut](https://developer.android.com/reference/android/view/Display#isWideColorGamut())自API26公开，[getPreferredWideGamutColorSpace](https://developer.android.com/reference/android/view/Display#getPreferredWideGamutColorSpace())自API29公开；[ColorSpace](https://developer.android.com/reference/android/graphics/ColorSpace)及本轮使用的名称、ID、模型、分量数量/范围、isWideGamut/isSrgb元数据自API26公开。2026-10-26核对本机SDK37.0版本表及固定AOSP提交 `1cdfff555f4a21f71ccc978290e2e212e2f8b168` 的 [Display.java](https://github.com/aosp-mirror/platform_frameworks_base/blob/1cdfff555f4a21f71ccc978290e2e212e2f8b168/core/java/android/view/Display.java) 与 [ColorSpace.java](https://github.com/aosp-mirror/platform_frameworks_base/blob/1cdfff555f4a21f71ccc978290e2e212e2f8b168/graphics/java/android/graphics/ColorSpace.java)。Display缓存SHA256为 `c6ed6409ffc5a13b20f77b7507857e9696db835a4051f1cd5ec3bf32c45e8434`；ColorSpace本轮经GitHub Contents API取得，SHA256为 `51f2905f72b7d180065ee9269fb82ef61250bac718acf79d6f244d6be4ebdd98`。
+- 每个 `display/ID` 新增 `colorCapabilities`：`wideColorGamut`和`preferredWideGamutColorSpace`两个独立status/value查询。低于各自API门槛为unsupported/null，成功false保持false，偏好空间成功返回null保持ok/null；异常为denied/error/null及errorClass，互不抹去结果，也不改写原显示尺寸、HDR、模式和替代刷新率。两次读取不保证原子快照，不按另一项结果补推或纠正。
+- 非null空间保存name、原始有符号id、model名称、componentCount、wideGamut、srgb，以及按分量索引原序保存的min/max。名称限1–2048字符、分量限1–4，超限为该查询错误；分量范围可为负值或超过1，不做RGB归一化、不换算或截断，特殊浮点沿用公共Json类型编码。名称格式和唯一性没有保证，自定义空间可有负ID；名称和ID不作为设备永久身份，也不由它们猜测面板校准结果。
+- 偏好空间是基于硬件能力、由合成管线偏好的宽色域空间，不表示当前窗口/图片实际使用的空间、完整支持空间清单或HDR模式；宽色域标志也不证明当前App可以输出宽色域内容。不读取ICC文件、像素或画面，不改变窗口/显示色彩模式，不新增权限。旧JSON缺对象正常导入比较，新对象仍由原完整字段表和50字段分页保留原文、状态及未知字段。
+- Pixel6/Android16/API36独立公开API测试：display0的wideColorGamut为true；偏好 `Display P3`、id7、RGB、3分量，wideGamut=true、srgb=false，各分量范围0–1。两项新测试及原HDR/替代刷新率回归共4项通过，新Release APK已安装；本轮未验证新的正式Release整轮报告。API24/25/28门槛、失败、成功null、自定义负ID/负范围及2048/2049名称边界是合成测试，不声称对应真机实际返回。
+- 浏览器新字段样本明确标为HYBRID（旧正式报告加本轮独立API证据），18个色彩字段逐值双侧核对通过；四份SYNTHETIC状态样本分别78/5/4/5字段，其中78字段跨两页，包含未知字段、HTML名称只作文本、不支持/拒绝/异常和成功null。旧真实报告缺对象不补写，原模式/HDR/分页与窄屏回归保持通过；合成及HYBRID样本均不是新正式采集报告。
+
 ## 显示模式替代刷新率
 
 - 展示补充（2026-10-26）：20项显示模式概览直接显示两侧替代刷新率（Hz）、查询状态、总数、返回数和截断状态，长内容默认3行并可展开原文。概览按原序最多列8项并明确提示转到完整字段，不补充当前刷新率、不合并重复值；字符串带引号，NaN/Infinity保留float类型，数字/文字计数与截断标志也不归一化。旧JSON缺对象明确未采集，空数组、null、失败/错误类型、未知状态和异构结构保持区别；20项分页、完整字段折叠及50字段分页、完整原对象差异和390px独立横向查看设备B继续保留。仅优化浏览层，不修改采集或导出。

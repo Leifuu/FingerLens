@@ -109,6 +109,19 @@ describe('原始与语义比较', () => {
     }
     expect(JSON.stringify([legacy, unknown, ...variants])).toBe(before);
   });
+  it('显示色彩查询兼容旧JSON并保留成功null、失败、原始类型和未知字段差异', () => {
+    const report = (color?: Json) => fixture([fixtureItem('display/0', { displayId: 0, hdr: { types: [2, 3] }, ...(color === undefined ? {} : { colorCapabilities: color }) }, { category: 'display' })]);
+    const color = { wideColorGamut: { status: 'ok', value: false }, preferredWideGamutColorSpace: { status: 'ok', value: null } };
+    const old = report(), current = report(color);
+    const variants = [report({ ...color, wideColorGamut: { status: 'ok', value: 'false' } }), report({ ...color, preferredWideGamutColorSpace: { status: 'unsupported', value: null } }), report({ ...color, preferredWideGamutColorSpace: { status: 'error', value: null, errorClass: 'SyntheticException' } }), report({ ...color, preferredWideGamutColorSpace: { status: 'ok', value: { id: -1, name: 'synthetic', componentRanges: [{ index: 0, min: -128, max: 128 }], future: false } } })];
+    const before = JSON.stringify([old, current, ...variants]);
+    for (const rules of [raw, semantic, smart]) {
+      expect(find(compare(old, current, rules), 'display/0').changedPaths).toEqual(['/value/colorCapabilities']);
+      for (const next of variants) expect(find(compare(current, next, rules), 'display/0').state).toBe('different');
+      expect(find(compare(variants[1], variants[2], rules), 'display/0').state).toBe('different');
+    }
+    expect(JSON.stringify([old, current, ...variants])).toBe(before);
+  });
   it('显示模式HDR兼容旧字段并区分未知/空集/失败及截断外变化', () => {
     const mode = { modeId: 1, physicalWidth: 1080, physicalHeight: 2400, refreshRate: 60 };
     const report = (support?: Json) => fixture([fixtureItem('display/0', { supportedModes: [{ ...mode, ...(support === undefined ? {} : { hdrTypeSupport: support }) }], hdr: { types: [2, 3] } }, { category: 'display' })]);
