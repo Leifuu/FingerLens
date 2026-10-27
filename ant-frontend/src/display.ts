@@ -153,8 +153,12 @@ function displaySections(value: Json): DisplaySection[] {
 
 function inputSections(value: Json): DisplaySection[] {
   if (!object(value)) return [section('value', '输入设备', [row('value', value)])];
-  const sections = [section('identity', '设备信息', objectRows(value))];
-  for (const [key, child] of Object.entries(value)) if (Array.isArray(child)) sections.push(section(key, key === 'motionRanges' ? '运动范围' : key, arrayRows(child, key), true));
+  const sections = [section('identity', '设备信息', objectRows(value, ['id', 'name', 'descriptor', 'vendorId', 'productId', 'sources', 'keyboardType', 'controllerNumber', 'virtual', 'external', 'hasMicrophone', 'hasVibrator']))];
+  if (Object.hasOwn(value, 'batteryState')) sections.push(section('batteryState', '输入设备电池状态', flattenRows(value.batteryState, 'batteryState', true), true));
+  if (Array.isArray(value.motionRanges)) sections.push(section('motionRanges', '运动范围', arrayRows(value.motionRanges, 'motionRanges'), true));
+  const covered = new Set(['id', 'name', 'descriptor', 'vendorId', 'productId', 'sources', 'keyboardType', 'controllerNumber', 'virtual', 'external', 'hasMicrophone', 'hasVibrator', 'batteryState', 'motionRanges']);
+  const extra = Object.fromEntries(Object.entries(value).filter(([key]) => !covered.has(key)));
+  if (Object.keys(extra).length) sections.push(...genericSections(extra).map(item => ({ ...item, key: `extra-${item.key}` })));
   return sections.filter(item => item.rows.length);
 }
 
@@ -341,7 +345,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     'network/interface-summary': { title: '网络接口摘要', order: ['available', 'status', 'interfaceCount', 'upCount', 'downCount', 'loopbackCount', 'virtualCount', 'pointToPointCount', 'hardwareAddressPresentCount', 'addressCount', 'ipv4Count', 'ipv6Count', 'mtuMin', 'mtuMax', 'prefixCounts'], arrays: [] },
      'network/wifi-capabilities': { title: 'Wi-Fi 链路能力', order: ['available', 'access', 'wifiStandard', 'maxSupportedRxLinkSpeedMbps', 'maxSupportedTxLinkSpeedMbps', 'apMldMacPresent', 'apMloLinkId', 'affiliatedMloLinkCount'], arrays: [] },
     'packages/summary': { title: '应用清单摘要', order: ['returnedCount', 'applicationInfoCount', 'enabledCount', 'debuggableCount', 'systemAppCount', 'updatedSystemAppCount', 'nativeCodeCount', 'splitPackageCount', 'sharedUserIdCount', 'versionNameCount', 'requestedPermissionCount', 'permissionPackageCount', 'grantedRequestedPermissionCount', 'uniqueRequestedPermissionCount', 'requestedPermissionNamesTruncated', 'activityCount', 'receiverCount', 'serviceCount', 'providerCount', 'targetSdkCounts'], arrays: ['requestedPermissionNames'] },
-    'input/summary': { title: '输入设备能力摘要', order: ['count', 'virtualCount', 'externalCount', 'microphoneCount', 'vibratorCount', 'motionRangeCount', 'accessErrorCount', 'keyboardTypeCounts', 'sourceCounts'], arrays: [] },
+    'input/summary': { title: '输入设备能力摘要', order: ['count', 'virtualCount', 'externalCount', 'microphoneCount', 'vibratorCount', 'motionRangeCount', 'accessErrorCount', 'batteryPresentCount', 'batteryStateErrorCount', 'keyboardTypeCounts', 'sourceCounts'], arrays: [] },
     'display/summary': { title: '显示能力摘要', order: ['count', 'validCount', 'secureCount', 'presentationCount', 'presentationCategoryCount', 'hdrCount'], arrays: ['widths', 'heights', 'densityDpi', 'refreshRates'] },
     'attestation/play-integrity-environment': { title: 'Play Integrity 本地环境', order: ['verdictAvailable', 'conclusion', 'playServices', 'playStore'], arrays: [] },
     'security/device-management': { title: '设备管理与用户环境', order: ['deviceOwnerForSelf', 'profileOwnerForSelf', 'managedProfile', 'adminUser', 'demoUser', 'systemUser', 'organizationOwnedDeviceWithManagedProfile', 'organizationOwnedQueryStatus', 'organizationOwnedErrorClass', 'commonCriteriaMode', 'commonCriteriaQueryStatus', 'commonCriteriaErrorClass', 'usbDataSignalingEnabled', 'usbDataSignalingQueryStatus', 'usbDataSignalingDisableSupported', 'usbDataSignalingSupportQueryStatus', 'usbDataSignalingErrorClass', 'usbDataSignalingSupportErrorClass', 'userUnlocked', 'storageEncryptionStatus', 'restrictions'], arrays: [] },

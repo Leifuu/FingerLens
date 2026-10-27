@@ -180,10 +180,17 @@ describe('设备格式化展示边界', () => {
     expect(sections.find(section => section.key === 'requestedPermissionNames')?.title).toContain('最多 256 项');
   });
   it('输入设备摘要展示虚拟化与能力计数', () => {
-    const sections = buildSections(item('input/summary', 'input', { count: 2, virtualCount: 1, externalCount: 0, microphoneCount: 1, vibratorCount: 1, motionRangeCount: 3, accessErrorCount: 0, keyboardTypeCounts: { '1': 2 }, sourceCounts: { '16777232': 1 } }));
+    const sections = buildSections(item('input/summary', 'input', { count: 2, virtualCount: 1, externalCount: 0, microphoneCount: 1, vibratorCount: 1, motionRangeCount: 3, accessErrorCount: 0, batteryPresentCount: 1, batteryStateErrorCount: 0, keyboardTypeCounts: { '1': 2 }, sourceCounts: { '16777232': 1 } }));
     expect(sections[0].title).toBe('输入设备能力摘要');
     expect(sections[0].rows.map(row => row.key)).toContain('virtualCount');
+    expect(sections[0].rows.map(row => row.key)).toContain('batteryPresentCount');
     expect(sections[0].rows.map(row => row.key)).toContain('keyboardTypeCounts.1');
+  });
+  it('输入设备电池状态单独展示并保留旧设备字段', () => {
+    const sections = buildSections(item('input/device/1', 'input', { id: 1, name: 'controller', batteryState: { status: 'ok', present: true, batteryStatus: 2, batteryStatusName: 'charging', capacity: 0.625 }, motionRanges: [{ axis: 1 }] }));
+    expect(sections.find(section => section.key === 'batteryState')?.title).toBe('输入设备电池状态');
+    expect(sections.find(section => section.key === 'batteryState')?.rows.map(row => row.key)).toContain('batteryState.capacity');
+    expect(sections.find(section => section.key === 'motionRanges')?.title).toBe('运动范围');
   });
   it('振动器频率保留NaN类型、原始数值和未知字段，旧JSON不填充', () => {
     const legacy = { available: true, vibrators: [{ id: 0, effectSupportCodes: [1, 2, 0, 1] }] };
