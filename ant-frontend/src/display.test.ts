@@ -687,7 +687,7 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.map(row => row.key)).not.toContain('privateDnsServerName');
   });
   it('锁屏与生物识别摘要只展示公开状态', () => {
-    const sections = buildSections(item('security/lock-biometric', 'security', { keyguardSecure: true, keyguardLocked: false, deviceSecure: true, deviceLocked: false, fingerprintFeature: true, faceFeature: false, irisFeature: false, biometricStrongCode: 0, biometricStrongStatus: 'success', biometricWeakCode: 11, biometricWeakStatus: 'none_enrolled' }));
+    const sections = buildSections(item('security/lock-biometric', 'security', { keyguardSecure: true, keyguardLocked: false, deviceSecure: true, deviceLocked: false, fingerprintFeature: true, fingerprintSensorStatus: 'enabled', fingerprintHardwareDetected: true, fingerprintEnrolled: true, faceFeature: false, irisFeature: false, biometricStrongCode: 0, biometricStrongStatus: 'success', biometricWeakCode: 11, biometricWeakStatus: 'none_enrolled' }));
     expect(sections[0].title).toBe('锁屏与生物识别环境');
     expect(sections[0].rows.some(row => row.key === 'keyguardSecure')).toBe(true);
     expect(sections[0].rows.some(row => row.key === 'fingerprintFeature')).toBe(true);

@@ -8,6 +8,7 @@ import android.content.pm.PermissionInfo;
 import android.app.admin.DevicePolicyManager;
 import android.app.AppOpsManager;
 import android.app.KeyguardManager;
+import androidx.core.hardware.fingerprint.FingerprintManagerCompat;
 import android.accessibilityservice.AccessibilityServiceInfo;
 import android.content.pm.ResolveInfo;
 import android.content.pm.ServiceInfo;
@@ -306,17 +307,25 @@ public final class SecurityCollector implements Collector {
     private static JSONObject lockBiometricEnvironment(Context context){
         KeyguardManager keyguard=context.getSystemService(KeyguardManager.class);
         PackageManager packages=context.getPackageManager();
+        FingerprintManagerCompat fingerprintManager=Build.VERSION.SDK_INT>=23?FingerprintManagerCompat.from(context):null;
+        JSONObject fingerprint=fingerprintSensorStatus(Build.VERSION.SDK_INT,fingerprintManager!=null,
+                fingerprintManager==null?null:fingerprintManager::isHardwareDetected,
+                fingerprintManager==null?null:fingerprintManager::hasEnrolledFingerprints);
         JSONObject out=Json.obj("keyguardSecure",keyguard==null?null:keyguard.isKeyguardSecure(),
                 "keyguardLocked",keyguard==null?null:keyguard.isKeyguardLocked(),
                 "deviceSecure",keyguard==null?null:keyguard.isDeviceSecure(),
                 "deviceLocked",keyguard==null?null:keyguard.isDeviceLocked(),
                 "fingerprintFeature",packages.hasSystemFeature(PackageManager.FEATURE_FINGERPRINT),
+                "fingerprintSensorStatus",fingerprint.optString("status"),
+                "fingerprintHardwareDetected",fingerprint.opt("hardwareDetected"),
+                "fingerprintEnrolled",fingerprint.opt("enrolled"),
                 "faceFeature",Build.VERSION.SDK_INT>=29&&packages.hasSystemFeature(PackageManager.FEATURE_FACE),
                 "irisFeature",Build.VERSION.SDK_INT>=29&&packages.hasSystemFeature(PackageManager.FEATURE_IRIS),
                 "biometricManagerAvailable",false,
                 "biometricStrongCode",null,"biometricStrongStatus","unsupported",
                 "biometricWeakCode",null,"biometricWeakStatus","unsupported",
                 "deviceCredentialCode",null,"deviceCredentialStatus","unsupported");
+        if(fingerprint.has("errorClass"))Json.put(out,"fingerprintSensorErrorClass",fingerprint.opt("errorClass"));
         if(Build.VERSION.SDK_INT<30)return out;
         android.hardware.biometrics.BiometricManager biometric=context.getSystemService(android.hardware.biometrics.BiometricManager.class);
         if(biometric==null){Json.put(out,"biometricStrongStatus","unavailable");Json.put(out,"biometricWeakStatus","unavailable");Json.put(out,"deviceCredentialStatus","unavailable");return out;}
@@ -325,6 +334,19 @@ public final class SecurityCollector implements Collector {
         putBiometricResult(out,biometric,"biometricWeak",android.hardware.biometrics.BiometricManager.Authenticators.BIOMETRIC_WEAK);
         putBiometricResult(out,biometric,"deviceCredential",android.hardware.biometrics.BiometricManager.Authenticators.DEVICE_CREDENTIAL);
         return out;
+    }
+    // 业务块：复现公开 FingerprintJS 指纹传感器状态语义；不读取模板、不发起认证。
+    static JSONObject fingerprintSensorStatus(int sdk,boolean managerAvailable,java.util.function.BooleanSupplier hardware,java.util.function.BooleanSupplier enrolled){
+        if(sdk<23)return Json.obj("status","unsupported","hardwareDetected",null,"enrolled",null);
+        if(!managerAvailable)return Json.obj("status","unavailable","hardwareDetected",null,"enrolled",null);
+        try{
+            boolean detected=Objects.requireNonNull(hardware,"missing fingerprint hardware query").getAsBoolean();
+            if(!detected)return Json.obj("status","not_supported","hardwareDetected",false,"enrolled",null);
+            boolean hasEnrolled=Objects.requireNonNull(enrolled,"missing fingerprint enrollment query").getAsBoolean();
+            return Json.obj("status",hasEnrolled?"enabled":"supported","hardwareDetected",true,"enrolled",hasEnrolled);
+        }catch(SecurityException e){return Json.obj("status","denied","hardwareDetected",null,"enrolled",null,"errorClass",e.getClass().getName());}
+        catch(UnsupportedOperationException|NoSuchMethodError e){return Json.obj("status","unsupported","hardwareDetected",null,"enrolled",null,"errorClass",e.getClass().getName());}
+        catch(RuntimeException|LinkageError e){return Json.obj("status","error","hardwareDetected",null,"enrolled",null,"errorClass",e.getClass().getName());}
     }
     private static void putBiometricResult(JSONObject out,android.hardware.biometrics.BiometricManager biometric,String prefix,int authenticators){
         try{
