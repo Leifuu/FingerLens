@@ -27,6 +27,7 @@ export function CodecOverview({ itemKey, sectionKey, left, right, rows, onlyDiff
     return <Space direction="vertical" size={0}>
       <Typography.Text>{encoder === 'true' ? '编码' : encoder === 'false' ? '解码' : text(encoder)} · 硬件加速 {flag(row.hardwareAccelerated?.[side])}</Typography.Text>
       <Typography.Text type="secondary">软件实现 {flag(row.softwareOnly?.[side])} · 厂商组件 {flag(row.vendor?.[side])}</Typography.Text>
+      <Typography.Text type="secondary">安全模型 {text(row.securityModelName?.[side])} · 查询状态 {text(row.securityModelStatus?.[side])}</Typography.Text>
       <Typography.Text className="device-value">MIME：{types.length ? types.join('、') : '—'}</Typography.Text>
     </Space>;
   };

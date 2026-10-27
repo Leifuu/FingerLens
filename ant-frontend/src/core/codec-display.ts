@@ -11,6 +11,9 @@ export interface CodecDisplayRow {
   hardwareAccelerated?: MergedDisplayRow;
   softwareOnly?: MergedDisplayRow;
   vendor?: MergedDisplayRow;
+  securityModel?: MergedDisplayRow;
+  securityModelName?: MergedDisplayRow;
+  securityModelStatus?: MergedDisplayRow;
   supportedTypes: MergedDisplayRow[];
   encoderControls: CodecEncoderDisplayRow[];
   performancePoints: CodecPerformanceRow[];
@@ -38,7 +41,7 @@ export function codecDisplayRows(rows: MergedDisplayRow[], leftCodecs?: Json[], 
       if (present(side) && (name[side] === null || encoder[side] === null)) return undefined;
     }
     const performancePoints = codecPerformanceRows(leftCodecs?.[Number(key)], rightCodecs?.[Number(key)]);
-    result.push({ key, name, encoder, canonicalName: field('canonicalName'), hardwareAccelerated: field('hardwareAccelerated'), softwareOnly: field('softwareOnly'), vendor: field('vendor'),
+    result.push({ key, name, encoder, canonicalName: field('canonicalName'), hardwareAccelerated: field('hardwareAccelerated'), softwareOnly: field('softwareOnly'), vendor: field('vendor'), securityModel: field('securityModel'), securityModelName: field('securityModelName'), securityModelStatus: field('securityModelStatus'),
       supportedTypes: fields.filter(row => /^\[\d+\]\.supportedTypes(?:\[\d+\])?$/.test(row.label)),
       encoderControls: codecEncoderDisplayRows(fields, key),
       performancePoints,

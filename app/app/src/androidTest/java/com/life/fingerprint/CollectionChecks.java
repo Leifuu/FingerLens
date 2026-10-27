@@ -3,6 +3,7 @@ package com.life.fingerprint;
 import android.content.*;
 import android.content.pm.PackageManager;
 import android.app.KeyguardManager;
+import android.media.*;
 import android.os.*;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -991,6 +992,15 @@ public class CollectionChecks {
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new HardwareCollector("hardware").collect(sink);
         JSONObject summary=null,list=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("hardware/codecs-summary"))summary=item;if(item.getString("key").equals("hardware/codecs"))list=item;}
         assertNotNull("应生成编解码能力摘要",summary);assertNotNull("应保留编解码完整清单",list);assertEquals("ok",summary.getString("status"));assertEquals("ok",list.getString("status"));JSONObject value=summary.getJSONObject("value");assertEquals(value.getInt("count"),list.getJSONArray("value").length());assertTrue(value.getJSONArray("codecNames").length()<=256);assertTrue(value.getJSONArray("mimeTypes").length()<=256);assertTrue(value.has("codecNamesTruncated"));assertTrue(value.has("mimeTypesTruncated"));
+    }
+    @Test public void codecSecurityModelMatchesPublicApiAndKeepsBoundaries()throws Exception{
+        JSONObject old=HardwareCollector.codecSecurityModel(35,()->{throw new AssertionError("旧API不得调用安全模型");});assertEquals("unsupported",old.getString("status"));assertTrue(old.isNull("value"));
+        JSONObject sandboxed=HardwareCollector.codecSecurityModel(36,()->MediaCodecInfo.SECURITY_MODEL_SANDBOXED);assertEquals("ok",sandboxed.getString("status"));assertEquals("sandboxed",sandboxed.getString("name"));
+        JSONObject memorySafe=HardwareCollector.codecSecurityModel(36,()->MediaCodecInfo.SECURITY_MODEL_MEMORY_SAFE);assertEquals("memory-safe",memorySafe.getString("name"));
+        JSONObject unknown=HardwareCollector.codecSecurityModel(36,()->2);assertEquals("unknown-value",unknown.getString("name"));assertEquals(2,unknown.getInt("value"));
+        JSONObject denied=HardwareCollector.codecSecurityModel(36,()->{throw new SecurityException("SYNTHETIC");});assertEquals("denied",denied.getString("status"));assertTrue(denied.isNull("value"));assertTrue(denied.has("errorClass"));
+        ItemSink sink=new ItemSink(context,"codec-security-model-test");new HardwareCollector("hardware").collect(sink);JSONObject item=null;for(int i=0;i<sink.items.length();i++)if(sink.items.getJSONObject(i).getString("key").equals("hardware/codecs")){item=sink.items.getJSONObject(i);break;}
+        assertNotNull(item);JSONArray codecs=item.getJSONArray("value");MediaCodecInfo[] platform=new MediaCodecList(MediaCodecList.ALL_CODECS).getCodecInfos();assertEquals(platform.length,codecs.length());for(int i=0;i<platform.length;i++){MediaCodecInfo codec=platform[i];JSONObject actual=codecs.getJSONObject(i);assertTrue(actual.has("securityModel"));assertTrue(actual.has("securityModelName"));assertTrue(actual.has("securityModelStatus"));if(Build.VERSION.SDK_INT<36){assertTrue(actual.isNull("securityModel"));assertEquals("unsupported",actual.getString("securityModelStatus"));}else{assertEquals(codec.getSecurityModel(),actual.getInt("securityModel"));assertEquals(actual.getString("securityModelStatus"),"ok");}}
     }
     @Test public void codecEncoderControlsMatchPublicCapabilities()throws Exception{
         try{HardwareCollector.codecEncoderCapabilities(null);fail("缺失能力不能冒充非编码器");}catch(NullPointerException expected){}

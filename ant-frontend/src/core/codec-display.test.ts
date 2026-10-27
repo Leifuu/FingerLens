@@ -16,6 +16,13 @@ function grouped(left: Json[] | undefined, right?: Json[]) {
 }
 
 describe('编解码器概览', () => {
+  it('编解码器安全模型保留原值、名称、状态并参与差异', () => {
+    const base = { name: 'codec', encoder: false, securityModel: 0, securityModelName: 'sandboxed', securityModelStatus: 'ok', capabilities: [{ type: 'video/test' }] };
+    const row = grouped([base], [base])![0];
+    expect(row.securityModel?.left).toBe('0');expect(row.securityModelName?.left).toBe('sandboxed');expect(row.securityModelStatus?.left).toBe('成功');expect(row.state).toBe('same');
+    expect(grouped([base], [{ ...base, securityModel: 1, securityModelName: 'memory-safe' }])![0].state).toBe('changed');
+    expect(grouped([{ name: 'old', encoder: false, capabilities: [] }])![0].securityModel).toBeUndefined();
+  });
   it('编码器范围和码率模式参与整行差异，保留0值和未知状态', () => {
     const support = { available: true, status: 'ok', complexity: { status: 'ok', range: { lower: 0, upper: 0 } }, quality: { status: 'ok', range: { lower: 0, upper: 0 } }, bitrateModes: { CQ: { mode: 0, status: 'ok', supported: false } } };
     const codec = (encoderCapabilities?: Json) => ({ name: 'encoder', encoder: true, capabilities: [{ type: 'video/test', ...(encoderCapabilities === undefined ? {} : { encoderCapabilities }) }] });
