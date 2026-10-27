@@ -521,10 +521,14 @@ public final class BuildSystemCollector implements Collector {
         android.content.ContentResolver resolver=context.getContentResolver();
         ActivityManager activity=context.getSystemService(ActivityManager.class);
         UserManager users=context.getSystemService(UserManager.class);
+        PackageManager packages=context.getPackageManager();
+        JSONObject upgrading=deviceUpgradingState(Build.VERSION.SDK_INT,packages!=null,packages==null?null:packages::isDeviceUpgrading);
         JSONObject out=Json.obj(
                 "deviceProvisioned",settingFlag(resolver,true,"device_provisioned"),
                 "userSetupComplete",settingFlag(resolver,false,"user_setup_complete"),
                 "bootCount",Settings.Global.getString(resolver,"boot_count"),
+                "deviceUpgrading",upgrading.opt("value"),
+                "deviceUpgradingQueryStatus",upgrading.optString("status"),
                 "lowRamDevice",activity==null?null:activity.isLowRamDevice(),
                 "demoUser",Build.VERSION.SDK_INT>=23&&users!=null?users.isDemoUser():null,
                 "systemUser",Build.VERSION.SDK_INT>=23&&users!=null?users.isSystemUser():null,
@@ -534,7 +538,17 @@ public final class BuildSystemCollector implements Collector {
                 "userMonkey",ActivityManager.isUserAMonkey());
         if(Build.VERSION.SDK_INT>=29)Json.put(out,"testHarness",ActivityManager.isRunningInUserTestHarness());
         if(Build.VERSION.SDK_INT>=28)Json.put(out,"backgroundRestricted",activity!=null&&activity.isBackgroundRestricted());
+        if(upgrading.has("errorClass"))Json.put(out,"deviceUpgradingErrorClass",upgrading.opt("errorClass"));
         return out;
+    }
+    // 业务块：API29+只读取 PackageManager 的设备升级瞬时状态；不触发升级或修改安装状态。
+    static JSONObject deviceUpgradingState(int sdk,boolean serviceAvailable,java.util.function.BooleanSupplier query){
+        if(sdk<29)return Json.obj("status","unsupported","value",null);
+        if(!serviceAvailable||query==null)return Json.obj("status","unavailable","value",null);
+        try{return Json.obj("status","ok","value",query.getAsBoolean());}
+        catch(SecurityException e){return Json.obj("status","denied","value",null,"errorClass",e.getClass().getName());}
+        catch(UnsupportedOperationException|NoSuchMethodError e){return Json.obj("status","unsupported","value",null,"errorClass",e.getClass().getName());}
+        catch(RuntimeException|LinkageError e){return Json.obj("status","error","value",null,"errorClass",e.getClass().getName());}
     }
     // 业务块：只记录当前用户可见的资料数量和托管资料状态，不导出用户句柄、账号或个人内容。
     private static JSONObject userProfileSummary(Context context){

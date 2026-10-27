@@ -760,9 +760,9 @@ describe('设备格式化展示边界', () => {
     expect(rows.find(row => row.key === 'appOps.android:camera.allowed')?.value).toBe('true');
   });
   it('设备初始化与运行状态摘要按稳定字段顺序展示', () => {
-    const sections = buildSections(item('environment/device-state', 'environment', { deviceProvisioned: true, userSetupComplete: true, bootCount: '7', lowRamDevice: false, demoUser: false, systemUser: false, headlessSystemUserMode: false, userUnlocked: true, userRunning: true }));
+    const sections = buildSections(item('environment/device-state', 'environment', { deviceProvisioned: true, userSetupComplete: true, bootCount: '7', deviceUpgrading: false, deviceUpgradingQueryStatus: 'ok', lowRamDevice: false, demoUser: false, systemUser: false, headlessSystemUserMode: false, userUnlocked: true, userRunning: true }));
     expect(sections[0].title).toBe('设备初始化与运行状态');
-    expect(sections[0].rows.map(row => row.key)).toEqual(['deviceProvisioned', 'userSetupComplete', 'bootCount', 'lowRamDevice', 'demoUser', 'systemUser', 'headlessSystemUserMode', 'userUnlocked', 'userRunning']);
+    expect(sections[0].rows.map(row => row.key)).toEqual(['deviceProvisioned', 'userSetupComplete', 'bootCount', 'deviceUpgrading', 'deviceUpgradingQueryStatus', 'lowRamDevice', 'demoUser', 'systemUser', 'headlessSystemUserMode', 'userUnlocked', 'userRunning']);
   });
   it('用户与工作资料摘要只展示数量和托管状态', () => {
     const sections = buildSections(item('environment/user-profiles', 'environment', { available: true, status: 'ok', profileCount: 2, managedProfile: true }));
