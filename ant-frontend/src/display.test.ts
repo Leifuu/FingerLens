@@ -381,6 +381,12 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.map(row => row.key)).toEqual(['available', 'manufacturer', 'brand', 'model', 'device', 'product', 'hardware', 'board', 'fingerprintPresent', 'fingerprintLength', 'fingerprintSha256', 'socManufacturer', 'socModel']);
     expect(sections[0].rows.find(row => row.key === 'fingerprintSha256')?.value).toBe('a'.repeat(64));
   });
+  it('无线电固件版本保留空值语义与长度', () => {
+    const sections = buildSections(item('build/radio-version', 'build', { available: true, status: 'empty', version: null, length: null }));
+    expect(sections[0].title).toBe('无线电固件版本');
+    expect(sections[0].rows.map(row => row.key)).toEqual(['available', 'status', 'version', 'length']);
+    expect(sections[0].rows.find(row => row.key === 'version')?.value).toBe('null');
+  });
   it('系统分区指纹摘要保留构建时间、截断和未知字段', () => {
     const value = item('build/fingerprinted-partitions', 'build', { available: true, status: 'partial', scope: 'public-build-partition-fingerprints', partitionCount: 129, returnedCount: 128, partitionLimit: 128, partitionsTruncated: true, partitionSetSha256: 'a'.repeat(64), partitions: [{ name: 'system', fingerprint: 'google/oriole/system:fp', buildTimeMillis: { $type: 'int64', value: '9007199254740993' } }, { name: null, fingerprint: '', buildTimeMillis: -1 }], futureField: false });
     const original = JSON.stringify(value);

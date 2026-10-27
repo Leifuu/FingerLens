@@ -115,6 +115,7 @@ Pixel6/API36的独立instrumentation快照中，20项与同UID直接静态getter
 ## 官方 Android 设备标识资料
 
 - [Build](https://developer.android.com/reference/android/os/Build)：公开硬件、产品、指纹、ABI 等构建字段。
+- [Build.getRadioVersion](https://developer.android.com/reference/android/os/Build#getRadioVersion())：API 8+ 公开无线电固件版本 getter；本工程新增 `build/radio-version`，独立保留 null/空串/`unknown` 等返回文本及长度，并继续保留原始 `Build.RADIO` 字段。不调用基带私有接口、不把版本当作硬件唯一标识，单项文本上限 2048 字符。
 - [Build.VERSION](https://developer.android.com/reference/android/os/Build.VERSION)：公开 API level、版本、代号、增量版本、安全补丁、首发 API 和 API 31+ 媒体性能等级。本工程新增 `build/os-summary`，同时保留 `build/Build.VERSION/*` 原始字段，低版本字段保持 `null`。
 - API36+ 的 [Build.VERSION.SDK_INT_FULL](https://developer.android.com/reference/android/os/Build.VERSION#SDK_INT_FULL)、[Build.getMajorSdkVersion](https://developer.android.com/reference/android/os/Build#getMajorSdkVersion(int)) 与 [Build.getMinorSdkVersion](https://developer.android.com/reference/android/os/Build#getMinorSdkVersion(int))：`SDK_INT` 只表示 major 版本，而 `SDK_INT_FULL` 以公开编码保留 major/minor 版本（当前 AOSP 使用 100000 倍率）。本工程在 `build/os-summary` 新增 `sdkIntFull`、`sdkIntFullMajor`、`sdkIntFullMinor`、`sdkIntFullStatus`；API36 以下不访问新字段，失败保留状态/异常类，旧 JSON 缺字段继续兼容。版本编码只描述当前框架版本，不替代安全补丁、系统模块或远程完整性证据。
 - [PackageManager.getInstalledModules](https://developer.android.com/reference/android/content/pm/PackageManager#getInstalledModules(int)) 与 [ModuleInfo](https://developer.android.com/reference/android/content/pm/ModuleInfo)：API 29+ 公开 Mainline 模块名称、包名和隐藏标记。本工程新增 `build/module-summary` 与有界 `build/modules`，用全量集合 SHA-256 保留差异线索，不读取私有模块文件或未公开版本字段。

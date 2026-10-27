@@ -52,6 +52,7 @@ public final class BuildSystemCollector implements Collector {
         }else s.add("build","build/native-properties","原生属性枚举","jni","__system_property_read_callback","unsupported",null,Json.obj("minSdk",26),null);
         s.ok("build","build/abi-summary","ABI 与运行时架构摘要","android-api","Build.SUPPORTED_ABIS / Process.is64Bit",abiSummary());
         s.ok("build","build/hardware-summary","硬件型号与 SoC 摘要","android-api","Build public hardware fields",hardwareSummary());
+        s.read("build","build/radio-version","无线电固件版本","Build.getRadioVersion",()->radioVersionValue(Build.getRadioVersion()));
         s.ok("build","build/os-summary","Android 系统版本摘要","android-api","Build.VERSION",osSummary());
         s.ok("build","build/fingerprinted-partitions","系统分区构建指纹","android-api","Build.getFingerprintedPartitions / Build.Partition",fingerprintedPartitions());
         s.read("build","build/sdk-extensions","SDK 扩展版本摘要","SdkExtensions.getAllExtensionVersions / getExtensionVersion",BuildSystemCollector::sdkExtensions);
@@ -73,6 +74,11 @@ public final class BuildSystemCollector implements Collector {
     private static JSONObject hardwareSummary()throws Exception{
         String fingerprint=Build.FINGERPRINT;
         return Json.obj("available",true,"manufacturer",Build.MANUFACTURER,"brand",Build.BRAND,"model",Build.MODEL,"device",Build.DEVICE,"product",Build.PRODUCT,"hardware",Build.HARDWARE,"board",Build.BOARD,"fingerprintPresent",fingerprint!=null&&!fingerprint.isEmpty(),"fingerprintLength",fingerprint==null?null:fingerprint.length(),"fingerprintSha256",fingerprint==null?null:PackageInputCollector.sha(fingerprint.getBytes(java.nio.charset.StandardCharsets.UTF_8)),"socManufacturer",Build.VERSION.SDK_INT>=31?Build.SOC_MANUFACTURER:null,"socModel",Build.VERSION.SDK_INT>=31?Build.SOC_MODEL:null);
+    }
+    // 业务块：独立保留公开无线电固件 getter 的空值语义；不把版本字符串当作硬件唯一标识。
+    static JSONObject radioVersionValue(String version){
+        if(version!=null&&version.length()>2048)throw new IllegalArgumentException("无线电固件版本过长");
+        return Json.obj("available",true,"status",version==null||version.isEmpty()?"empty":"ok","version",version,"length",version==null?null:version.length());
     }
     // 业务块：整理公开系统版本与补丁环境；Build.VERSION 原始字段继续保留。
     private static JSONObject osSummary(){
