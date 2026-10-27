@@ -521,6 +521,8 @@ public final class BuildSystemCollector implements Collector {
                 "bootCount",Settings.Global.getString(resolver,"boot_count"),
                 "lowRamDevice",activity==null?null:activity.isLowRamDevice(),
                 "demoUser",Build.VERSION.SDK_INT>=23&&users!=null?users.isDemoUser():null,
+                "systemUser",Build.VERSION.SDK_INT>=23&&users!=null?users.isSystemUser():null,
+                "headlessSystemUserMode",Build.VERSION.SDK_INT>=31?android.os.UserManager.isHeadlessSystemUserMode():null,
                 "userUnlocked",Build.VERSION.SDK_INT<24||users==null||users.isUserUnlocked(),
                 "userRunning",Build.VERSION.SDK_INT<17||users==null||users.isUserRunning(android.os.Process.myUserHandle()),
                 "userMonkey",ActivityManager.isUserAMonkey());
