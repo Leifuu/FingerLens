@@ -625,6 +625,7 @@ public final class HardwareCollector implements Collector {
     private void battery(ItemSink s){
         s.read("battery","battery/summary","电池环境摘要","BatteryManager / ACTION_BATTERY_CHANGED",()->batterySummary(s.context));
         s.read("battery","battery/cycle-count","电池循环次数","ACTION_BATTERY_CHANGED EXTRA_CYCLE_COUNT",()->batteryCycleCount(s.context));
+        s.read("battery","battery/capacity-level","电池容量等级","ACTION_BATTERY_CHANGED EXTRA_CAPACITY_LEVEL",()->batteryCapacityLevel(Build.VERSION.SDK_INT,s.context.registerReceiver(null,new IntentFilter(Intent.ACTION_BATTERY_CHANGED))));
         s.read("battery","battery/broadcast","电池广播快照","ACTION_BATTERY_CHANGED sticky broadcast",()->{Intent i=s.context.registerReceiver(null,new IntentFilter(Intent.ACTION_BATTERY_CHANGED));if(i==null)return null;Bundle extras=i.getExtras();JSONObject v=new JSONObject();if(extras!=null)for(String k:extras.keySet()){Object x=extras.get(k);Json.put(v,k,x==null||x instanceof Number||x instanceof Boolean||x instanceof String?x:String.valueOf(x));}return v;});
         BatteryManager b=s.context.getSystemService(BatteryManager.class);for(int id:new int[]{BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER,BatteryManager.BATTERY_PROPERTY_CURRENT_NOW,BatteryManager.BATTERY_PROPERTY_CURRENT_AVERAGE,BatteryManager.BATTERY_PROPERTY_CAPACITY,BatteryManager.BATTERY_PROPERTY_ENERGY_COUNTER,BatteryManager.BATTERY_PROPERTY_STATUS})s.read("battery","battery/property/"+id,"电池属性 "+id,"BatteryManager property "+id,()->id==BatteryManager.BATTERY_PROPERTY_ENERGY_COUNTER?Json.obj("raw",b.getLongProperty(id),"unsupportedSentinel",String.valueOf(Long.MIN_VALUE)):Json.obj("raw",b.getIntProperty(id),"unsupportedSentinel",Integer.MIN_VALUE));
         for(String p:new String[]{"/sys/class/power_supply/battery/uevent","/sys/class/power_supply/battery/capacity","/sys/class/power_supply/battery/status","/sys/class/power_supply/battery/voltage_now","/sys/class/power_supply/battery/temp"})s.file("battery","battery/file"+p,p);
@@ -646,6 +647,27 @@ public final class HardwareCollector implements Collector {
         if(!intent.hasExtra(BatteryManager.EXTRA_CYCLE_COUNT))return Json.obj("available",true,"status","unavailable","cycleCount",null);
         int count=intent.getIntExtra(BatteryManager.EXTRA_CYCLE_COUNT,Integer.MIN_VALUE);
         return Json.obj("available",true,"status",count==Integer.MIN_VALUE||count<0?"unknown":"ok","cycleCount",count==Integer.MIN_VALUE||count<0?null:count);
+    }
+    // 业务块：Android 36 新增的容量等级是广播快照；保留未知原值，不从百分比反推等级。
+    static JSONObject batteryCapacityLevel(int sdk,Intent intent){
+        if(sdk<36)return Json.obj("available",false,"status","unsupported","capacityLevel",null,"capacityLevelName",null);
+        if(intent==null)return Json.obj("available",false,"status","unavailable","capacityLevel",null,"capacityLevelName",null);
+        if(!intent.hasExtra(BatteryManager.EXTRA_CAPACITY_LEVEL))return Json.obj("available",true,"status","unavailable","capacityLevel",null,"capacityLevelName",null);
+        int level=intent.getIntExtra(BatteryManager.EXTRA_CAPACITY_LEVEL,Integer.MIN_VALUE);
+        if(level==Integer.MIN_VALUE)return Json.obj("available",true,"status","unknown","capacityLevel",null,"capacityLevelName",null);
+        return Json.obj("available",true,"status","ok","capacityLevel",level,"capacityLevelName",batteryCapacityLevelName(level));
+    }
+    private static String batteryCapacityLevelName(int level){
+        switch(level){
+            case BatteryManager.BATTERY_CAPACITY_LEVEL_UNKNOWN:return "unknown";
+            case BatteryManager.BATTERY_CAPACITY_LEVEL_UNSUPPORTED:return "unsupported";
+            case BatteryManager.BATTERY_CAPACITY_LEVEL_CRITICAL:return "critical";
+            case BatteryManager.BATTERY_CAPACITY_LEVEL_LOW:return "low";
+            case BatteryManager.BATTERY_CAPACITY_LEVEL_NORMAL:return "normal";
+            case BatteryManager.BATTERY_CAPACITY_LEVEL_HIGH:return "high";
+            case BatteryManager.BATTERY_CAPACITY_LEVEL_FULL:return "full";
+            default:return "unknown-value";
+        }
     }
     private static Integer knownInt(int value){return value<0||value==Integer.MIN_VALUE?null:value;}
     private static Integer knownPropertyInt(int value){return value==Integer.MIN_VALUE?null:value;}
