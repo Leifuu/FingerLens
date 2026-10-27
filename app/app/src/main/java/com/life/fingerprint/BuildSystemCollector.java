@@ -53,6 +53,7 @@ public final class BuildSystemCollector implements Collector {
         s.ok("build","build/abi-summary","ABI 与运行时架构摘要","android-api","Build.SUPPORTED_ABIS / Process.is64Bit",abiSummary());
         s.ok("build","build/hardware-summary","硬件型号与 SoC 摘要","android-api","Build public hardware fields",hardwareSummary());
         s.ok("build","build/os-summary","Android 系统版本摘要","android-api","Build.VERSION",osSummary());
+        s.ok("build","build/fingerprinted-partitions","系统分区构建指纹","android-api","Build.getFingerprintedPartitions / Build.Partition",fingerprintedPartitions());
         s.read("build","build/sdk-extensions","SDK 扩展版本摘要","SdkExtensions.getAllExtensionVersions / getExtensionVersion",BuildSystemCollector::sdkExtensions);
         s.read("build","build/module-summary","Mainline 系统模块摘要","PackageManager.getInstalledModules",()->moduleSummary(s.context));
         s.read("build","build/modules","Mainline 系统模块清单","PackageManager.getInstalledModules / getPackageInfo(MATCH_APEX)",()->moduleList(s.context));
@@ -76,6 +77,37 @@ public final class BuildSystemCollector implements Collector {
     // 业务块：整理公开系统版本与补丁环境；Build.VERSION 原始字段继续保留。
     private static JSONObject osSummary(){
         return Json.obj("available",true,"sdkInt",Build.VERSION.SDK_INT,"release",Build.VERSION.RELEASE,"codename",Build.VERSION.CODENAME,"incremental",Build.VERSION.INCREMENTAL,"securityPatch",Build.VERSION.SDK_INT>=23?Build.VERSION.SECURITY_PATCH:null,"baseOs",Build.VERSION.SDK_INT>=23?Build.VERSION.BASE_OS:null,"previewSdkInt",Build.VERSION.SDK_INT>=23?Build.VERSION.PREVIEW_SDK_INT:null,"firstApiLevel",Build.VERSION.SDK_INT>=24?firstApiLevel():null,"mediaPerformanceClass",Build.VERSION.SDK_INT>=31?Build.VERSION.MEDIA_PERFORMANCE_CLASS:null);
+    }
+    // 业务块：API29+保留公开系统分区指纹与构建时间；不读取分区文件、不把单分区差异解释为篡改结论。
+    private static JSONObject fingerprintedPartitions(){
+        if(Build.VERSION.SDK_INT<29)return fingerprintedPartitionsUnavailable("unsupported",null);
+        try{
+            List<Build.Partition> partitions=Build.getFingerprintedPartitions();
+            if(partitions==null)return fingerprintedPartitionsUnavailable("error","java.lang.NullPointerException");
+            String[] names=new String[partitions.size()],fingerprints=new String[partitions.size()];long[] buildTimes=new long[partitions.size()];
+            for(int i=0;i<partitions.size();i++){
+                Build.Partition partition=partitions.get(i);if(partition==null)throw new IllegalArgumentException("分区列表含 null 项");
+                names[i]=partition.getName();fingerprints[i]=partition.getFingerprint();buildTimes[i]=partition.getBuildTimeMillis();
+            }
+            return fingerprintedPartitionValues(names,fingerprints,buildTimes);
+        }catch(SecurityException e){return fingerprintedPartitionsUnavailable("denied",e.getClass().getName());}
+        catch(UnsupportedOperationException|NoSuchMethodError e){return fingerprintedPartitionsUnavailable("unsupported",e.getClass().getName());}
+        catch(Exception|LinkageError e){return fingerprintedPartitionsUnavailable("error",e.getClass().getName());}
+    }
+    static JSONObject fingerprintedPartitionValues(String[] names,String[] fingerprints,long[] buildTimes)throws Exception{
+        if(names==null||fingerprints==null||buildTimes==null||names.length!=fingerprints.length||names.length!=buildTimes.length)throw new IllegalArgumentException("分区字段长度不一致");
+        if(names.length>4096)throw new IllegalArgumentException("分区数量超过4096项");
+        JSONArray all=new JSONArray();
+        for(int i=0;i<names.length;i++){
+            if(names[i]!=null&&names[i].length()>2048)throw new IllegalArgumentException("分区名称过长");
+            if(fingerprints[i]!=null&&fingerprints[i].length()>2048)throw new IllegalArgumentException("分区指纹过长");
+            all.put(Json.obj("name",names[i],"fingerprint",fingerprints[i],"buildTimeMillis",buildTimes[i]));
+        }
+        int limit=Math.min(128,all.length());JSONArray entries=new JSONArray();for(int i=0;i<limit;i++)entries.put(all.opt(i));
+        return Json.obj("available",true,"status",all.length()>128?"partial":"ok","scope","public-build-partition-fingerprints","partitionCount",all.length(),"returnedCount",entries.length(),"partitionLimit",128,"partitionsTruncated",all.length()>128,"partitionSetSha256",PackageInputCollector.sha(all.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)),"partitions",entries);
+    }
+    static JSONObject fingerprintedPartitionsUnavailable(String status,String errorClass){
+        return Json.obj("available",false,"status",status,"scope","public-build-partition-fingerprints","partitionCount",null,"returnedCount",0,"partitionLimit",128,"partitionsTruncated",null,"partitionSetSha256",null,"partitions",new JSONArray(),"errorClass",errorClass);
     }
     // 业务块：API 30 仅查询 R；API 31+ 读取公开扩展集合，不探测任意 ID，也不把版本 0 当作缺失。
     private static JSONObject sdkExtensions(){

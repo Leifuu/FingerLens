@@ -381,6 +381,16 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.map(row => row.key)).toEqual(['available', 'manufacturer', 'brand', 'model', 'device', 'product', 'hardware', 'board', 'fingerprintPresent', 'fingerprintLength', 'fingerprintSha256', 'socManufacturer', 'socModel']);
     expect(sections[0].rows.find(row => row.key === 'fingerprintSha256')?.value).toBe('a'.repeat(64));
   });
+  it('系统分区指纹摘要保留构建时间、截断和未知字段', () => {
+    const value = item('build/fingerprinted-partitions', 'build', { available: true, status: 'partial', scope: 'public-build-partition-fingerprints', partitionCount: 129, returnedCount: 128, partitionLimit: 128, partitionsTruncated: true, partitionSetSha256: 'a'.repeat(64), partitions: [{ name: 'system', fingerprint: 'google/oriole/system:fp', buildTimeMillis: { $type: 'int64', value: '9007199254740993' } }, { name: null, fingerprint: '', buildTimeMillis: -1 }], futureField: false });
+    const original = JSON.stringify(value);
+    const sections = buildSections(value);
+    expect(sections[0].title).toBe('系统分区构建指纹');
+    expect(sections[0].rows.map(row => row.key)).toContain('partitionSetSha256');
+    expect(sections.find(section => section.key === 'partitions')?.title).toBe('系统分区名称、指纹与构建时间（最多 128 项）');
+    expect(JSON.stringify(sections)).toContain('futureField');
+    expect(JSON.stringify(value)).toBe(original);
+  });
   it('Mainline 模块摘要展示有界名称集合与集合哈希', () => {
     const sections = buildSections(item('build/module-summary', 'build', { available: true, status: 'ok', count: 3, hiddenCount: 1, namedCount: 3, packageNameCount: 3, moduleNames: ['ART', 'Media', 'Permission'], packageNames: ['com.android.art', 'com.android.media', 'com.android.permission'], moduleNamesTruncated: false, packageNamesTruncated: false, moduleSetSha256: 'a'.repeat(64) }));
     expect(sections[0].title).toBe('Mainline 系统模块摘要');

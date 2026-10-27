@@ -299,6 +299,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     'build/abi-summary': { title: 'ABI 与运行时架构摘要', order: ['available', 'supportedAbiCount', 'supported32BitAbiCount', 'supported64BitAbiCount', 'primaryAbi', 'armAbiCount', 'x86AbiCount', 'riscvAbiCount', 'otherAbiCount', 'runtime64Bit'], arrays: [] },
     'build/hardware-summary': { title: '硬件型号与 SoC 摘要', order: ['available', 'manufacturer', 'brand', 'model', 'device', 'product', 'hardware', 'board', 'fingerprintPresent', 'fingerprintLength', 'fingerprintSha256', 'socManufacturer', 'socModel'], arrays: [] },
     'build/os-summary': { title: 'Android 系统版本摘要', order: ['available', 'sdkInt', 'release', 'codename', 'incremental', 'securityPatch', 'baseOs', 'previewSdkInt', 'firstApiLevel', 'mediaPerformanceClass'], arrays: [] },
+    'build/fingerprinted-partitions': { title: '系统分区构建指纹', order: ['available', 'status', 'scope', 'partitionCount', 'returnedCount', 'partitionLimit', 'partitionsTruncated', 'partitionSetSha256', 'errorClass'], arrays: ['partitions'] },
     'build/module-summary': { title: 'Mainline 系统模块摘要', order: ['available', 'status', 'count', 'hiddenCount', 'namedCount', 'packageNameCount', 'moduleNamesTruncated', 'packageNamesTruncated', 'moduleSetSha256'], arrays: ['moduleNames', 'packageNames'] },
     'network/risk-signals': { title: '活动链路摘要', order: ['present', 'capabilitiesAvailable', 'networkHandle', 'capabilityStates', 'vpn', 'validated', 'captivePortal', 'notVpn', 'notMetered', 'notRoaming', 'notRestricted', 'trusted', 'foreground', 'metered', 'interfaceName', 'httpProxy'], arrays: ['transports'] },
     'network/connectivity-summary': { title: '网络集合摘要', order: ['available', 'access', 'networkCount', 'activePresent', 'activeIndex', 'activeNetworkHandle', 'capabilitiesAvailableCount', 'linkPropertiesAvailableCount', 'validatedCount', 'vpnCount', 'notMeteredCount', 'transportCounts'], arrays: [] },
@@ -380,7 +381,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
   };
   const definition = definitions[key];
   if (!definition) return undefined;
-  const summaryOrder = key === 'environment/resource-locales' || key === 'hardware/drm-schemes' || key === 'hardware/camera-concurrency' ? [...definition.order, ...Object.keys(value)] : definition.order;
+  const summaryOrder = key === 'environment/resource-locales' || key === 'hardware/drm-schemes' || key === 'hardware/camera-concurrency' || key === 'build/fingerprinted-partitions' ? [...definition.order, ...Object.keys(value)] : definition.order;
   const sections: DisplaySection[] = [section('summary', definition.title, objectRows(value, summaryOrder))];
   // 业务块：修正历史字段的展示语义，保留其key和原值，不把请求常量标成设备实测级别。
   if (key === 'hardware/drm/widevine') for (const field of sections[0].rows) {
@@ -414,6 +415,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
           : key === 'security/root-mount-summary' && arrayKey === 'entries' ? '系统路径挂载标志（固定 7 项，不写入）'
           : key === 'kernel/sysconf-summary' && arrayKey === 'entries' ? '系统调用原始结果（固定 2 项）'
           : key === 'build/sdk-extensions' && arrayKey === 'entries' ? '扩展标识与版本（最多 32 项）'
+          : key === 'build/fingerprinted-partitions' && arrayKey === 'partitions' ? '系统分区名称、指纹与构建时间（最多 128 项）'
           : key === 'environment/system-fonts' && arrayKey === 'entries' ? '系统字体元数据（最多 128 项）'
           : key === 'hardware/drm-schemes' && arrayKey === 'schemeUuids' ? '平台支持的 DRM 方案 UUID（最多 32 项）'
           : key === 'hardware/camera-concurrency' && arrayKey === 'combinations' ? '当前连接摄像头的并发组合（最多 32 组，每组 16 个 ID）'
@@ -436,7 +438,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     }
   }
   if (key === 'network/risk-signals' && typeof value.capabilitiesRaw === 'string') sections.push(section('capabilitiesRaw', '系统原始能力字符串', [row('value', value.capabilitiesRaw)], false));
-  if (key === 'security/root-path-summary' || key === 'security/root-mount-summary' || key === 'kernel/sysconf-summary' || key === 'build/sdk-extensions' || key === 'environment/system-fonts' || key === 'environment/resource-locales') for (const group of sections) for (const entry of group.rows) {
+  if (key === 'security/root-path-summary' || key === 'security/root-mount-summary' || key === 'kernel/sysconf-summary' || key === 'build/sdk-extensions' || key === 'build/fingerprinted-partitions' || key === 'environment/system-fonts' || key === 'environment/resource-locales') for (const group of sections) for (const entry of group.rows) {
     if ((entry.key === 'status' || entry.key.endsWith('.status')) && Object.hasOwn(STATUS_LABELS, entry.value)) entry.value = STATUS_LABELS[entry.value];
   }
   if (key === 'build/sdk-extensions') for (const entry of sections[0].rows) if (entry.key === 'enumerationMode') {
