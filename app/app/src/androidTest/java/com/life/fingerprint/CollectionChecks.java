@@ -63,6 +63,13 @@ public class CollectionChecks {
         }
         assertEquals(queries,value.getInt("queryCount"));assertFalse(value.has("ssid"));assertFalse(value.has("bssid"));System.out.println("Wi-Fi public standard evidence="+value);emitWifiStandardReport("wifiStandardReport",item,false);
     }
+    @Test public void wifiSecureHeLtfSupportKeepsApiBoundaryAndFalseValue()throws Exception{
+        assertEquals("unsupported",NetworkCollector.wifiSecureHeLtfSupport(true,35,()->{throw new AssertionError("旧API不得查询 Secure HE-LTF");}).getString("status"));
+        assertEquals("unavailable",NetworkCollector.wifiSecureHeLtfSupport(false,36,null).getString("status"));
+        assertFalse(NetworkCollector.wifiSecureHeLtfSupport(true,36,()->false).getBoolean("value"));
+        assertEquals("denied",NetworkCollector.wifiSecureHeLtfSupport(true,36,()->{throw new SecurityException("SYNTHETIC");}).getString("status"));
+        ItemSink sink=new ItemSink(context,"SYNTHETIC-wifi-secure-he-ltf");new NetworkCollector("network").collect(sink);JSONObject item=null;for(int i=0;i<sink.items.length();i++){JSONObject candidate=sink.items.getJSONObject(i);if(candidate.getString("key").equals("network/wifi-cached-scan")){item=candidate;break;}}assertNotNull("应记录 Wi-Fi 缓存扫描条目",item);JSONArray scans=item.getJSONArray("value");for(int i=0;i<scans.length();i++){JSONObject value=scans.getJSONObject(i);assertTrue(value.has("secureHeLtfSupported"));assertTrue(value.has("secureHeLtfQueryStatus"));}
+    }
     private void emitWidevineCapabilitiesReport(String field,JSONObject item,boolean synthetic)throws Exception{
         android.content.pm.PackageInfo info=context.getPackageManager().getPackageInfo(context.getPackageName(),0);String now=CollectionController.now();
         JSONObject data=Json.obj("schemaVersion","1.0","collectorVersion",info.versionName,"sessionId",UUID.randomUUID().toString(),"startedAt",now,"finishedAt",now,"state","complete",

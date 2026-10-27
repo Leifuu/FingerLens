@@ -172,9 +172,13 @@ function networkSections(value: Json): DisplaySection[] {
 function wifiCachedScanSections(value: Json): DisplaySection[] {
   if (!Array.isArray(value)) return genericSections(value);
   const frequencies: number[] = [], capabilities: string[] = [], channelWidths: Record<string, number> = {};
-  let ssidPresentCount = 0, bssidPresentCount = 0, levelMin: number | null = null, levelMax: number | null = null;
+  const secureStatuses: Record<string, number> = {};
+  let ssidPresentCount = 0, bssidPresentCount = 0, secureSupportedCount = 0, secureObserved = false, levelMin: number | null = null, levelMax: number | null = null;
   for (const entry of value) {
     if (!object(entry)) continue;
+    if (Object.hasOwn(entry, 'secureHeLtfQueryStatus') || Object.hasOwn(entry, 'secureHeLtfSupported')) secureObserved = true;
+    if (typeof entry.secureHeLtfSupported === 'boolean' && entry.secureHeLtfSupported) secureSupportedCount++;
+    if (typeof entry.secureHeLtfQueryStatus === 'string') secureStatuses[entry.secureHeLtfQueryStatus] = (secureStatuses[entry.secureHeLtfQueryStatus] || 0) + 1;
     if (typeof entry.ssid === 'string' && entry.ssid.length) ssidPresentCount++;
     if (typeof entry.bssid === 'string' && entry.bssid.length) bssidPresentCount++;
     if (typeof entry.frequency === 'number' && !frequencies.includes(entry.frequency) && frequencies.length < 64) frequencies.push(entry.frequency);
@@ -182,7 +186,9 @@ function wifiCachedScanSections(value: Json): DisplaySection[] {
     if (typeof entry.channelWidth === 'number') channelWidths[String(entry.channelWidth)] = (channelWidths[String(entry.channelWidth)] || 0) + 1;
     if (typeof entry.level === 'number') { levelMin = levelMin === null ? entry.level : Math.min(levelMin, entry.level); levelMax = levelMax === null ? entry.level : Math.max(levelMax, entry.level); }
   }
-  const sections = [section('summary', 'Wi-Fi 缓存扫描摘要（原始 SSID/BSSID 保留在 JSON）', objectRows({ count: value.length, ssidPresentCount, bssidPresentCount, frequencyCount: frequencies.length, capabilitiesCount: capabilities.length, levelMin, levelMax }))];
+  const summary: Record<string, Json> = { count: value.length, ssidPresentCount, bssidPresentCount, frequencyCount: frequencies.length, capabilitiesCount: capabilities.length, levelMin, levelMax };
+  if (secureObserved) { summary.secureHeLtfSupportedCount = secureSupportedCount; summary.secureHeLtfQueryStatuses = secureStatuses; }
+  const sections = [section('summary', 'Wi-Fi 缓存扫描摘要（原始 SSID/BSSID 保留在 JSON）', objectRows(summary))];
   if (frequencies.length) sections.push(section('frequencies', '频率（MHz）', frequencies.map((frequency, index) => row(`[${index}]`, frequency)), true));
   if (capabilities.length) sections.push(section('capabilities', '能力标记（去重）', capabilities.map((capability, index) => row(`[${index}]`, capability)), true));
   if (Object.keys(channelWidths).length) sections.push(section('channelWidths', '信道宽度计数', objectRows(channelWidths)));

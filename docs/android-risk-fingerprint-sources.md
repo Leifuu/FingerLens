@@ -17,6 +17,8 @@
 
 在线取得[固定AOSP Android15源码](https://android.googlesource.com/platform/packages/modules/Wifi/+/refs/tags/android-15.0.0_r1/framework/java/android/net/wifi/WifiManager.java#4282)，文件SHA256为 `c0f0a71c9f8e43a6474ebac55a2a6b957c301731d75b0f2976a82275a419d50b`，明确该方法查询芯片对指定标准的支持并委托给Wi-Fi系统服务。常量数值同时由本机SDK35公开ScanResult源码核对，API边界由SDK37的api-versions.xml核对。源码契约不是当前设备实现的证明，运行时逐项验证单独进行。
 
+SDK37公开版本表另确认 `ScanResult.isSecureHeLtfSupported()` 自API36公开，用于查询系统已有缓存扫描结果中的安全 HE-LTF 能力；它是扫描结果能力声明，不等同当前连接已协商该特性。工程在 `network/wifi-cached-scan` 的每个缓存项新增 `secureHeLtfSupported`、查询状态及异常类，API36以下为 `unsupported`，无对应结果为 `unavailable`，成功 `false` 保留原值；不发起扫描、连接或改变 Wi-Fi。
+
 新增独立 `network/wifi-standard-support`，保留 `managerAvailable`、`scope: "chipset-supported-wifi-standards"`、实际尝试数 `queryCount`、固定上限 `queryLimit:6` 及六项原序 `entries`。每项 `standard/status/supported` 独立：API不足为unsupported/null；可查询版本但无服务为unavailable/null；成功false为有效返回；SecurityException为denied、UnsupportedOperationException或NoSuchMethodError为unsupported，其余Exception/LinkageError为error，异常类单独保留，单项失败不抹去其它项。API30最多4次、31/32最多5次、33+最多6次；旧版本或无服务不调用getter。
 
 复用现有ACCESS_WIFI_STATE声明，只读能力，不发起扫描、不切换Wi-Fi/网络、不读取SSID/BSSID或新标识。此项是平台对芯片能力的响应，独立于原 `network/wifi-capabilities.wifiStandard` 当前链路标准，不代表频段、链路速率、接入点支持、实际协商/传输成功或永久设备身份。原Wi-Fi链路、缓存和摘要项保留；旧JSON缺项不补写，完整字段按JSON类型展示，保留未知字段和50行分页，异构/空对象/null也保留原值，窄屏横向查看双侧。

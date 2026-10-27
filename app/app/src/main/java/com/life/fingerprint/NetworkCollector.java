@@ -133,7 +133,7 @@ public final class NetworkCollector implements Collector {
         s.read("network","network/interface-summary","网络接口摘要","NetworkInterface.getNetworkInterfaces",()->interfaceSummary());
         WifiManager wifi=s.context.getApplicationContext().getSystemService(WifiManager.class);
         s.read("network","network/wifi","当前 Wi-Fi","WifiManager.getConnectionInfo",()->{WifiInfo i=wifi.getConnectionInfo();JSONObject o=Json.obj("state",wifi.getWifiState(),"ssid",i.getSSID(),"bssid",i.getBSSID(),"macAddress",i.getMacAddress(),"rssi",i.getRssi(),"frequency",i.getFrequency(),"linkSpeed",i.getLinkSpeed(),"networkId",i.getNetworkId(),"ipAddress",i.getIpAddress(),"supplicantState",i.getSupplicantState().name(),"raw",i.toString());if(Build.VERSION.SDK_INT>=29){Json.put(o,"txLinkSpeedMbps",i.getTxLinkSpeedMbps());Json.put(o,"rxLinkSpeedMbps",i.getRxLinkSpeedMbps());}return o;});
-        s.read("network","network/wifi-cached-scan","系统已有 Wi-Fi 缓存（不发起扫描）","WifiManager.getScanResults",()->{JSONArray a=new JSONArray();for(ScanResult i:wifi.getScanResults())a.put(Json.obj("ssid",i.SSID,"bssid",i.BSSID,"capabilities",i.capabilities,"frequency",i.frequency,"level",i.level,"timestamp",i.timestamp,"channelWidth",i.channelWidth,"centerFreq0",i.centerFreq0,"centerFreq1",i.centerFreq1));return a;});
+        s.read("network","network/wifi-cached-scan","系统已有 Wi-Fi 缓存（不发起扫描）","WifiManager.getScanResults / ScanResult.isSecureHeLtfSupported",()->{JSONArray a=new JSONArray();for(ScanResult i:wifi.getScanResults()){JSONObject value=Json.obj("ssid",i.SSID,"bssid",i.BSSID,"capabilities",i.capabilities,"frequency",i.frequency,"level",i.level,"timestamp",i.timestamp,"channelWidth",i.channelWidth,"centerFreq0",i.centerFreq0,"centerFreq1",i.centerFreq1);JSONObject secure=wifiSecureHeLtfSupport(true,Build.VERSION.SDK_INT,Build.VERSION.SDK_INT<36?null:i::isSecureHeLtfSupported);Json.put(value,"secureHeLtfSupported",secure.opt("value"));Json.put(value,"secureHeLtfQueryStatus",secure.optString("status"));if(secure.has("errorClass"))Json.put(value,"secureHeLtfErrorClass",secure.opt("errorClass"));a.put(value);}return a;});
         s.read("network","network/wifi-summary","Wi-Fi 能力摘要","WifiManager.getConnectionInfo / getScanResults",()->wifiSummary(wifi));
         s.read("network","network/wifi-capabilities","Wi-Fi 链路能力","WifiInfo capability APIs",()->wifiCapabilities(wifi));
         s.read("network","network/wifi-standard-support","Wi-Fi 芯片标准支持","WifiManager.isWifiStandardSupported",()->wifiStandardSupport(wifi!=null,Build.VERSION.SDK_INT,standard->wifi.isWifiStandardSupported(standard)));
@@ -264,6 +264,15 @@ public final class NetworkCollector implements Collector {
             entries.put(entry);
         }
         return Json.obj("managerAvailable",available,"scope","chipset-supported-wifi-standards","queryCount",calls,"queryLimit",6,"entries",entries);
+    }
+    // 业务块：API36+只读取系统已有 ScanResult 的 Secure HE-LTF 能力；不发起扫描或改变网络。
+    static JSONObject wifiSecureHeLtfSupport(boolean resultAvailable,int sdk,java.util.function.BooleanSupplier query){
+        if(sdk<36)return Json.obj("status","unsupported","value",null);
+        if(!resultAvailable||query==null)return Json.obj("status","unavailable","value",null);
+        try{return Json.obj("status","ok","value",query.getAsBoolean());}
+        catch(SecurityException e){return Json.obj("status","denied","value",null,"errorClass",e.getClass().getName());}
+        catch(UnsupportedOperationException|NoSuchMethodError e){return Json.obj("status","unsupported","value",null,"errorClass",e.getClass().getName());}
+        catch(RuntimeException|LinkageError e){return Json.obj("status","error","value",null,"errorClass",e.getClass().getName());}
     }
     // 业务块：记录公开 Wi-Fi 链路能力；MLD 地址只保留存在性，不导出原文。
     private static JSONObject wifiCapabilities(WifiManager wifi){

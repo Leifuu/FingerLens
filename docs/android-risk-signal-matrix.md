@@ -107,7 +107,7 @@
 
 | 公开来源 | 本工程采集项 | 边界 |
 | --- | --- | --- |
-| [WifiManager.isWifiStandardSupported](https://developer.android.com/reference/android/net/wifi/WifiManager#isWifiStandardSupported(int))及[固定AOSP与版本依据](android-risk-fingerprint-sources.md#wi-fi-芯片标准支持) | `network/wifi-standard-support` | 固定legacy/11n/11ac/11ax/11ad/11be六项，按API30/31/33逐项保护，最多4/5/6次查询；成功false、版本不足、无服务、拒绝及异常null分开。保留旧链路标准项、未知字段/原始JSON类型和旧JSON兼容；不扫描、切换或推导实际链路性能。 |
+| Wi-Fi 标准与缓存扫描 Secure HE-LTF 能力 | [WifiManager.isWifiStandardSupported](https://developer.android.com/reference/android/net/wifi/WifiManager#isWifiStandardSupported(int)) 与 [ScanResult.isSecureHeLtfSupported](https://developer.android.com/reference/android/net/wifi/ScanResult#isSecureHeLtfSupported)及[固定AOSP与版本依据](android-risk-fingerprint-sources.md#wi-fi-芯片标准支持) | `network/wifi-standard-support`、`network/wifi-cached-scan` | 固定legacy/11n/11ac/11ax/11ad/11be六项按API30/31/33保护；系统已有缓存扫描项在 API36+逐项保存 Secure HE-LTF 能力。成功false、版本不足、无服务、拒绝及异常null分开。保留旧链路标准项、未知字段/原始JSON类型和旧JSON兼容；不发起扫描、切换或推导实际链路性能。 |
 
 ## Mainline 关联包版本补充
 

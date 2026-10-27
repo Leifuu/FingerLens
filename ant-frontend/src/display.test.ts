@@ -19,6 +19,13 @@ describe('设备格式化展示边界', () => {
     for (const raw of [null, [], {}, 'old']) expect(section(raw).rows.length).toBeGreaterThan(0);
     expect(JSON.stringify(value)).toBe(before);
   });
+  it('Wi-Fi 缓存扫描 Secure HE-LTF 能力保留状态并兼容旧报告', () => {
+    const current = buildSections(item('network/wifi-cached-scan', 'network', [{ ssid: 'Cafe', bssid: 'AA', frequency: 2412, secureHeLtfSupported: false, secureHeLtfQueryStatus: 'ok' }]))[0];
+    expect(current.rows.find(row => row.key === 'secureHeLtfSupportedCount')?.value).toBe('0');
+    expect(current.rows.find(row => row.key === 'secureHeLtfQueryStatuses.ok')?.value).toBe('1');
+    const legacy = buildSections(item('network/wifi-cached-scan', 'network', [{ ssid: 'Cafe', bssid: 'AA', frequency: 2412 }]))[0];
+    expect(legacy.rows.some(row => row.key === 'secureHeLtfSupportedCount')).toBe(false);
+  });
   it('Widevine容器查询保留20项原序、false/null与JSON类型，未知字段及旧缺项继续展示', () => {
     const section = (value: Json) => buildSections(item('hardware/drm/widevine-capabilities', 'hardware', value))[0];
     const entries = Array.from({ length: 20 }, (_, i) => ({ mimeType: ['video/mp4', 'video/webm', 'audio/mp4', 'audio/webm'][Math.floor(i / 5)], securityLevel: i % 5 + 1, status: 'ok', supported: false }));
