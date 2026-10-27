@@ -8,6 +8,17 @@ function item(key: string, category: string, value: Json): Item {
 }
 
 describe('设备格式化展示边界', () => {
+  it('Wi-Fi芯片标准支持保留标准编号、false/null与未知字段类型，旧JSON不补写', () => {
+    const section = (value: Json) => buildSections(item('network/wifi-standard-support', 'network', value))[0];
+    const value = { managerAvailable: true, scope: 'chipset-supported-wifi-standards', queryCount: 6, queryLimit: 6, entries: [1, 4, 5, 6, 7, 8].map(standard => ({ standard, status: 'ok', supported: false })) }, before = JSON.stringify(value), group = section(value);
+    expect(group.table).toBe(true);expect(group.title).toBe('Wi-Fi 芯片标准支持');expect(group.rows).toHaveLength(22);
+    for (const [key, text] of [['entries[0].supported', 'false'], ['entries[5].standard', '8'], ['scope', '"chipset-supported-wifi-standards"']]) expect(group.rows.find(row => row.key === key)?.value).toBe(text);
+    for (const raw of [false, 0, null, [], {}, { future: true }] as Json[]) expect(mergeDisplaySections(section({ entries: [{ supported: raw }], future: raw }), section({ entries: [{ supported: JSON.stringify(raw) }], future: JSON.stringify(raw) })).rows.every(row => row.state !== 'same')).toBe(true);
+    expect(section({ entries: [{ standard: 8, status: 'unsupported', supported: null }] }).rows.find(row => row.key === 'entries[0].supported')?.value).toBe('null');
+    expect(mergeDisplaySections(undefined, group).rows.every(row => row.state === 'right-only')).toBe(true);
+    for (const raw of [null, [], {}, 'old']) expect(section(raw).rows.length).toBeGreaterThan(0);
+    expect(JSON.stringify(value)).toBe(before);
+  });
   it('Widevine容器查询保留20项原序、false/null与JSON类型，未知字段及旧缺项继续展示', () => {
     const section = (value: Json) => buildSections(item('hardware/drm/widevine-capabilities', 'hardware', value))[0];
     const entries = Array.from({ length: 20 }, (_, i) => ({ mimeType: ['video/mp4', 'video/webm', 'audio/mp4', 'audio/webm'][Math.floor(i / 5)], securityLevel: i % 5 + 1, status: 'ok', supported: false }));

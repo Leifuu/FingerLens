@@ -445,6 +445,8 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
 export function buildSections(item?: Item): DisplaySection[] {
   if (!item) return [];
   const value = commandOutput(item.value);
+  // 业务块：芯片标准支持保留JSON类型，不能把成功false、字符串false和查询失败null合并。
+  if (item.key === 'network/wifi-standard-support') return object(value) && Object.keys(value).length ? [section('fields', 'Wi-Fi 芯片标准支持', Object.entries(value).flatMap(([key, child]) => flattenRows(child, key, true)), true)] : genericSections(value);
   // 业务块：容器/级别查询逐项保留原始JSON类型，成功false与失败null及未知字段均可区分。
   if (item.key === 'hardware/drm/widevine-capabilities' && object(value) && Object.keys(value).length) return [section('fields', 'Widevine 容器与安全级别支持', Object.entries(value).flatMap(([key, child]) => flattenRows(child, key, true)), true)];
   // 业务块：热阈值的原始状态编号与归一化值保留JSON类型，不推导摄氏温度或当前热状态。

@@ -11,6 +11,18 @@
 - 本工程新增 `network/risk-signals`，只保存活动链路的这些公开能力、是否计费、接口名和代理摘要；值仍由 `ItemSink` 独立记录状态，VPN 或代理不会被自动判定为恶意。
 - 本工程新增 `network/connectivity-summary`，汇总可见网络数量、活动链路、transport、VALIDATED、VPN 和链路属性可用性，不复制地址、DNS、路由或原始字符串。
 
+## Wi-Fi 芯片标准支持
+
+2026-10-26 核对 [WifiManager.isWifiStandardSupported(int)](https://developer.android.com/reference/android/net/wifi/WifiManager#isWifiStandardSupported(int))、[ScanResult 标准常量](https://developer.android.com/reference/android/net/wifi/ScanResult) 与SDK37公开版本表：方法自API30公开；LEGACY=1、11N=4、11AC=5、11AX=6自API30，11AD=7自API31，11BE=8自API33。LEGACY表示802.11a/b/g集合，不分别查询a/b/g，也不查询UNKNOWN=0。
+
+在线取得[固定AOSP Android15源码](https://android.googlesource.com/platform/packages/modules/Wifi/+/refs/tags/android-15.0.0_r1/framework/java/android/net/wifi/WifiManager.java#4282)，文件SHA256为 `c0f0a71c9f8e43a6474ebac55a2a6b957c301731d75b0f2976a82275a419d50b`，明确该方法查询芯片对指定标准的支持并委托给Wi-Fi系统服务。常量数值同时由本机SDK35公开ScanResult源码核对，API边界由SDK37的api-versions.xml核对。源码契约不是当前设备实现的证明，运行时逐项验证单独进行。
+
+新增独立 `network/wifi-standard-support`，保留 `managerAvailable`、`scope: "chipset-supported-wifi-standards"`、实际尝试数 `queryCount`、固定上限 `queryLimit:6` 及六项原序 `entries`。每项 `standard/status/supported` 独立：API不足为unsupported/null；可查询版本但无服务为unavailable/null；成功false为有效返回；SecurityException为denied、UnsupportedOperationException或NoSuchMethodError为unsupported，其余Exception/LinkageError为error，异常类单独保留，单项失败不抹去其它项。API30最多4次、31/32最多5次、33+最多6次；旧版本或无服务不调用getter。
+
+复用现有ACCESS_WIFI_STATE声明，只读能力，不发起扫描、不切换Wi-Fi/网络、不读取SSID/BSSID或新标识。此项是平台对芯片能力的响应，独立于原 `network/wifi-capabilities.wifiStandard` 当前链路标准，不代表频段、链路速率、接入点支持、实际协商/传输成功或永久设备身份。原Wi-Fi链路、缓存和摘要项保留；旧JSON缺项不补写，完整字段按JSON类型展示，保留未知字段和50行分页，异构/空对象/null也保留原值，窄屏横向查看双侧。
+
+当前Pixel6/API36独立instrumentation快照中，六项与同UID直接getter一致：1/4/5/6为true，7/8为false。3新增与2旧Wi-Fi测试通过；24/29/30/31/32/33/37版本分支、无服务与异常来自明确合成测试，不宣称这些版本均有真机验证。定位与附近Wi-Fi运行时权限未授予的本次测试仍可读取六项；未修改权限或网络状态，未生成正式Release全量报告。
+
 ## Android 安全环境资料
 
 - 音频公开属性（2026-10-26）：[AudioManager.getProperty](https://developer.android.com/reference/android/media/AudioManager#getProperty(java.lang.String)) 按固定键返回字符串或无值null。已核对SDK37常量与API版本表：`PROPERTY_OUTPUT_SAMPLE_RATE`、`PROPERTY_OUTPUT_FRAMES_PER_BUFFER`自API17公开；`PROPERTY_SUPPORT_MIC_NEAR_ULTRASOUND`、`PROPERTY_SUPPORT_SPEAKER_NEAR_ULTRASOUND`自API23公开；`PROPERTY_SUPPORT_AUDIO_SOURCE_UNPROCESSED`自API24公开，均满足本项目minSdk24。[固定AOSP AudioManager.java](https://github.com/aosp-mirror/platform_frameworks_base/blob/1cdfff555f4a21f71ccc978290e2e212e2f8b168/media/java/android/media/AudioManager.java#L6840-L6915) 说明前两项是低延迟输出流的原生或最佳采样率（十进制Hz）及缓冲区PCM帧数；近超声声明针对默认麦克风音源/默认扬声器路径的18–21kHz，未处理音源声明针对预期频率范围及电平响应。该固定实现前两项无正值时返回null，后三项来自平台布尔资源；不假定厂商设备运行相同源码，也不把配置声明当作声学测量或活动音频流状态。

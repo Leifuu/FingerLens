@@ -13,6 +13,7 @@ import unittest
 from unittest.mock import patch
 
 from fingerprint_backend import ApiError, Bridge, EXPORT_DIR, MAX_JSON, Server, resolve_adb
+from fingerprint_store import FingerprintStore
 
 TMP = Path(__file__).resolve().parents[1] / ".codex/tmp/backend-tests"
 TMP.mkdir(parents=True, exist_ok=True)
@@ -63,6 +64,12 @@ class ConfigTests(unittest.TestCase):
             self.assertEqual(Bridge(adb, self.config.parent).command(["version"]), "ok")
             self.assertEqual(run.call_args.args[0], [adb, "version"])
             self.assertNotIn("shell", run.call_args.kwargs)
+
+    def test_database_is_disabled_without_connection_settings(self):
+        self.assertFalse(FingerprintStore(None).enabled)
+        self.assertFalse(FingerprintStore({"enabled": False}).enabled)
+        with self.assertRaises(ValueError):
+            FingerprintStore({"enabled": True, "host": "127.0.0.1"})
 
 
 class FakeBridge(Bridge):
@@ -210,6 +217,12 @@ class HttpTests(unittest.TestCase):
         self.assertEqual(set(result), {"data", "message", "code"})
         for headers in [{"Host": "attacker.example"}, {"Origin": "https://attacker.example"}]:
             self.assertEqual(self.request("GET", "/api/devices", headers=headers)[0], 403)
+
+    def test_disabled_database_search_is_safe_and_bounded(self):
+        status, result = self.request("GET", "/api/fingerprints/search?q=samsung")
+        self.assertEqual(status, 200)
+        self.assertEqual(result["data"], [])
+        self.assertEqual(self.request("GET", "/api/fingerprints/search?q=")[0], 400)
 
     def test_mutation_requires_json_custom_header_and_bounded_body(self):
         self.assertEqual(self.request("POST", "/api/jobs", '{}')[0], 403)

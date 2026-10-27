@@ -15,6 +15,7 @@ import { StatCards } from './components/StatCards';
 import { ComparisonDrawer } from './components/ComparisonDrawer';
 import { AttestationDrawer } from './components/AttestationDrawer';
 import { buildDiffReportHtml, reportFileName } from './report/report';
+import { matchesSearch, type SearchScope } from './core/search';
 import './styles.css';
 
 const { Header, Sider, Content } = Layout;
@@ -38,7 +39,7 @@ export default function App() {
   const [files, setFiles] = useState<{ left?: Imported; right?: Imported }>({});
   const [loading, setLoading] = useState({ left: false, right: false, compare: false });
   const [rows, setRows] = useState<CompareRow[]>([]), [warnings, setWarnings] = useState<string[]>([]);
-  const [category, setCategory] = useState('all'), [search, setSearch] = useState(''), [status, setStatus] = useState('all'), [smartFilter, setSmartFilter] = useState(false);
+  const [category, setCategory] = useState('all'), [searchDraft, setSearchDraft] = useState(''), [search, setSearch] = useState(''), [searchScope, setSearchScope] = useState<SearchScope>('all'), [status, setStatus] = useState('all'), [smartFilter, setSmartFilter] = useState(false);
   const [selected, setSelected] = useState<CompareRow>();
   const [attestationOpen, setAttestationOpen] = useState(false);
   const originals = useRef<{ left?: File; right?: File }>({});
@@ -111,13 +112,13 @@ export default function App() {
   }
   const stats = useMemo(() => ({ changed: rows.filter(row => ['different', 'status'].includes(row.state)).length, same: rows.filter(row => row.state === 'same').length, oneSide: rows.filter(row => row.state.endsWith('only')).length, unavailable: rows.filter(row => row.state === 'incomparable').length }), [rows]);
   const filtered = useMemo(() => {
-    const query = search.toLocaleLowerCase();
     return rows.filter(row => {
       const statusMatch = status === 'all' || row.state === status;
-      const content = `${row.key} ${row.name} ${row.left?.source.api || ''} ${row.right?.source.api || ''} ${row.left?.installer?.key || ''} ${row.left?.installer?.source.api || ''} ${row.right?.installer?.key || ''} ${row.right?.installer?.source.api || ''}`.toLocaleLowerCase();
-      return (category === 'all' || navigationGroups(row).includes(category)) && statusMatch && (!query || content.includes(query));
+      return (category === 'all' || navigationGroups(row).includes(category)) && statusMatch && matchesSearch(row, searchScope, search);
     });
-  }, [rows, category, search, status]);
+  }, [rows, category, search, searchScope, status]);
+
+  function applySearch() { setSearch(searchDraft.trim()); }
 
   const menuItems = [{ key: 'all', icon: <FileSearchOutlined />, label: <Space>全部信息<Badge count={rows.length} overflowCount={100000} showZero color="#1677ff" /></Space> }, ...Object.entries(categories).map(([key, label]) => ({ key, icon: categoryIcons[key] || <FileSearchOutlined />, label: <Space>{label}<Badge count={counts.get(key) || 0} overflowCount={100000} showZero color="#434343" /></Space> }))];
   function devicePreview(row: CompareRow, side: 'left' | 'right') {
@@ -133,7 +134,7 @@ export default function App() {
   return <ConfigProvider locale={zhCN} theme={{ algorithm: theme.darkAlgorithm, token: { colorPrimary: '#4096ff', borderRadius: 10, fontSize: 16, colorBgLayout: '#0d1117' } }}>
     <Layout className="app-layout">
       <Sider breakpoint="lg" collapsedWidth="0" theme="dark" width={260}><div className="brand"><div className="brand-mark">F</div><div><Typography.Title level={4}>FingerLens • 观纹</Typography.Title><Typography.Link className="brand-byline" href="https://www.yuque.com/again-719bb" target="_blank" rel="noreferrer">By 小T</Typography.Link></div></div><Menu theme="dark" mode="inline" selectedKeys={[category]} items={menuItems} onClick={({ key }) => setCategory(key)} /></Sider>
-      <Layout><Header className="app-header"><div><Typography.Text type="secondary">设备研究 / </Typography.Text><Typography.Text strong>指纹对比工作台</Typography.Text></div><Tag color="success">本地处理 · 不上传文件</Tag></Header>
+      <Layout><Header className="app-header"><div><Typography.Text type="secondary">设备研究 / </Typography.Text><Typography.Text strong>指纹对比工作台</Typography.Text></div><Tag color="success">本地处理 · 不上传云端</Tag></Header>
         <Content className="app-content"><div className="content-inner">
           {category === 'all' && <>
           <Row gutter={[16, 16]}><Col xs={24} xl={12}><FileImportCard side="A" value={files.left} original={originals.current.left} busy={busy} adb={adb} onFile={file => importFile('left', file)} /></Col><Col xs={24} xl={12}><FileImportCard side="B" value={files.right} original={originals.current.right} busy={busy} adb={adb} onFile={file => importFile('right', file)} /></Col></Row>
@@ -143,7 +144,15 @@ export default function App() {
           <Card className="results-card" title={<Space><span>{category === 'all' ? '信息对照' : categories[category]}</span><Tag>{filtered.length}</Tag></Space>} extra={<Typography.Text type="secondary">{hasEvidence ? `显示 ${filtered.length} / ${rows.length} 项` : '等待采集'}</Typography.Text>}>
             {category === 'webview' && <Typography.Paragraph type="secondary">WebView 提供方、版本、安装环境、当前签名及签名轮换历史，以及默认 User-Agent。旧版文件缺少的采集项会保留为单侧数据。</Typography.Paragraph>}
             {category === 'root' && <Typography.Paragraph type="secondary">汇总 su 与 /data/adb 路径、构建属性、SELinux、挂载和进程映射证据；相关条目也保留在原模块中。路径读取受限、单项命中或未命中均不能单独证明设备是否 Root。</Typography.Paragraph>}
-            <Space className="filter-row" wrap size={[12, 12]}><Input prefix={<SearchOutlined />} placeholder="搜索名称、字段或来源" value={search} onChange={event => setSearch(event.target.value)} allowClear style={{ width: 320 }} /><Select aria-label="筛选对比状态" value={status} onChange={value => { setStatus(value); if (value !== 'different') setSmartFilter(false); }} style={{ width: 170 }} options={[{ value: 'all', label: '全部状态' }, { value: 'different', label: '值不同' }, { value: 'same', label: '相同' }, { value: 'left-only', label: '仅左侧' }, { value: 'right-only', label: '仅右侧' }, { value: 'incomparable', label: '不可比较' }]} />{status === 'different' && <Checkbox aria-label="智能过滤" checked={smartFilter} onChange={event => setSmartFilter(event.target.checked)}>智能过滤</Checkbox>}</Space>
+            <Space className="filter-row" wrap size={[12, 12]}>
+              <Select aria-label="筛选对比状态" value={status} onChange={value => { setStatus(value); if (value !== 'different') setSmartFilter(false); }} style={{ width: 170 }} options={[{ value: 'all', label: '全部状态' }, { value: 'different', label: '值不同' }, { value: 'same', label: '相同' }, { value: 'left-only', label: '仅左侧' }, { value: 'right-only', label: '仅右侧' }, { value: 'incomparable', label: '不可比较' }]} />
+              {status === 'different' && <Checkbox aria-label="智能过滤" checked={smartFilter} onChange={event => setSmartFilter(event.target.checked)}>智能过滤</Checkbox>}
+              <Space.Compact className="search-control">
+                <Select aria-label="搜索范围" value={searchScope} onChange={value => { setSearchScope(value); setSearch(''); setSearchDraft(''); }} options={[{ value: 'all', label: '名称/字段/来源' }, { value: 'name', label: '名称' }, { value: 'field', label: '字段' }, { value: 'source', label: '来源' }, { value: 'content', label: '指纹内容' }]} />
+                <Input aria-label="搜索关键词" prefix={<SearchOutlined />} placeholder={searchScope === 'content' ? '搜索指纹内容，如 samsung' : '输入关键词'} value={searchDraft} onChange={event => { const value = event.target.value; setSearchDraft(value); if (!value) setSearch(''); }} onPressEnter={applySearch} allowClear />
+                <Button aria-label="执行搜索" type="primary" icon={<SearchOutlined />} onClick={applySearch}>搜索</Button>
+              </Space.Compact>
+            </Space>
             <Table<CompareRow> className="comparison-table" rowKey="id" loading={loading.compare || !hasEvidence && busy} dataSource={filtered} columns={columns} pagination={{ pageSize: 50, showSizeChanger: false, showQuickJumper: true, showTotal: total => `共 ${total} 项` }} scroll={{ x: 1060, y: 'calc(100vh - 440px)' }} onRow={row => ({ onClick: () => setSelected(row), tabIndex: 0, onKeyDown: event => { if (event.key === 'Enter' || event.key === ' ') setSelected(row); } })} locale={{ emptyText: hasEvidence ? <Empty description="当前条件下没有结果" /> : <Empty description="请先采集或导入任意一侧设备指纹" /> }} />
           </Card>
         </div></Content>

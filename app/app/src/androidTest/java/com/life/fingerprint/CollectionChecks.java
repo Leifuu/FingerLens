@@ -21,6 +21,46 @@ public class CollectionChecks {
     private Context context;
     private final ArrayList<CollectionController> controllers=new ArrayList<>();
     @Before public void setup(){context=InstrumentationRegistry.getInstrumentation().getTargetContext();}
+    private void emitWifiStandardReport(String field,JSONObject item,boolean synthetic)throws Exception{
+        android.content.pm.PackageInfo info=context.getPackageManager().getPackageInfo(context.getPackageName(),0);String now=CollectionController.now();
+        JSONObject data=Json.obj("schemaVersion","1.0","collectorVersion",info.versionName,"sessionId",UUID.randomUUID().toString(),"startedAt",now,"finishedAt",now,"state","complete",
+                "config",Json.obj("instrumentation",true,"fixture",synthetic,"scope",synthetic?"SYNTHETIC Wi-Fi标准查询夹具，非设备实测":"独立公开Wi-Fi标准API快照，非正式全量报告"),
+                "permissions",CollectionController.permissions(context),"app",Json.obj("packageName",context.getPackageName(),"versionName",info.versionName,"androidSdk",Build.VERSION.SDK_INT),"items",new JSONArray().put(item));
+        Bundle bundle=new Bundle();bundle.putString(field,Json.obj("data",data,"message",synthetic?"SYNTHETIC Wi-Fi标准报告":"独立公开Wi-Fi标准验证报告","code",0).toString());InstrumentationRegistry.getInstrumentation().sendStatus(0,bundle);
+    }
+    @Test public void wifiStandardQueriesKeepFalseAndIndependentFailures()throws Exception{
+        int[] calls={0};JSONObject value=NetworkCollector.wifiStandardSupport(true,33,standard->{calls[0]++;switch(standard){case 1:return false;case 4:return true;case 5:throw new SecurityException("SYNTHETIC");case 6:throw new NoSuchMethodError("SYNTHETIC");case 7:throw new UnsupportedOperationException("SYNTHETIC");default:throw new IllegalStateException("SYNTHETIC");}});
+        assertEquals(6,calls[0]);assertEquals(6,value.getInt("queryCount"));assertEquals(6,value.getInt("queryLimit"));assertTrue(value.getBoolean("managerAvailable"));assertEquals("chipset-supported-wifi-standards",value.getString("scope"));
+        int[] standards={1,4,5,6,7,8};String[] statuses={"ok","ok","denied","unsupported","unsupported","error"};JSONArray entries=value.getJSONArray("entries");assertEquals(6,entries.length());
+        for(int i=0;i<6;i++){JSONObject entry=entries.getJSONObject(i);assertEquals(standards[i],entry.getInt("standard"));assertEquals(statuses[i],entry.getString("status"));if(i<2){assertEquals(i==1,entry.getBoolean("supported"));assertFalse(entry.has("errorClass"));}else{assertTrue(entry.isNull("supported"));assertTrue(entry.has("errorClass"));}}
+        ItemSink sink=new ItemSink(context,"SYNTHETIC-wifi-standards");sink.ok("network","network/wifi-standard-support","SYNTHETIC Wi-Fi芯片标准支持","collector","SYNTHETIC IntPredicate fixture",value);emitWifiStandardReport("wifiStandardSyntheticReport",sink.items.getJSONObject(0),true);
+    }
+    @Test public void wifiStandardQueriesGuardPerStandardApiAndMissingService()throws Exception{
+        int[] standards={1,4,5,6,7,8},minimumApis={30,30,30,30,31,33};
+        for(int sdk:new int[]{24,29,30,31,32,33,37}){
+            ArrayList<Integer> called=new ArrayList<>();JSONObject value=NetworkCollector.wifiStandardSupport(true,sdk,standard->{called.add(standard);return false;});JSONArray entries=value.getJSONArray("entries");assertEquals(6,entries.length());ArrayList<Integer> expectedCalls=new ArrayList<>();
+            for(int i=0;i<6;i++){JSONObject entry=entries.getJSONObject(i);assertEquals(standards[i],entry.getInt("standard"));if(sdk>=minimumApis[i]){expectedCalls.add(standards[i]);assertEquals("ok",entry.getString("status"));assertFalse(entry.getBoolean("supported"));}else{assertEquals("unsupported",entry.getString("status"));assertTrue(entry.isNull("supported"));}assertFalse(entry.has("errorClass"));}
+            assertEquals(expectedCalls,called);assertEquals(called.size(),value.getInt("queryCount"));
+            int[] absentCalls={0};JSONObject absent=NetworkCollector.wifiStandardSupport(false,sdk,standard->{absentCalls[0]++;throw new AssertionError("无服务不得查询");});assertFalse(absent.getBoolean("managerAvailable"));assertEquals(0,absentCalls[0]);assertEquals(0,absent.getInt("queryCount"));
+            for(int i=0;i<6;i++){JSONObject entry=absent.getJSONArray("entries").getJSONObject(i);assertEquals(sdk<minimumApis[i]?"unsupported":"unavailable",entry.getString("status"));assertTrue(entry.isNull("supported"));}
+        }
+        assertEquals(0,NetworkCollector.wifiStandardSupport(true,29,null).getInt("queryCount"));assertEquals(0,NetworkCollector.wifiStandardSupport(false,37,null).getInt("queryCount"));try{NetworkCollector.wifiStandardSupport(true,30,null);fail("新API且有服务必须提供查询函数");}catch(NullPointerException expected){}
+        JSONObject linkage=NetworkCollector.wifiStandardSupport(true,33,standard->{throw new UnsatisfiedLinkError("SYNTHETIC");});assertEquals(6,linkage.getInt("queryCount"));for(int i=0;i<6;i++){JSONObject entry=linkage.getJSONArray("entries").getJSONObject(i);assertEquals("error",entry.getString("status"));assertTrue(entry.isNull("supported"));assertEquals("java.lang.UnsatisfiedLinkError",entry.getString("errorClass"));}
+    }
+    @Test public void wifiStandardQueriesMatchPublicApiAndKeepLinkEvidence()throws Exception{
+        ItemSink sink=new ItemSink(context,"wifi-standard-api");new NetworkCollector("network").collect(sink);JSONObject item=null;boolean old=false,summary=false;
+        for(int i=0;i<sink.items.length();i++){JSONObject record=sink.items.getJSONObject(i);String key=record.getString("key");if(key.equals("network/wifi-standard-support"))item=record;if(key.equals("network/wifi-capabilities"))old=true;if(key.equals("network/wifi-summary"))summary=true;}
+        assertNotNull(item);assertTrue(old);assertTrue(summary);assertEquals("ok",item.getString("status"));JSONObject value=item.getJSONObject("value");android.net.wifi.WifiManager wifi=context.getApplicationContext().getSystemService(android.net.wifi.WifiManager.class);assertEquals(wifi!=null,value.getBoolean("managerAvailable"));
+        int[] standards={1,4,5,6,7,8},minimumApis={30,30,30,30,31,33};JSONArray entries=value.getJSONArray("entries");assertEquals(6,entries.length());assertEquals(6,value.getInt("queryLimit"));int queries=0;
+        for(int i=0;i<6;i++){
+            JSONObject entry=entries.getJSONObject(i);assertEquals(standards[i],entry.getInt("standard"));
+            if(Build.VERSION.SDK_INT<minimumApis[i]||wifi==null){assertEquals(Build.VERSION.SDK_INT<minimumApis[i]?"unsupported":"unavailable",entry.getString("status"));assertTrue(entry.isNull("supported"));continue;}
+            queries++;
+            try{boolean supported=wifi.isWifiStandardSupported(standards[i]);assertEquals("ok",entry.getString("status"));assertEquals(supported,entry.getBoolean("supported"));}
+            catch(Exception|LinkageError e){assertEquals(e instanceof SecurityException?"denied":e instanceof UnsupportedOperationException||e instanceof NoSuchMethodError?"unsupported":"error",entry.getString("status"));assertTrue(entry.isNull("supported"));assertEquals(e.getClass().getName(),entry.getString("errorClass"));}
+        }
+        assertEquals(queries,value.getInt("queryCount"));assertFalse(value.has("ssid"));assertFalse(value.has("bssid"));System.out.println("Wi-Fi public standard evidence="+value);emitWifiStandardReport("wifiStandardReport",item,false);
+    }
     private void emitWidevineCapabilitiesReport(String field,JSONObject item,boolean synthetic)throws Exception{
         android.content.pm.PackageInfo info=context.getPackageManager().getPackageInfo(context.getPackageName(),0);String now=CollectionController.now();
         JSONObject data=Json.obj("schemaVersion","1.0","collectorVersion",info.versionName,"sessionId",UUID.randomUUID().toString(),"startedAt",now,"finishedAt",now,"state","complete",

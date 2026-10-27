@@ -136,6 +136,7 @@ public final class NetworkCollector implements Collector {
         s.read("network","network/wifi-cached-scan","系统已有 Wi-Fi 缓存（不发起扫描）","WifiManager.getScanResults",()->{JSONArray a=new JSONArray();for(ScanResult i:wifi.getScanResults())a.put(Json.obj("ssid",i.SSID,"bssid",i.BSSID,"capabilities",i.capabilities,"frequency",i.frequency,"level",i.level,"timestamp",i.timestamp,"channelWidth",i.channelWidth,"centerFreq0",i.centerFreq0,"centerFreq1",i.centerFreq1));return a;});
         s.read("network","network/wifi-summary","Wi-Fi 能力摘要","WifiManager.getConnectionInfo / getScanResults",()->wifiSummary(wifi));
         s.read("network","network/wifi-capabilities","Wi-Fi 链路能力","WifiInfo capability APIs",()->wifiCapabilities(wifi));
+        s.read("network","network/wifi-standard-support","Wi-Fi 芯片标准支持","WifiManager.isWifiStandardSupported",()->wifiStandardSupport(wifi!=null,Build.VERSION.SDK_INT,standard->wifi.isWifiStandardSupported(standard)));
         s.read("network","network/proxy-summary","代理环境摘要","ConnectivityManager.getDefaultProxy",()->proxySummary(c));
         s.read("network","network/proxy","默认代理","ConnectivityManager.getDefaultProxy",()->{ProxyInfo p=c.getDefaultProxy();return p==null?null:Json.obj("host",p.getHost(),"port",p.getPort(),"exclusionList",p.getExclusionList(),"pacFileUrl",p.getPacFileUrl()==null?null:p.getPacFileUrl().toString());});
         s.read("network","network/bluetooth","蓝牙及已配对设备","BluetoothManager / BluetoothAdapter.getBondedDevices",()->{BluetoothManager m=s.context.getSystemService(BluetoothManager.class);BluetoothAdapter b=m==null?null:m.getAdapter();if(b==null)return null;JSONArray devices=new JSONArray();for(BluetoothDevice d:b.getBondedDevices())devices.put(Json.obj("address",d.getAddress(),"name",d.getName(),"type",d.getType(),"bondState",d.getBondState()));return Json.obj("name",b.getName(),"address",b.getAddress(),"state",b.getState(),"pairedDevices",devices);});
@@ -246,6 +247,23 @@ public final class NetworkCollector implements Collector {
         try{WifiInfo info=wifi.getConnectionInfo();if(info!=null){Json.put(out,"connectionAccess","allowed");Json.put(out,"connectionInfoAvailable",true);String ssid=info.getSSID(),bssid=info.getBSSID(),mac=info.getMacAddress();Json.put(out,"ssidPresent",ssid!=null&&!ssid.isEmpty()&&!"<unknown ssid>".equalsIgnoreCase(ssid));Json.put(out,"bssidPresent",bssid!=null&&!bssid.isEmpty());Json.put(out,"macAddressPresent",mac!=null&&!mac.isEmpty());Json.put(out,"frequency",info.getFrequency());Json.put(out,"rssi",info.getRssi());Json.put(out,"linkSpeed",info.getLinkSpeed());}}catch(SecurityException e){Json.put(out,"connectionAccess","denied");}
         try{List<ScanResult> scans=wifi.getScanResults();if(scans==null)scans=Collections.emptyList();TreeSet<Integer> frequencies=new TreeSet<>();int ssidCount=0,bssidCount=0,band24=0,band5=0,band6=0;for(ScanResult scan:scans){if(scan.SSID!=null&&!scan.SSID.isEmpty())ssidCount++;if(scan.BSSID!=null&&!scan.BSSID.isEmpty())bssidCount++;frequencies.add(scan.frequency);if(scan.frequency>=2400&&scan.frequency<2500)band24++;else if(scan.frequency>=4900&&scan.frequency<5925)band5++;else if(scan.frequency>=5925)band6++;}JSONArray values=new JSONArray();for(Integer frequency:frequencies)if(values.length()<64)values.put(frequency);Json.put(out,"scanAccess","allowed");Json.put(out,"cachedScanCount",scans.size());Json.put(out,"ssidPresentCount",ssidCount);Json.put(out,"bssidPresentCount",bssidCount);Json.put(out,"band2_4GHzCount",band24);Json.put(out,"band5GHzCount",band5);Json.put(out,"band6GHzCount",band6);Json.put(out,"frequencies",values);Json.put(out,"frequenciesTruncated",frequencies.size()>64);}catch(SecurityException e){Json.put(out,"scanAccess","denied");}
         return out;
+    }
+    // 业务块：固定六项芯片标准查询，按公开常量API边界调用；不依赖当前链路，不扫描或切换Wi-Fi。
+    static JSONObject wifiStandardSupport(boolean available,int sdk,java.util.function.IntPredicate query){
+        if(available&&sdk>=30)Objects.requireNonNull(query,"missing Wi-Fi standard query");
+        int[] standards={ScanResult.WIFI_STANDARD_LEGACY,ScanResult.WIFI_STANDARD_11N,ScanResult.WIFI_STANDARD_11AC,
+                ScanResult.WIFI_STANDARD_11AX,ScanResult.WIFI_STANDARD_11AD,ScanResult.WIFI_STANDARD_11BE};
+        int[] minimumApis={30,30,30,30,31,33};JSONArray entries=new JSONArray();int calls=0;
+        for(int i=0;i<standards.length;i++){
+            JSONObject entry=Json.obj("standard",standards[i],"status",sdk<minimumApis[i]?"unsupported":"unavailable","supported",null);
+            if(sdk>=minimumApis[i]&&available){
+                calls++;
+                try{Json.put(entry,"supported",query.test(standards[i]));Json.put(entry,"status","ok");}
+                catch(Exception|LinkageError e){Json.put(entry,"status",e instanceof SecurityException?"denied":e instanceof UnsupportedOperationException||e instanceof NoSuchMethodError?"unsupported":"error");Json.put(entry,"errorClass",e.getClass().getName());}
+            }
+            entries.put(entry);
+        }
+        return Json.obj("managerAvailable",available,"scope","chipset-supported-wifi-standards","queryCount",calls,"queryLimit",6,"entries",entries);
     }
     // 业务块：记录公开 Wi-Fi 链路能力；MLD 地址只保留存在性，不导出原文。
     private static JSONObject wifiCapabilities(WifiManager wifi){

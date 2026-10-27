@@ -2,6 +2,7 @@ export interface AdbDevice { serial: string; status: string; model: string; busy
 export interface CaptureJob {
   id: string; serial: string; state: 'starting' | 'collecting' | 'transferring' | 'ready' | 'cancelled' | 'error';
   progress: number; message: string; collectionState?: string; fileName?: string; bytes?: number; sha256?: string;
+  databaseState?: 'stored' | 'disabled'; databaseReportId?: number | null;
 }
 
 export async function adbRequest<T>(path: string, body?: object): Promise<T> {

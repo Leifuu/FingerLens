@@ -32,6 +32,7 @@
 - NFC 适配器能力及 API35+ Observe Mode 支持/启用查询（分别保存状态和值，不切换模式或读取标签）；
 - API34+ NFC 天线毫米坐标及设备几何声明（有界明细和完整原序哈希，保留未提供/空列表/失败，不测量或变换坐标）；
 - API33+ 蓝牙 LE Audio、广播源与广播助手的独立能力结果码（区分明确支持、不支持、蓝牙未启用及查询异常，不建立音频连接）；
+- Wi-Fi 芯片对 legacy、11n、11ac、11ax、11ad、11be 六类标准的独立支持查询（分别遵循API30/31/33边界，保留false与失败null；与当前链路标准分开，不扫描或切换网络）；
 - 传感器、电池、SIM、网络接口、IP、路由、DNS、代理、VPN、Wi-Fi 和蓝牙可见信息；
 - 定位总开关、provider 状态和 GNSS 硬件/能力元数据（不读取坐标）；
 - 时区、语言、区域、开发与调试状态；
@@ -145,6 +146,27 @@ ADB 路径在 `backend/config.json` 中设置，例如：
 ```
 
 默认值为 `null`。设为 `null`、空字符串或纯空白时，优先使用已有环境变量 `FINGERLENS_ADB`，未设置或为空则从 `PATH` 查找 `adb`。路径中可以有空格，不要在字符串内再加引号；相对路径以配置文件所在目录为基准。修改后重启后端生效。
+
+采集文件校验完成后，网关可按配置写入本机 MySQL。APK 导出的 JSON 内容和下载到 `.codex/tmp/backend/jobs` 的原始文件不变；数据库同时保存精确原文 `raw_document`、JSON 查询列 `raw_json`，以及按采集项拆分的 `fingerprint_items` 内容索引。默认关闭数据库，不配置数据库时现有流程不建立连接。启用示例：
+
+```json
+{
+  "adb_path": null,
+  "database": {
+    "enabled": true,
+    "host": "127.0.0.1",
+    "port": 3306,
+    "user": "fingerlens",
+    "password": "从本机配置注入",
+    "name": "fingerlens",
+    "connect_timeout": 5
+  }
+}
+```
+
+首次成功入库时自动创建 `fingerprint_reports` 和 `fingerprint_items` 表；后者的 `content_text` 建有 FULLTEXT 索引，可按指纹值定位对应字段。先安装依赖：`python -m pip install -r .\backend\requirements.txt`。数据库连接失败会保留已下载原文件并将采集任务标记为错误，避免静默丢失入库状态。
+
+数据库启用后可用 `GET /api/fingerprints/search?q=samsung&limit=100` 查询命中的报告采集项（返回 `reportId`、字段键、名称、分类和来源 API）；关键词限制为 1..256 字符，结果上限为 1..200。
 
 原有 `--adb` 参数仍可覆盖配置；也可用 `--config 配置文件路径` 指定另一份 JSON。优先级：`--adb` → 配置文件非空 `adb_path` → `FINGERLENS_ADB` → `PATH`。无效 JSON、非字符串路径或配置文件不存在会在启动时明确报错。
 

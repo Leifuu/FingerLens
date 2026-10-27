@@ -13,7 +13,8 @@ import threading
 import time
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
+from fingerprint_store import FingerprintStore
 
 PACKAGE = "com.life.fingerprint"
 EXPORT_DIR = f"/sdcard/Android/data/{PACKAGE}/files/exports"
@@ -34,8 +35,7 @@ def envelope(data=None, message="", code=0):
     return {"data": data, "message": message, "code": code}
 
 
-def resolve_adb(config: Path, override: str | None = None) -> str:
-    # 业务块：启动时读取有界配置；命令行优先，其次配置，再沿用环境变量与PATH。
+def load_settings(config: Path) -> dict:
     with config.open("rb") as source:
         raw = source.read(64 * 1024 + 1)
     if len(raw) > 64 * 1024:
@@ -43,6 +43,12 @@ def resolve_adb(config: Path, override: str | None = None) -> str:
     settings = json.loads(raw.decode("utf-8"))
     if not isinstance(settings, dict):
         raise ValueError("配置文件必须是JSON对象")
+    return settings
+
+
+def resolve_adb(config: Path, override: str | None = None) -> str:
+    # 业务块：启动时读取有界配置；命令行优先，其次配置，再沿用环境变量与PATH。
+    settings = load_settings(config)
     configured = settings.get("adb_path")
     if configured is not None and not isinstance(configured, str):
         raise ValueError("adb_path 必须为字符串或null")
@@ -74,7 +80,7 @@ def exact_int(value: object, name: str) -> int:
 
 
 class Bridge:
-    def __init__(self, adb: str, output: Path, timeout=240):
+    def __init__(self, adb: str, output: Path, timeout=240, store: FingerprintStore | None = None):
         self.adb = adb
         self.output = output
         self.timeout = timeout
@@ -82,6 +88,7 @@ class Bridge:
         self.jobs: dict[str, dict] = {}
         self.active: dict[str, str] = {}
         self.stopping = threading.Event()
+        self.store = store or FingerprintStore(None)
 
     def command(self, args: list[str], timeout=15, limit=64 * 1024) -> str:
         # argv 不经过本机 shell；远端参数只有常量、严格校验的 serial 和 UUID。
@@ -257,7 +264,10 @@ class Bridge:
             raise ApiError("指纹原始字节摘要校验失败", 502)
         target = directory / name
         partial.replace(target)
+        report_id = self.store.ingest(target, sha, job["serial"])
         self.update(job, path=target, fileName=name, bytes=size, jsonBytes=total, sha256=sha,
+                    databaseState="stored" if report_id is not None else "disabled",
+                    databaseReportId=report_id,
                     message="原始文件校验完成，正在导入浏览器")
 
     def transfer(self, serial, remote, target, limit):
@@ -330,6 +340,19 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply({"service": "FingerLens", "version": "1.0"}); return
             if path == "/api/devices":
                 self.reply(self.server.bridge.devices()); return
+            if path == "/api/fingerprints/search":
+                query = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
+                raw_query = query.get("q", [""])[0]
+                raw_limit = query.get("limit", ["100"])[0]
+                try:
+                    limit = int(raw_limit)
+                except ValueError as exc:
+                    raise ApiError("搜索结果上限无效") from exc
+                try:
+                    result = self.server.bridge.store.search(raw_query, limit)
+                except ValueError as exc:
+                    raise ApiError(str(exc)) from exc
+                self.reply(result); return
             match = re.fullmatch(r"/api/jobs/([a-f0-9-]{36})(/file)?", path)
             if not match:
                 raise ApiError("接口不存在", 404)
@@ -417,10 +440,15 @@ def main():
     if not 1024 <= args.port <= 65535:
         parser.error("port 必须为 1024..65535")
     try:
+        settings = load_settings(args.config)
         adb = resolve_adb(args.config, args.adb)
     except (OSError, ValueError) as exc:
         parser.error(f"读取ADB配置失败（{args.config}）：{exc}")
-    bridge = Bridge(adb, ROOT / ".codex/tmp/backend/jobs")
+    try:
+        store = FingerprintStore(settings.get("database"))
+    except ValueError as exc:
+        parser.error(f"读取数据库配置失败（{args.config}）：{exc}")
+    bridge = Bridge(adb, ROOT / ".codex/tmp/backend/jobs", store=store)
     with Server(args.port, bridge) as server:
         print(f"FingerLens backend http://127.0.0.1:{args.port}", flush=True)
         try:

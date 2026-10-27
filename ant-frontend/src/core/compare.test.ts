@@ -7,6 +7,18 @@ const raw = { semantic: false, ignoreDynamic: false }, semantic = { semantic: tr
 const find = (rows: ReturnType<typeof compare>, key: string) => rows.find(x => x.key === key)!;
 
 describe('原始与语义比较', () => {
+  it('Wi-Fi芯片标准支持兼容旧链路JSON，编号/false/null/类型/失败与未知字段继续比较', () => {
+    const key = 'network/wifi-standard-support', legacyKey = 'network/wifi-capabilities', old = fixture([fixtureItem(legacyKey, { available: true, wifiStandard: 6 }, { category: 'network' })]);
+    const entry = { standard: 1, status: 'ok', supported: false }, value = { managerAvailable: true, queryCount: 6, queryLimit: 6, entries: [entry] };
+    const report = (next: Json) => fixture([...old.data.items, fixtureItem(key, next, { category: 'network' })]), current = report(value), before = JSON.stringify(current);
+    const changes: Json[] = [{ ...value, managerAvailable: false }, { ...value, queryCount: 0 }, { ...value, future: false }, ...[{ ...entry, supported: true }, { ...entry, supported: 'false' }, { ...entry, standard: '1' }, { ...entry, standard: 8 }, { ...entry, status: 'unsupported', supported: null }, { ...entry, status: 'unavailable', supported: null }, { ...entry, status: 'denied', supported: null }, { ...entry, status: 'error', supported: null, errorClass: 'SYNTHETIC' }, { ...entry, future: false }].map(next => ({ ...value, entries: [next] }))];
+    for (const rules of [raw, semantic, smart]) {
+      expect(find(compare(old, current, rules), legacyKey).state).toBe('same');expect(find(compare(old, current, rules), key).state).toBe('right-only');
+      expect(find(compare(current, undefined, rules), key).state).toBe('left-only');expect(find(compare(current, current, rules), key).state).toBe('same');
+      for (const next of changes) expect(find(compare(current, report(next), rules), key).state).toBe('different');
+    }
+    expect(JSON.stringify(current)).toBe(before);
+  });
   it('Widevine容器级别兼容旧JSON并保留false/null/失败/类型/顺序及未知字段差异', () => {
     const key = 'hardware/drm/widevine-capabilities', legacyKey = 'hardware/drm/widevine';
     const old = fixture([fixtureItem(legacyKey, { supported: true, maxSecurityLevel: 6 }, { category: 'hardware' })]);

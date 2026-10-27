@@ -97,6 +97,12 @@
 
 工作台提供原序逐查询双侧概览，每页10行；元数据及查询完整原对象决定差异，成功false、失败null、旧缺项与未采集分开。仅数值1..5附级别常量名，未知值保留；完整字段折叠/50行分页，异构或超过20项回退原字段。原始JSON与导出不改写。
 
+## Wi-Fi 芯片标准支持补充
+
+| 公开来源 | 本工程采集项 | 边界 |
+| --- | --- | --- |
+| [WifiManager.isWifiStandardSupported](https://developer.android.com/reference/android/net/wifi/WifiManager#isWifiStandardSupported(int))及[固定AOSP与版本依据](android-risk-fingerprint-sources.md#wi-fi-芯片标准支持) | `network/wifi-standard-support` | 固定legacy/11n/11ac/11ax/11ad/11be六项，按API30/31/33逐项保护，最多4/5/6次查询；成功false、版本不足、无服务、拒绝及异常null分开。保留旧链路标准项、未知字段/原始JSON类型和旧JSON兼容；不扫描、切换或推导实际链路性能。 |
+
 ## Mainline 关联包版本补充
 
 - `build/modules.modules[*].packageVersion` 通过API29+的 [MATCH_APEX](https://developer.android.com/reference/android/content/pm/PackageManager#MATCH_APEX) 查询模块关联包，保存版本名、int64版本号、APEX标志与独立查询状态；最多512个模块，同包名查询复用。未找到或不可见不冒充版本0/非APEX，原模块元数据、旧集合哈希与旧JSON保留。版本变化在完整模块清单比较，不将关联包版本当作所有内部组件版本或风险结论。
