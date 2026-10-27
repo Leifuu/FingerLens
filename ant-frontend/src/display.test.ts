@@ -471,6 +471,13 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.findIndex(row => row.key === 'commonCriteriaMode')).toBeLessThan(sections[0].rows.findIndex(row => row.key === 'userUnlocked'));
     expect(sections[0].rows.some(row => row.key.includes('restrictions.no_debugging_features'))).toBe(true);
   });
+  it('低功耗条目展示持续性能能力并兼容旧字段', () => {
+    const current = buildSections(item('environment/low-power-standby', 'environment', { available: true, status: 'ok', lowPowerStandbyEnabled: false, lowPowerStandbyExempt: false, rebootingUserspaceSupported: true, sustainedPerformanceModeSupported: true, sustainedPerformanceModeQueryStatus: 'ok' }));
+    expect(current[0].title).toBe('低功耗待机与性能能力');
+    expect(current[0].rows.some(row => row.key.includes('sustainedPerformanceModeSupported'))).toBe(true);
+    const legacy = buildSections(item('environment/low-power-standby', 'environment', { available: true, status: 'ok', lowPowerStandbyEnabled: false, lowPowerStandbyExempt: false, rebootingUserspaceSupported: true }));
+    expect(legacy[0].rows.some(row => row.key.includes('sustainedPerformanceModeSupported'))).toBe(false);
+  });
   it('特殊访问摘要保留 AppOps 与悬浮窗状态', () => {
     const sections = buildSections(item('security/special-access', 'security', { available: true, canDrawOverlays: false, canRequestPackageInstalls: null, canRequestPackageInstallsStatus: 'denied', notificationPolicyAccess: false, notificationPolicyAccessStatus: 'allowed', allFilesAccess: false, allFilesAccessStatus: 'allowed', appOps: { 'android:system_alert_window': { mode: 1, allowed: false } } }));
     expect(sections[0].title).toBe('本 App 特殊访问状态');

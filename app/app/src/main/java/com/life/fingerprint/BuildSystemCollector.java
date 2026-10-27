@@ -660,19 +660,43 @@ public final class BuildSystemCollector implements Collector {
     }
     // 业务块：读取公开的低功耗待机和用户空间重启能力，不改变电源策略。
     private static JSONObject lowPowerStandby(Context context){
-        if(Build.VERSION.SDK_INT<30)return Json.obj("available",false,"status","unsupported","lowPowerStandbyEnabled",null,"lowPowerStandbyExempt",null,"rebootingUserspaceSupported",null);
+        if(Build.VERSION.SDK_INT<30){
+            JSONObject out=Json.obj("available",false,"status","unsupported","lowPowerStandbyEnabled",null,"lowPowerStandbyExempt",null,"rebootingUserspaceSupported",null);
+            JSONObject sustained=sustainedPerformanceState(Build.VERSION.SDK_INT,context!=null&&context.getSystemService(PowerManager.class)!=null,context==null?null:()->context.getSystemService(PowerManager.class).isSustainedPerformanceModeSupported());
+            putSustainedPerformance(out,sustained);return out;
+        }
         PowerManager power=context.getSystemService(PowerManager.class);
-        if(power==null)return Json.obj("available",false,"status","unavailable","lowPowerStandbyEnabled",null,"lowPowerStandbyExempt",null,"rebootingUserspaceSupported",null);
+        if(power==null){
+            JSONObject out=Json.obj("available",false,"status","unavailable","lowPowerStandbyEnabled",null,"lowPowerStandbyExempt",null,"rebootingUserspaceSupported",null);
+            putSustainedPerformance(out,sustainedPerformanceState(Build.VERSION.SDK_INT,false,null));return out;
+        }
         try{
-            return Json.obj("available",true,"status","ok",
+            JSONObject out=Json.obj("available",true,"status","ok",
                     "lowPowerStandbyEnabled",Build.VERSION.SDK_INT>=33?power.isLowPowerStandbyEnabled():null,
                     "lowPowerStandbyExempt",Build.VERSION.SDK_INT>=34?power.isExemptFromLowPowerStandby():null,
                     "rebootingUserspaceSupported",power.isRebootingUserspaceSupported());
+            putSustainedPerformance(out,sustainedPerformanceState(Build.VERSION.SDK_INT,true,power::isSustainedPerformanceModeSupported));return out;
         }catch(SecurityException e){
-            return Json.obj("available",false,"status","denied","lowPowerStandbyEnabled",null,"lowPowerStandbyExempt",null,"rebootingUserspaceSupported",null);
+            JSONObject out=Json.obj("available",false,"status","denied","lowPowerStandbyEnabled",null,"lowPowerStandbyExempt",null,"rebootingUserspaceSupported",null);
+            putSustainedPerformance(out,sustainedPerformanceState(Build.VERSION.SDK_INT,true,power::isSustainedPerformanceModeSupported));return out;
         }catch(RuntimeException e){
-            return Json.obj("available",false,"status","error","lowPowerStandbyEnabled",null,"lowPowerStandbyExempt",null,"rebootingUserspaceSupported",null,"error",e.getClass().getName());
+            JSONObject out=Json.obj("available",false,"status","error","lowPowerStandbyEnabled",null,"lowPowerStandbyExempt",null,"rebootingUserspaceSupported",null,"error",e.getClass().getName());
+            putSustainedPerformance(out,sustainedPerformanceState(Build.VERSION.SDK_INT,true,power::isSustainedPerformanceModeSupported));return out;
         }
+    }
+    // 业务块：API24+只读取持续性能模式能力；不启用模式、不改变功耗策略。
+    static JSONObject sustainedPerformanceState(int sdk,boolean serviceAvailable,java.util.function.BooleanSupplier query){
+        if(sdk<24)return Json.obj("status","unsupported","value",null);
+        if(!serviceAvailable||query==null)return Json.obj("status","unavailable","value",null);
+        try{return Json.obj("status","ok","value",query.getAsBoolean());}
+        catch(SecurityException e){return Json.obj("status","denied","value",null,"errorClass",e.getClass().getName());}
+        catch(UnsupportedOperationException|NoSuchMethodError e){return Json.obj("status","unsupported","value",null,"errorClass",e.getClass().getName());}
+        catch(RuntimeException|LinkageError e){return Json.obj("status","error","value",null,"errorClass",e.getClass().getName());}
+    }
+    private static void putSustainedPerformance(JSONObject target,JSONObject state){
+        Json.put(target,"sustainedPerformanceModeSupported",state.opt("value"));
+        Json.put(target,"sustainedPerformanceModeQueryStatus",state.optString("status"));
+        if(state.has("errorClass"))Json.put(target,"sustainedPerformanceModeErrorClass",state.opt("errorClass"));
     }
     private static Boolean settingFlag(android.content.ContentResolver resolver,boolean global,String key){
         String value=global?Settings.Global.getString(resolver,key):Settings.Secure.getString(resolver,key);
