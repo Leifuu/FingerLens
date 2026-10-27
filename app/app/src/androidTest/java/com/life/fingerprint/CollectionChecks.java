@@ -1,6 +1,7 @@
 package com.life.fingerprint;
 
 import android.content.*;
+import android.content.pm.PackageManager;
 import android.app.KeyguardManager;
 import android.os.*;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -1442,7 +1443,13 @@ public class CollectionChecks {
     @Test public void selfIntegrityEvidenceUsesSignatureHashesOnly()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new SecurityCollector("security").collect(sink);
         JSONObject integrity=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("security/self-integrity")){integrity=item;break;}}
-        assertNotNull("应记录当前 App 完整性摘要",integrity);assertEquals("ok",integrity.getString("status"));JSONObject value=integrity.getJSONObject("value");assertEquals(context.getPackageName(),value.getString("packageName"));assertTrue(value.has("installer"));assertTrue(value.has("initiatingPackageName"));assertTrue(value.has("originatingPackageName"));assertTrue(value.has("updateOwnerPackageName"));assertTrue(value.has("packageSource"));assertTrue(value.has("packageSourceName"));assertTrue(value.has("packageSourceStatus"));assertTrue(value.has("signingCertificateSha256"));assertTrue(value.has("signingCertificateHistorySha256"));assertTrue(value.has("hasPastSigningCertificates"));assertTrue(value.has("applicationFlagsSummary"));JSONObject flags=value.getJSONObject("applicationFlagsSummary");assertTrue(flags.has("testOnly"));assertTrue(flags.has("usesCleartextTraffic"));assertTrue(flags.has("hardwareAccelerated"));assertTrue(value.has("instantApp"));assertTrue(value.has("packageSuspended"));assertTrue(value.has("packageSuspensionQueryStatus"));assertFalse(integrity.toString().contains("derBase64"));assertFalse(integrity.toString().contains("sourceDir"));
+        assertNotNull("应记录当前 App 完整性摘要",integrity);assertEquals("ok",integrity.getString("status"));JSONObject value=integrity.getJSONObject("value");assertEquals(context.getPackageName(),value.getString("packageName"));assertTrue(value.has("installer"));assertTrue(value.has("initiatingPackageName"));assertTrue(value.has("originatingPackageName"));assertTrue(value.has("updateOwnerPackageName"));assertTrue(value.has("packageSource"));assertTrue(value.has("packageSourceName"));assertTrue(value.has("packageSourceStatus"));assertTrue(value.has("signingCertificateSha256"));assertTrue(value.has("signingCertificateHistorySha256"));assertTrue(value.has("hasPastSigningCertificates"));assertTrue(value.has("applicationFlagsSummary"));JSONObject flags=value.getJSONObject("applicationFlagsSummary");assertTrue(flags.has("testOnly"));assertTrue(flags.has("usesCleartextTraffic"));assertTrue(flags.has("hardwareAccelerated"));assertTrue(value.has("instantApp"));assertTrue(value.has("packageSuspended"));assertTrue(value.has("packageSuspensionQueryStatus"));assertTrue(value.has("packageStopped"));assertTrue(value.has("packageStoppedQueryStatus"));if(Build.VERSION.SDK_INT<35)assertEquals("unsupported",value.getString("packageStoppedQueryStatus"));else assertTrue(value.getString("packageStoppedQueryStatus").matches("ok|denied|unsupported|not-found|error"));assertFalse(integrity.toString().contains("derBase64"));assertFalse(integrity.toString().contains("sourceDir"));
+    }
+    @Test public void packageStoppedQueryKeepsApiBoundaryAndIndependentFailures()throws Exception{
+        JSONObject old=SecurityCollector.packageStoppedQuery(34,()->{throw new AssertionError("旧API不得调用 stopped 查询");});assertEquals("unsupported",old.getString("status"));assertTrue(old.isNull("value"));
+        JSONObject ok=SecurityCollector.packageStoppedQuery(35,()->true);assertEquals("ok",ok.getString("status"));assertTrue(ok.getBoolean("value"));
+        JSONObject denied=SecurityCollector.packageStoppedQuery(35,()->{throw new SecurityException("SYNTHETIC");});assertEquals("denied",denied.getString("status"));assertTrue(denied.isNull("value"));assertTrue(denied.has("errorClass"));
+        JSONObject missing=SecurityCollector.packageStoppedQuery(35,()->{throw new PackageManager.NameNotFoundException("SYNTHETIC");});assertEquals("not-found",missing.getString("status"));assertTrue(missing.isNull("value"));
     }
     @Test public void selfRuntimeEvidenceKeepsPublicApiBoundaries()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new SecurityCollector("security").collect(sink);

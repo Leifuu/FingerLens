@@ -396,7 +396,10 @@ public final class SecurityCollector implements Collector {
         Boolean instantApp=Build.VERSION.SDK_INT>=26?pm.isInstantApp():null,packageSuspended=null;
         String packageSuspensionQueryStatus=Build.VERSION.SDK_INT<24?"unsupported":"allowed";
         if(Build.VERSION.SDK_INT>=24)try{packageSuspended=pm.isPackageSuspended();}catch(SecurityException e){packageSuspensionQueryStatus="denied";}
-        return Json.obj("packageName",packageName,"versionName",info.versionName,
+        JSONObject packageStoppedQuery=Build.VERSION.SDK_INT<35
+                ?packageStoppedQuery(Build.VERSION.SDK_INT,null)
+                :packageStoppedQuery(Build.VERSION.SDK_INT,()->pm.isPackageStopped(packageName));
+        JSONObject out=Json.obj("packageName",packageName,"versionName",info.versionName,
                 "versionCode",Build.VERSION.SDK_INT>=28?info.getLongVersionCode():(long)info.versionCode,
                 "installer",installer,"initiatingPackageName",initiatingPackageName,"originatingPackageName",originatingPackageName,"updateOwnerPackageName",updateOwnerPackageName,
                 "packageSource",packageSource,"packageSourceName",packageSourceName,"packageSourceStatus",packageSourceStatus,
@@ -406,7 +409,19 @@ public final class SecurityCollector implements Collector {
                 "applicationFlagsSummary",applicationFlagsSummary(application),
                 "debuggable",application!=null&&(application.flags&ApplicationInfo.FLAG_DEBUGGABLE)!=0,
                 "hasCode",application!=null&&(application.flags&ApplicationInfo.FLAG_HAS_CODE)!=0,
-                "instantApp",instantApp,"packageSuspended",packageSuspended,"packageSuspensionQueryStatus",packageSuspensionQueryStatus);
+                "instantApp",instantApp,"packageSuspended",packageSuspended,"packageSuspensionQueryStatus",packageSuspensionQueryStatus,
+                "packageStopped",packageStoppedQuery.opt("value"),"packageStoppedQueryStatus",packageStoppedQuery.optString("status"));
+        if(packageStoppedQuery.has("errorClass"))Json.put(out,"packageStoppedErrorClass",packageStoppedQuery.opt("errorClass"));
+        return out;
+    }
+    // 业务块：API35+查询当前 App 是否处于 stopped 状态；不枚举其它包，不把 ApplicationInfo 标志当作唯一来源。
+    static JSONObject packageStoppedQuery(int sdk,java.util.concurrent.Callable<Boolean> query){
+        if(sdk<35)return Json.obj("status","unsupported","value",null);
+        try{return Json.obj("status","ok","value",Objects.requireNonNull(query,"missing package stopped query").call());}
+        catch(PackageManager.NameNotFoundException e){return Json.obj("status","not-found","value",null,"errorClass",e.getClass().getName());}
+        catch(SecurityException e){return Json.obj("status","denied","value",null,"errorClass",e.getClass().getName());}
+        catch(UnsupportedOperationException|NoSuchMethodError e){return Json.obj("status","unsupported","value",null,"errorClass",e.getClass().getName());}
+        catch(Exception e){return Json.obj("status","error","value",null,"errorClass",e.getClass().getName());}
     }
     // 业务块：把公开 ApplicationInfo 标志解码为可读布尔值，同时保留旧的 applicationFlags 整数。
     private static JSONObject applicationFlagsSummary(ApplicationInfo application){
