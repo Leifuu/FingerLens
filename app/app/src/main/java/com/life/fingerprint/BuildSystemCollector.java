@@ -18,7 +18,7 @@ import java.util.*;
 import java.io.File;
 
 public final class BuildSystemCollector implements Collector {
-    private static final String[] SYSTEM_ENVIRONMENT_KEYS={"screen_brightness","screen_brightness_mode","screen_off_timeout","accelerometer_rotation","user_rotation","window_animation_scale","transition_animation_scale","animator_duration_scale","alarm_alert","end_button_behavior","text_auto_replace","text_auto_punctuate"};
+    private static final String[] SYSTEM_ENVIRONMENT_KEYS={"screen_brightness","screen_brightness_mode","screen_off_timeout","accelerometer_rotation","user_rotation","window_animation_scale","transition_animation_scale","animator_duration_scale","alarm_alert","date_format","end_button_behavior","font_scale","text_auto_replace","text_auto_punctuate","time_12_24"};
     private static final String[] RISK_PROPERTY_KEYS={
             "ro.boot.verifiedbootstate","ro.boot.flash.locked","ro.boot.vbmeta.device_state",
             "ro.boot.veritymode","ro.boot.warranty_bit","ro.boot.vbmeta.digest","ro.boot.slot_suffix",
