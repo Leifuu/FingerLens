@@ -294,7 +294,7 @@ describe('设备格式化展示边界', () => {
     expect(sections[0].rows.map(row => row.key)).toEqual(['available', 'status', 'interfaceCount', 'upCount', 'downCount', 'loopbackCount', 'virtualCount', 'pointToPointCount', 'hardwareAddressPresentCount', 'addressCount', 'ipv4Count', 'ipv6Count', 'mtuMin', 'mtuMax', 'prefixCounts.loopback', 'prefixCounts.wifi', 'prefixCounts.vpn_or_tunnel']);
   });
   it('安全摘要展示调试、设备管理和访问边界', () => {
-    const sections = buildSections(item('security/summary', 'security', { selfDebuggable: false, debuggerConnected: false, waitingForDebugger: false, deviceOwnerForSelf: false, profileOwnerForSelf: false, managedProfile: false, userUnlocked: true, specialAccessAvailable: true, appOpsCheckedCount: 5, appOpsAllowedCount: 1, canDrawOverlays: false, keyguardSecure: true, keyguardLocked: false, deviceSecure: true, deviceLocked: false, fingerprintFeature: true, faceFeature: false, irisFeature: false, accessibilityServiceCount: 0, securityProviderCount: 4 }));
+    const sections = buildSections(item('security/summary', 'security', { selfDebuggable: false, debuggerConnected: false, waitingForDebugger: false, deviceOwnerForSelf: false, profileOwnerForSelf: false, managedProfile: false, adminUser: true, demoUser: false, systemUser: false, userUnlocked: true, specialAccessAvailable: true, appOpsCheckedCount: 5, appOpsAllowedCount: 1, canDrawOverlays: false, keyguardSecure: true, keyguardLocked: false, deviceSecure: true, deviceLocked: false, fingerprintFeature: true, faceFeature: false, irisFeature: false, accessibilityServiceCount: 0, securityProviderCount: 4 }));
     expect(sections[0].title).toBe('安全环境摘要');
     expect(sections[0].rows.map(row => row.key)).toContain('appOpsAllowedCount');
     expect(sections[0].rows.find(row => row.key === 'securityProviderCount')?.value).toBe('4');
@@ -463,7 +463,7 @@ describe('设备格式化展示边界', () => {
     expect(JSON.stringify([legacy, current])).toBe(before);
   });
   it('设备管理摘要保留当前 App 范围和限制项', () => {
-    const sections = buildSections(item('security/device-management', 'security', { deviceOwnerForSelf: false, profileOwnerForSelf: false, managedProfile: false, organizationOwnedDeviceWithManagedProfile: null, organizationOwnedQueryStatus: 'unsupported', userUnlocked: true, restrictions: { 'no_debugging_features': false } }));
+    const sections = buildSections(item('security/device-management', 'security', { deviceOwnerForSelf: false, profileOwnerForSelf: false, managedProfile: false, adminUser: true, demoUser: false, systemUser: false, organizationOwnedDeviceWithManagedProfile: null, organizationOwnedQueryStatus: 'unsupported', userUnlocked: true, restrictions: { 'no_debugging_features': false } }));
     expect(sections[0].title).toBe('设备管理与用户环境');
     expect(sections[0].rows.some(row => row.key.includes('deviceOwnerForSelf'))).toBe(true);
     expect(sections[0].rows.some(row => row.key.includes('restrictions.no_debugging_features'))).toBe(true);
