@@ -270,6 +270,8 @@ public final class SecurityCollector implements Collector {
         for(String name:names)Json.put(restrictions,name,users!=null&&users.hasUserRestriction(name));
         JSONObject organization=organizationOwnedState(Build.VERSION.SDK_INT,policy!=null,policy==null?null:policy::isOrganizationOwnedDeviceWithManagedProfile);
         JSONObject commonCriteria=commonCriteriaState(Build.VERSION.SDK_INT,policy!=null,policy==null?null:()->policy.isCommonCriteriaModeEnabled(null));
+        JSONObject usbData=publicPolicyBooleanState(Build.VERSION.SDK_INT,31,policy!=null,policy==null?null:policy::isUsbDataSignalingEnabled);
+        JSONObject usbDataSupport=publicPolicyBooleanState(Build.VERSION.SDK_INT,31,policy!=null,policy==null?null:policy::canUsbDataSignalingBeDisabled);
         JSONObject out=Json.obj("deviceOwnerForSelf",policy!=null&&policy.isDeviceOwnerApp(packageName),
                 "profileOwnerForSelf",policy!=null&&policy.isProfileOwnerApp(packageName),
                 "managedProfile",Build.VERSION.SDK_INT>=30&&users!=null&&users.isManagedProfile(),
@@ -280,11 +282,17 @@ public final class SecurityCollector implements Collector {
                 "organizationOwnedQueryStatus",organization.optString("status"),
                 "commonCriteriaMode",commonCriteria.opt("value"),
                 "commonCriteriaQueryStatus",commonCriteria.optString("status"),
+                "usbDataSignalingEnabled",usbData.opt("value"),
+                "usbDataSignalingQueryStatus",usbData.optString("status"),
+                "usbDataSignalingDisableSupported",usbDataSupport.opt("value"),
+                "usbDataSignalingSupportQueryStatus",usbDataSupport.optString("status"),
                 "userUnlocked",Build.VERSION.SDK_INT<24||users==null||users.isUserUnlocked(),
                 "storageEncryptionStatus",policy==null?null:policy.getStorageEncryptionStatus(),
                 "restrictions",restrictions);
         if(organization.has("errorClass"))Json.put(out,"organizationOwnedErrorClass",organization.opt("errorClass"));
         if(commonCriteria.has("errorClass"))Json.put(out,"commonCriteriaErrorClass",commonCriteria.opt("errorClass"));
+        if(usbData.has("errorClass"))Json.put(out,"usbDataSignalingErrorClass",usbData.opt("errorClass"));
+        if(usbDataSupport.has("errorClass"))Json.put(out,"usbDataSignalingSupportErrorClass",usbDataSupport.opt("errorClass"));
         return out;
     }
     // 业务块：API30+只读取公开的企业所有设备标记；旧API、服务缺失、拒绝和异常独立保留。
@@ -299,6 +307,15 @@ public final class SecurityCollector implements Collector {
     // 业务块：API30+只读取设备聚合 Common Criteria 模式；不启用、修改或解释为完整性结论。
     static JSONObject commonCriteriaState(int sdk,boolean serviceAvailable,BooleanSupplier query){
         if(sdk<30)return Json.obj("status","unsupported","value",null);
+        if(!serviceAvailable||query==null)return Json.obj("status","unavailable","value",null);
+        try{return Json.obj("status","ok","value",query.getAsBoolean());}
+        catch(SecurityException e){return Json.obj("status","denied","value",null,"errorClass",e.getClass().getName());}
+        catch(UnsupportedOperationException|NoSuchMethodError e){return Json.obj("status","unsupported","value",null,"errorClass",e.getClass().getName());}
+        catch(RuntimeException|LinkageError e){return Json.obj("status","error","value",null,"errorClass",e.getClass().getName());}
+    }
+    // 业务块：API31+只读取 USB 数据策略的公开状态/能力；不修改策略、不打开 USB 设备。
+    static JSONObject publicPolicyBooleanState(int sdk,int since,boolean serviceAvailable,BooleanSupplier query){
+        if(sdk<since)return Json.obj("status","unsupported","value",null);
         if(!serviceAvailable||query==null)return Json.obj("status","unavailable","value",null);
         try{return Json.obj("status","ok","value",query.getAsBoolean());}
         catch(SecurityException e){return Json.obj("status","denied","value",null,"errorClass",e.getClass().getName());}
