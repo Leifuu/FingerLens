@@ -22,6 +22,7 @@ import java.security.*;
 import java.security.cert.Certificate;
 import java.security.spec.ECGenParameterSpec;
 import java.util.*;
+import java.util.function.BooleanSupplier;
 
 public final class SecurityCollector implements Collector {
     private final String module;
@@ -267,12 +268,26 @@ public final class SecurityCollector implements Collector {
         JSONObject restrictions=new JSONObject();
         String[] names={UserManager.DISALLOW_DEBUGGING_FEATURES,UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES,UserManager.DISALLOW_CONFIG_LOCATION,UserManager.DISALLOW_CONFIG_WIFI,UserManager.DISALLOW_CONFIG_BLUETOOTH,UserManager.DISALLOW_ADD_USER,UserManager.DISALLOW_FACTORY_RESET};
         for(String name:names)Json.put(restrictions,name,users!=null&&users.hasUserRestriction(name));
-        return Json.obj("deviceOwnerForSelf",policy!=null&&policy.isDeviceOwnerApp(packageName),
+        JSONObject organization=organizationOwnedState(Build.VERSION.SDK_INT,policy!=null,policy==null?null:policy::isOrganizationOwnedDeviceWithManagedProfile);
+        JSONObject out=Json.obj("deviceOwnerForSelf",policy!=null&&policy.isDeviceOwnerApp(packageName),
                 "profileOwnerForSelf",policy!=null&&policy.isProfileOwnerApp(packageName),
                 "managedProfile",Build.VERSION.SDK_INT>=30&&users!=null&&users.isManagedProfile(),
+                "organizationOwnedDeviceWithManagedProfile",organization.opt("value"),
+                "organizationOwnedQueryStatus",organization.optString("status"),
                 "userUnlocked",Build.VERSION.SDK_INT<24||users==null||users.isUserUnlocked(),
                 "storageEncryptionStatus",policy==null?null:policy.getStorageEncryptionStatus(),
                 "restrictions",restrictions);
+        if(organization.has("errorClass"))Json.put(out,"organizationOwnedErrorClass",organization.opt("errorClass"));
+        return out;
+    }
+    // 业务块：API30+只读取公开的企业所有设备标记；旧API、服务缺失、拒绝和异常独立保留。
+    static JSONObject organizationOwnedState(int sdk,boolean serviceAvailable,BooleanSupplier query){
+        if(sdk<30)return Json.obj("status","unsupported","value",null);
+        if(!serviceAvailable||query==null)return Json.obj("status","unavailable","value",null);
+        try{return Json.obj("status","ok","value",query.getAsBoolean());}
+        catch(SecurityException e){return Json.obj("status","denied","value",null,"errorClass",e.getClass().getName());}
+        catch(UnsupportedOperationException|NoSuchMethodError e){return Json.obj("status","unsupported","value",null,"errorClass",e.getClass().getName());}
+        catch(RuntimeException|LinkageError e){return Json.obj("status","error","value",null,"errorClass",e.getClass().getName());}
     }
     // 业务块：只查询本 App UID 的 AppOps，不调用 noteOp、不申请授权，也不枚举其它包。
     private static JSONObject specialAccess(Context context){
