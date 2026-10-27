@@ -1437,9 +1437,13 @@ public class CollectionChecks {
         assertEquals("unavailable",SecurityCollector.organizationOwnedState(30,false,null).getString("status"));
         assertTrue(SecurityCollector.organizationOwnedState(30,true,()->true).getBoolean("value"));
         assertEquals("denied",SecurityCollector.organizationOwnedState(30,true,()->{throw new SecurityException("SYNTHETIC");}).getString("status"));
+        assertEquals("unsupported",SecurityCollector.commonCriteriaState(29,true,()->{throw new AssertionError("旧API不得查询 Common Criteria 状态");}).getString("status"));
+        assertEquals("unavailable",SecurityCollector.commonCriteriaState(30,false,null).getString("status"));
+        assertFalse(SecurityCollector.commonCriteriaState(30,true,()->false).getBoolean("value"));
+        assertEquals("denied",SecurityCollector.commonCriteriaState(30,true,()->{throw new SecurityException("SYNTHETIC");}).getString("status"));
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new SecurityCollector("security").collect(sink);
         JSONObject management=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("security/device-management")){management=item;break;}}
-        assertNotNull("应记录设备管理环境条目",management);assertEquals("ok",management.getString("status"));JSONObject value=management.getJSONObject("value");assertTrue(value.has("deviceOwnerForSelf"));assertTrue(value.has("profileOwnerForSelf"));assertTrue(value.has("managedProfile"));assertTrue(value.has("adminUser"));assertTrue(value.has("demoUser"));assertTrue(value.has("systemUser"));assertTrue(value.has("organizationOwnedDeviceWithManagedProfile"));assertTrue(value.has("organizationOwnedQueryStatus"));assertTrue(value.has("restrictions"));assertFalse(value.has("deviceOwnerPackage"));assertFalse(value.has("organizationName"));
+        assertNotNull("应记录设备管理环境条目",management);assertEquals("ok",management.getString("status"));JSONObject value=management.getJSONObject("value");assertTrue(value.has("deviceOwnerForSelf"));assertTrue(value.has("profileOwnerForSelf"));assertTrue(value.has("managedProfile"));assertTrue(value.has("adminUser"));assertTrue(value.has("demoUser"));assertTrue(value.has("systemUser"));assertTrue(value.has("organizationOwnedDeviceWithManagedProfile"));assertTrue(value.has("organizationOwnedQueryStatus"));assertTrue(value.has("commonCriteriaMode"));assertTrue(value.has("commonCriteriaQueryStatus"));assertTrue(value.has("restrictions"));assertFalse(value.has("deviceOwnerPackage"));assertFalse(value.has("organizationName"));
     }
     @Test public void securitySummaryKeepsDetailedEvidenceSeparate()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new SecurityCollector("security").collect(sink);

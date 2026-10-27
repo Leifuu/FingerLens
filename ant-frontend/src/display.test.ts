@@ -463,9 +463,11 @@ describe('设备格式化展示边界', () => {
     expect(JSON.stringify([legacy, current])).toBe(before);
   });
   it('设备管理摘要保留当前 App 范围和限制项', () => {
-    const sections = buildSections(item('security/device-management', 'security', { deviceOwnerForSelf: false, profileOwnerForSelf: false, managedProfile: false, adminUser: true, demoUser: false, systemUser: false, organizationOwnedDeviceWithManagedProfile: null, organizationOwnedQueryStatus: 'unsupported', userUnlocked: true, restrictions: { 'no_debugging_features': false } }));
+    const sections = buildSections(item('security/device-management', 'security', { deviceOwnerForSelf: false, profileOwnerForSelf: false, managedProfile: false, adminUser: true, demoUser: false, systemUser: false, organizationOwnedDeviceWithManagedProfile: null, organizationOwnedQueryStatus: 'unsupported', commonCriteriaMode: false, commonCriteriaQueryStatus: 'ok', userUnlocked: true, restrictions: { 'no_debugging_features': false } }));
     expect(sections[0].title).toBe('设备管理与用户环境');
     expect(sections[0].rows.some(row => row.key.includes('deviceOwnerForSelf'))).toBe(true);
+    expect(sections[0].rows.some(row => row.key.includes('commonCriteriaMode'))).toBe(true);
+    expect(sections[0].rows.findIndex(row => row.key === 'commonCriteriaMode')).toBeLessThan(sections[0].rows.findIndex(row => row.key === 'userUnlocked'));
     expect(sections[0].rows.some(row => row.key.includes('restrictions.no_debugging_features'))).toBe(true);
   });
   it('特殊访问摘要保留 AppOps 与悬浮窗状态', () => {
