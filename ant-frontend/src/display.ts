@@ -298,7 +298,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
     'build/risk-properties-summary': { title: '风控原生属性摘要', order: ['observedCount', 'knownCount', 'properties'], arrays: ['observedProperties', 'missingProperties'] },
     'build/abi-summary': { title: 'ABI 与运行时架构摘要', order: ['available', 'supportedAbiCount', 'supported32BitAbiCount', 'supported64BitAbiCount', 'primaryAbi', 'armAbiCount', 'x86AbiCount', 'riscvAbiCount', 'otherAbiCount', 'runtime64Bit'], arrays: [] },
     'build/hardware-summary': { title: '硬件型号与 SoC 摘要', order: ['available', 'manufacturer', 'brand', 'model', 'device', 'product', 'hardware', 'board', 'fingerprintPresent', 'fingerprintLength', 'fingerprintSha256', 'socManufacturer', 'socModel'], arrays: [] },
-    'build/os-summary': { title: 'Android 系统版本摘要', order: ['available', 'sdkInt', 'release', 'codename', 'incremental', 'securityPatch', 'baseOs', 'previewSdkInt', 'firstApiLevel', 'mediaPerformanceClass'], arrays: [] },
+    'build/os-summary': { title: 'Android 系统版本摘要', order: ['available', 'sdkInt', 'sdkIntFull', 'sdkIntFullMajor', 'sdkIntFullMinor', 'sdkIntFullStatus', 'sdkIntFullErrorClass', 'release', 'codename', 'incremental', 'securityPatch', 'baseOs', 'previewSdkInt', 'firstApiLevel', 'mediaPerformanceClass'], arrays: [] },
     'build/fingerprinted-partitions': { title: '系统分区构建指纹', order: ['available', 'status', 'scope', 'partitionCount', 'returnedCount', 'partitionLimit', 'partitionsTruncated', 'partitionSetSha256', 'errorClass'], arrays: ['partitions'] },
     'build/module-summary': { title: 'Mainline 系统模块摘要', order: ['available', 'status', 'count', 'hiddenCount', 'namedCount', 'packageNameCount', 'moduleNamesTruncated', 'packageNamesTruncated', 'moduleSetSha256'], arrays: ['moduleNames', 'packageNames'] },
     'network/risk-signals': { title: '活动链路摘要', order: ['present', 'capabilitiesAvailable', 'networkHandle', 'capabilityStates', 'vpn', 'validated', 'captivePortal', 'notVpn', 'notMetered', 'notRoaming', 'notRestricted', 'trusted', 'foreground', 'metered', 'interfaceName', 'httpProxy'], arrays: ['transports'] },
@@ -381,7 +381,7 @@ function riskSummarySections(key: string, value: Json): DisplaySection[] | undef
   };
   const definition = definitions[key];
   if (!definition) return undefined;
-  const summaryOrder = key === 'environment/resource-locales' || key === 'hardware/drm-schemes' || key === 'hardware/camera-concurrency' || key === 'build/fingerprinted-partitions' ? [...definition.order, ...Object.keys(value)] : definition.order;
+  const summaryOrder = key === 'environment/resource-locales' || key === 'hardware/drm-schemes' || key === 'hardware/camera-concurrency' || key === 'build/fingerprinted-partitions' || key === 'build/os-summary' ? [...definition.order, ...Object.keys(value)] : definition.order;
   const sections: DisplaySection[] = [section('summary', definition.title, objectRows(value, summaryOrder))];
   // 业务块：修正历史字段的展示语义，保留其key和原值，不把请求常量标成设备实测级别。
   if (key === 'hardware/drm/widevine') for (const field of sections[0].rows) {

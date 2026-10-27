@@ -76,7 +76,15 @@ public final class BuildSystemCollector implements Collector {
     }
     // 业务块：整理公开系统版本与补丁环境；Build.VERSION 原始字段继续保留。
     private static JSONObject osSummary(){
-        return Json.obj("available",true,"sdkInt",Build.VERSION.SDK_INT,"release",Build.VERSION.RELEASE,"codename",Build.VERSION.CODENAME,"incremental",Build.VERSION.INCREMENTAL,"securityPatch",Build.VERSION.SDK_INT>=23?Build.VERSION.SECURITY_PATCH:null,"baseOs",Build.VERSION.SDK_INT>=23?Build.VERSION.BASE_OS:null,"previewSdkInt",Build.VERSION.SDK_INT>=23?Build.VERSION.PREVIEW_SDK_INT:null,"firstApiLevel",Build.VERSION.SDK_INT>=24?firstApiLevel():null,"mediaPerformanceClass",Build.VERSION.SDK_INT>=31?Build.VERSION.MEDIA_PERFORMANCE_CLASS:null);
+        JSONObject value=Json.obj("available",true,"sdkInt",Build.VERSION.SDK_INT,"release",Build.VERSION.RELEASE,"codename",Build.VERSION.CODENAME,"incremental",Build.VERSION.INCREMENTAL,"securityPatch",Build.VERSION.SDK_INT>=23?Build.VERSION.SECURITY_PATCH:null,"baseOs",Build.VERSION.SDK_INT>=23?Build.VERSION.BASE_OS:null,"previewSdkInt",Build.VERSION.SDK_INT>=23?Build.VERSION.PREVIEW_SDK_INT:null,"firstApiLevel",Build.VERSION.SDK_INT>=24?firstApiLevel():null,"mediaPerformanceClass",Build.VERSION.SDK_INT>=31?Build.VERSION.MEDIA_PERFORMANCE_CLASS:null);
+        JSONObject full=sdkFullVersion(Build.VERSION.SDK_INT,()->Build.VERSION.SDK_INT_FULL);Json.put(value,"sdkIntFull",full.opt("sdkIntFull"));Json.put(value,"sdkIntFullMajor",full.opt("sdkIntFullMajor"));Json.put(value,"sdkIntFullMinor",full.opt("sdkIntFullMinor"));Json.put(value,"sdkIntFullStatus",full.optString("status"));if(full.has("errorClass"))Json.put(value,"sdkIntFullErrorClass",full.opt("errorClass"));return value;
+    }
+    // 业务块：API36+保留公开 major/minor SDK 编码；旧系统不访问新字段，异常不伪造版本值。
+    static JSONObject sdkFullVersion(int sdk,java.util.function.IntSupplier read){
+        if(sdk<36)return Json.obj("status","unsupported","sdkIntFull",null,"sdkIntFullMajor",null,"sdkIntFullMinor",null);
+        try{int full=Objects.requireNonNull(read,"missing full SDK query").getAsInt();if(full<0)throw new IllegalArgumentException("完整SDK版本不能为负数");return Json.obj("status","ok","sdkIntFull",full,"sdkIntFullMajor",Build.getMajorSdkVersion(full),"sdkIntFullMinor",Build.getMinorSdkVersion(full));}
+        catch(UnsupportedOperationException|NoSuchMethodError e){return Json.obj("status","unsupported","sdkIntFull",null,"sdkIntFullMajor",null,"sdkIntFullMinor",null,"errorClass",e.getClass().getName());}
+        catch(Exception|LinkageError e){return Json.obj("status","error","sdkIntFull",null,"sdkIntFullMajor",null,"sdkIntFullMinor",null,"errorClass",e.getClass().getName());}
     }
     // 业务块：API29+保留公开系统分区指纹与构建时间；不读取分区文件、不把单分区差异解释为篡改结论。
     private static JSONObject fingerprintedPartitions(){

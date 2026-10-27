@@ -391,6 +391,14 @@ describe('设备格式化展示边界', () => {
     expect(JSON.stringify(sections)).toContain('futureField');
     expect(JSON.stringify(value)).toBe(original);
   });
+  it('Android 版本摘要保留完整 SDK major/minor 与旧 JSON 兼容', () => {
+    const legacy = buildSections(item('build/os-summary', 'build', { available: true, sdkInt: 35, release: '15' }));
+    expect(legacy[0].rows.map(row => row.key)).not.toContain('sdkIntFull');
+    const current = buildSections(item('build/os-summary', 'build', { available: true, sdkInt: 36, sdkIntFull: 3600007, sdkIntFullMajor: 36, sdkIntFullMinor: 7, sdkIntFullStatus: 'ok', release: '16', futureField: false }));
+    expect(current[0].rows.map(row => row.key)).toContain('sdkIntFull');
+    expect(current[0].rows.find(row => row.key === 'sdkIntFullMinor')?.value).toBe('7');
+    expect(JSON.stringify(current)).toContain('futureField');
+  });
   it('Mainline 模块摘要展示有界名称集合与集合哈希', () => {
     const sections = buildSections(item('build/module-summary', 'build', { available: true, status: 'ok', count: 3, hiddenCount: 1, namedCount: 3, packageNameCount: 3, moduleNames: ['ART', 'Media', 'Permission'], packageNames: ['com.android.art', 'com.android.media', 'com.android.permission'], moduleNamesTruncated: false, packageNamesTruncated: false, moduleSetSha256: 'a'.repeat(64) }));
     expect(sections[0].title).toBe('Mainline 系统模块摘要');
