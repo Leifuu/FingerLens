@@ -180,16 +180,19 @@ describe('设备格式化展示边界', () => {
     expect(sections.find(section => section.key === 'requestedPermissionNames')?.title).toContain('最多 256 项');
   });
   it('输入设备摘要展示虚拟化与能力计数', () => {
-    const sections = buildSections(item('input/summary', 'input', { count: 2, virtualCount: 1, externalCount: 0, microphoneCount: 1, vibratorCount: 1, motionRangeCount: 3, accessErrorCount: 0, batteryPresentCount: 1, batteryStateErrorCount: 0, keyboardTypeCounts: { '1': 2 }, sourceCounts: { '16777232': 1 } }));
+    const sections = buildSections(item('input/summary', 'input', { count: 2, virtualCount: 1, externalCount: 0, microphoneCount: 1, vibratorCount: 1, motionRangeCount: 3, accessErrorCount: 0, batteryPresentCount: 1, batteryStateErrorCount: 0, lightDeviceCount: 1, lightQueryErrorCount: 0, keyboardTypeCounts: { '1': 2 }, sourceCounts: { '16777232': 1 } }));
     expect(sections[0].title).toBe('输入设备能力摘要');
     expect(sections[0].rows.map(row => row.key)).toContain('virtualCount');
     expect(sections[0].rows.map(row => row.key)).toContain('batteryPresentCount');
+    expect(sections[0].rows.map(row => row.key)).toContain('lightDeviceCount');
     expect(sections[0].rows.map(row => row.key)).toContain('keyboardTypeCounts.1');
   });
   it('输入设备电池状态单独展示并保留旧设备字段', () => {
-    const sections = buildSections(item('input/device/1', 'input', { id: 1, name: 'controller', batteryState: { status: 'ok', present: true, batteryStatus: 2, batteryStatusName: 'charging', capacity: 0.625 }, motionRanges: [{ axis: 1 }] }));
+    const sections = buildSections(item('input/device/1', 'input', { id: 1, name: 'controller', batteryState: { status: 'ok', present: true, batteryStatus: 2, batteryStatusName: 'charging', capacity: 0.625 }, lights: { status: 'ok', count: 1, returnedCount: 1, lightLimit: 64, truncated: false, lightsSha256: 'a'.repeat(64), lights: [{ id: 4, name: 'red', ordinal: 2, type: 10001, brightnessControl: true, rgbControl: false }] }, motionRanges: [{ axis: 1 }] }));
     expect(sections.find(section => section.key === 'batteryState')?.title).toBe('输入设备电池状态');
     expect(sections.find(section => section.key === 'batteryState')?.rows.map(row => row.key)).toContain('batteryState.capacity');
+    expect(sections.find(section => section.key === 'lights')?.title).toBe('输入设备灯能力');
+    expect(sections.find(section => section.key === 'lights')?.rows.map(row => row.key)).toContain('lights.lights[0].brightnessControl');
     expect(sections.find(section => section.key === 'motionRanges')?.title).toBe('运动范围');
   });
   it('振动器频率保留NaN类型、原始数值和未知字段，旧JSON不填充', () => {
