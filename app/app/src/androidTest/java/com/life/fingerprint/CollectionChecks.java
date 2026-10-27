@@ -1537,6 +1537,12 @@ public class CollectionChecks {
         assertTrue(value.getBoolean("available"));assertTrue(value.has("status"));assertTrue(value.has("uri"));assertTrue(value.has("uriPresent"));assertTrue(value.has("uriLength"));assertTrue(value.has("uriSha256"));assertTrue(value.has("scheme"));assertTrue(value.has("authority"));
         if(value.getBoolean("uriPresent")){assertTrue(value.getInt("uriLength")>0);assertTrue(value.getInt("uriLength")<=2048);assertTrue(value.getString("uriSha256").matches("[0-9a-f]{64}"));}else{assertTrue(value.isNull("uriSha256"));}
     }
+    @Test public void gsfIdSummaryKeepsProviderAndRawValueBoundary()throws Exception{
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new BuildSystemCollector("environment").collect(sink);
+        JSONObject item=null;for(int i=0;i<sink.items.length();i++){JSONObject candidate=sink.items.getJSONObject(i);if(candidate.getString("key").equals("environment/gsf-id-summary")){item=candidate;break;}}
+        assertNotNull("应生成 GSF ID 摘要条目",item);assertTrue(item.getString("status").equals("ok")||item.getString("status").equals("denied")||item.getString("status").equals("error"));
+        if("ok".equals(item.getString("status"))){JSONObject value=item.getJSONObject("value");assertTrue(value.has("available"));assertTrue(value.has("status"));assertTrue(value.has("providerPackage"));assertEquals("com.google.android.gsf",value.getString("providerPackage"));assertTrue(value.has("idPresent"));assertTrue(value.has("idLength"));assertTrue(value.has("idSha256"));assertTrue(value.has("normalization"));if(value.getBoolean("idPresent")){assertTrue(value.getInt("idLength")>0);assertTrue(value.getInt("idLength")<=16);assertTrue(value.getString("idSha256").matches("[0-9a-f]{64}"));}else assertTrue(value.isNull("idSha256"));assertFalse(value.has("id"));assertFalse(value.has("rawValue"));}
+    }
     private long int64(JSONObject value,String key)throws Exception{Object raw=value.get(key);return raw instanceof JSONObject?Long.parseLong(((JSONObject)raw).getString("value")):value.getLong(key);}
     @Test public void clockSummaryKeepsRawClockEvidenceSeparate()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new BuildSystemCollector("environment").collect(sink);

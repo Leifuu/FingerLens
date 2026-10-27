@@ -292,6 +292,7 @@ public final class BuildSystemCollector implements Collector {
         s.read("environment","environment/resource-locales","资源语言集合摘要","AssetManager.getLocales / Resources.getSystem",()->resourceLocaleValues(s.context.getAssets().getLocales(),android.content.res.Resources.getSystem().getAssets().getLocales()));
         s.read("environment","environment/system-fonts","系统字体集合摘要","SystemFonts.getAvailableFonts / Font metadata",BuildSystemCollector::systemFonts);
         s.read("environment","environment/ringtone-source","铃声列表首项来源","RingtoneManager.getRingtoneUri(0)",()->ringtoneSource(s.context));
+        s.read("environment","environment/gsf-id-summary","Google Services Framework ID 摘要","ContentResolver.query(content://com.google.android.gsf.gservices)",()->gsfIdSummary(s.context));
         s.read("environment","environment/android-id-summary","Android ID 摘要","Settings.Secure.ANDROID_ID",()->androidIdSummary(s.context));
         s.ok("environment","environment/clocks","单次时钟快照","android-api","SystemClock",Json.obj("elapsedRealtime",SystemClock.elapsedRealtime(),"uptimeMillis",SystemClock.uptimeMillis(),"wallClockMillis",System.currentTimeMillis()));
         s.ok("environment","environment/clock-summary","系统时钟摘要","android-api","SystemClock",clockSummary());
@@ -399,6 +400,25 @@ public final class BuildSystemCollector implements Collector {
         return Json.obj("available",true,"status",present?"ok":"empty","uri",raw,"uriPresent",present,
                 "uriLength",raw==null?null:raw.length(),"uriSha256",raw==null?null:PackageInputCollector.sha(raw.getBytes(java.nio.charset.StandardCharsets.UTF_8)),
                 "scheme",uri==null?null:uri.getScheme(),"authority",uri==null?null:uri.getAuthority());
+    }
+    // 业务块：复现公开 FingerprintJS GSF ID 查询，只输出规范化值的摘要，不把供应商标识原文写入报告。
+    static JSONObject gsfIdSummary(Context context)throws Exception{
+        if(context==null)throw new IllegalArgumentException("Context unavailable");
+        android.content.ContentResolver resolver=context.getContentResolver();
+        if(resolver==null)return Json.obj("available",false,"status","unavailable","providerPackage","com.google.android.gsf","idPresent",false,"idLength",null,"idSha256",null,"normalization","signed-decimal-to-lowercase-hex");
+        android.net.Uri uri=android.net.Uri.parse("content://com.google.android.gsf.gservices");
+        android.database.Cursor cursor=resolver.query(uri,null,null,new String[]{"android_id"},null);
+        if(cursor==null)return Json.obj("available",false,"status","unavailable","providerPackage","com.google.android.gsf","idPresent",false,"idLength",null,"idSha256",null,"normalization","signed-decimal-to-lowercase-hex");
+        try{
+            if(cursor.getColumnCount()<2||!cursor.moveToFirst())return Json.obj("available",true,"status","empty","providerPackage","com.google.android.gsf","idPresent",false,"idLength",null,"idSha256",null,"normalization","signed-decimal-to-lowercase-hex");
+            String decimal=cursor.getString(1);
+            if(decimal==null||decimal.isEmpty())return Json.obj("available",true,"status","empty","providerPackage","com.google.android.gsf","idPresent",false,"idLength",null,"idSha256",null,"normalization","signed-decimal-to-lowercase-hex");
+            if(decimal.length()>64)throw new IllegalArgumentException("GSF android_id exceeds 64 characters");
+            final String normalized;
+            try{normalized=Long.toHexString(Long.parseLong(decimal));}
+            catch(NumberFormatException e){throw new IllegalArgumentException("GSF android_id is not a signed decimal");}
+            return Json.obj("available",true,"status","ok","providerPackage","com.google.android.gsf","idPresent",true,"idLength",normalized.length(),"idSha256",PackageInputCollector.sha(normalized.getBytes(java.nio.charset.StandardCharsets.UTF_8)),"normalization","signed-decimal-to-lowercase-hex");
+        }finally{cursor.close();}
     }
     private static JSONObject clockSummary(){
         long elapsedRealtime=SystemClock.elapsedRealtime();long uptimeMillis=SystemClock.uptimeMillis();long wallClockMillis=System.currentTimeMillis();
