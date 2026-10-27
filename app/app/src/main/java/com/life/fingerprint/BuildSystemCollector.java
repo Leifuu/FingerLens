@@ -340,6 +340,12 @@ public final class BuildSystemCollector implements Collector {
             PowerManager power=s.context.getSystemService(PowerManager.class);
             return thermalHeadroomThresholds(power!=null,Build.VERSION.SDK_INT,()->power.getThermalHeadroomThresholds());
         });
+        s.read("environment","environment/battery-discharge-prediction","电池预计剩余时间","PowerManager.getBatteryDischargePrediction",()->{
+            PowerManager power=s.context.getSystemService(PowerManager.class);
+            return batteryDischargePrediction(Build.VERSION.SDK_INT,power!=null,
+                    power==null?null:()->power.getBatteryDischargePrediction(),
+                    power==null?null:()->power.isBatteryDischargePredictionPersonalized());
+        });
         s.read("environment","environment/memory-summary","内存环境摘要","ActivityManager.MemoryInfo / Runtime",()->memorySummary(s.context));
         ActivityManager.MemoryInfo memory=new ActivityManager.MemoryInfo();((ActivityManager)s.context.getSystemService(Context.ACTIVITY_SERVICE)).getMemoryInfo(memory);
         s.ok("environment","environment/memory","内存快照","android-api","ActivityManager.getMemoryInfo",Json.obj("totalMem",memory.totalMem,"availMem",memory.availMem,"threshold",memory.threshold,"lowMemory",memory.lowMemory,"runtimeProcessors",Runtime.getRuntime().availableProcessors()));
@@ -578,6 +584,17 @@ public final class BuildSystemCollector implements Collector {
         }
         JSONArray entries=new JSONArray();for(Map.Entry<Integer,Float> entry:snapshot.entrySet())entries.put(Json.obj("thermalStatus",entry.getKey(),"headroom",entry.getValue()));
         return Json.obj("managerAvailable",true,"status","ok","entryCount",entries.length(),"entryLimit",64,"entries",entries);
+    }
+    // 业务块：保留 PowerManager 的预计剩余时间与个性化标志，null 预测不按零或未知时长伪造。
+    static JSONObject batteryDischargePrediction(int sdk,boolean managerAvailable,java.util.function.Supplier<java.time.Duration> prediction,java.util.function.BooleanSupplier personalized){
+        JSONObject missing=Json.obj("available",sdk>=31&&managerAvailable,"status",sdk<31?"unsupported":"unavailable","predictionPresent",null,"predictionSeconds",null,"predictionNanos",null,"predictionIso",null,"predictionStatus",sdk<31?"unsupported":"unavailable","personalized",null,"personalizedStatus",sdk<31?"unsupported":"unavailable");
+        if(sdk<31||!managerAvailable)return missing;
+        if(prediction==null||personalized==null)throw new IllegalArgumentException("battery prediction query unavailable");
+        String predictionStatus="error",personalizedStatus="error",predictionError=null,personalizedError=null;Boolean personalizedValue=null;java.time.Duration duration=null;
+        try{duration=prediction.get();predictionStatus=duration==null?"empty":"ok";}catch(SecurityException e){predictionStatus="denied";predictionError=e.getClass().getName();}catch(RuntimeException e){predictionError=e.getClass().getName();}
+        try{personalizedValue=personalized.getAsBoolean();personalizedStatus="ok";}catch(SecurityException e){personalizedStatus="denied";personalizedError=e.getClass().getName();}catch(RuntimeException e){personalizedError=e.getClass().getName();}
+        JSONObject out=Json.obj("available",true,"status",predictionStatus.equals("error")||predictionStatus.equals("denied")||personalizedStatus.equals("error")||personalizedStatus.equals("denied")?"partial":"ok","predictionPresent",duration!=null,"predictionSeconds",duration==null?null:duration.getSeconds(),"predictionNanos",duration==null?null:duration.getNano(),"predictionIso",duration==null?null:duration.toString(),"predictionStatus",predictionStatus,"personalized",personalizedValue,"personalizedStatus",personalizedStatus);
+        if(predictionError!=null)Json.put(out,"predictionErrorClass",predictionError);if(personalizedError!=null)Json.put(out,"personalizedErrorClass",personalizedError);return out;
     }
     // 业务块：读取公开的低功耗待机和用户空间重启能力，不改变电源策略。
     private static JSONObject lowPowerStandby(Context context){
