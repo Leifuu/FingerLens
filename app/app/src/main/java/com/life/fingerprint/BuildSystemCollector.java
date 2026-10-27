@@ -10,6 +10,8 @@ import android.app.usage.UsageStatsManager;
 import android.location.LocationManager;
 import android.webkit.WebView;
 import android.webkit.WebSettings;
+import android.media.RingtoneManager;
+import android.net.Uri;
 import org.json.*;
 import java.lang.reflect.*;
 import java.util.*;
@@ -289,6 +291,7 @@ public final class BuildSystemCollector implements Collector {
         s.read("environment","environment/cldr-version","CLDR 区域数据版本","android.icu.util.LocaleData.getCLDRVersion",()->{if(Build.VERSION.SDK_INT<28)throw new UnsupportedOperationException("requires API 28");return android.icu.util.LocaleData.getCLDRVersion().toString();});
         s.read("environment","environment/resource-locales","资源语言集合摘要","AssetManager.getLocales / Resources.getSystem",()->resourceLocaleValues(s.context.getAssets().getLocales(),android.content.res.Resources.getSystem().getAssets().getLocales()));
         s.read("environment","environment/system-fonts","系统字体集合摘要","SystemFonts.getAvailableFonts / Font metadata",BuildSystemCollector::systemFonts);
+        s.read("environment","environment/ringtone-source","铃声列表首项来源","RingtoneManager.getRingtoneUri(0)",()->ringtoneSource(s.context));
         s.read("environment","environment/android-id-summary","Android ID 摘要","Settings.Secure.ANDROID_ID",()->androidIdSummary(s.context));
         s.ok("environment","environment/clocks","单次时钟快照","android-api","SystemClock",Json.obj("elapsedRealtime",SystemClock.elapsedRealtime(),"uptimeMillis",SystemClock.uptimeMillis(),"wallClockMillis",System.currentTimeMillis()));
         s.ok("environment","environment/clock-summary","系统时钟摘要","android-api","SystemClock",clockSummary());
@@ -384,6 +387,18 @@ public final class BuildSystemCollector implements Collector {
             truncated|=sorted.length>256;
         }
         Json.put(out,"status",truncated?"partial":"ok");return out;
+    }
+    // 业务块：复现公开 FingerprintJS 的铃声来源信号，只保存 URI 文本和受控摘要，不读取音频内容。
+    static JSONObject ringtoneSource(Context context)throws Exception{
+        if(context==null)throw new IllegalArgumentException("Context unavailable");
+        RingtoneManager manager=new RingtoneManager(context);
+        Uri uri=manager.getRingtoneUri(0);
+        String raw=uri==null?null:uri.toString();
+        if(raw!=null&&raw.length()>2048)throw new IllegalArgumentException("ringtone URI exceeds 2048 characters");
+        boolean present=raw!=null&&!raw.isEmpty();
+        return Json.obj("available",true,"status",present?"ok":"empty","uri",raw,"uriPresent",present,
+                "uriLength",raw==null?null:raw.length(),"uriSha256",raw==null?null:PackageInputCollector.sha(raw.getBytes(java.nio.charset.StandardCharsets.UTF_8)),
+                "scheme",uri==null?null:uri.getScheme(),"authority",uri==null?null:uri.getAuthority());
     }
     private static JSONObject clockSummary(){
         long elapsedRealtime=SystemClock.elapsedRealtime();long uptimeMillis=SystemClock.uptimeMillis();long wallClockMillis=System.currentTimeMillis();

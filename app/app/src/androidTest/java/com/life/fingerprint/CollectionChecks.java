@@ -1530,6 +1530,13 @@ public class CollectionChecks {
         JSONObject summary=null,raw=null;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);if(item.getString("key").equals("environment/locale-summary"))summary=item;if(item.getString("key").equals("environment/locales"))raw=item;}
         assertNotNull("应生成语言与时区摘要",summary);assertNotNull("应保留语言与时区原始条目",raw);assertEquals("ok",summary.getString("status"));JSONObject value=summary.getJSONObject("value");assertTrue(value.has("localeTags"));assertTrue(value.has("localeCount"));assertTrue(value.has("timezoneId"));assertTrue(value.has("is24HourFormat"));assertTrue(value.has("applicationLocaleAccess"));assertTrue(value.has("applicationLocaleTags"));assertFalse(summary.toString().contains("configuration"));
     }
+    @Test public void ringtoneSourceKeepsSupplierSignalBounded()throws Exception{
+        ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new BuildSystemCollector("environment").collect(sink);
+        JSONObject item=null;for(int i=0;i<sink.items.length();i++){JSONObject candidate=sink.items.getJSONObject(i);if(candidate.getString("key").equals("environment/ringtone-source")){item=candidate;break;}}
+        assertNotNull("应生成铃声来源条目",item);assertEquals("ok",item.getString("status"));JSONObject value=item.getJSONObject("value");
+        assertTrue(value.getBoolean("available"));assertTrue(value.has("status"));assertTrue(value.has("uri"));assertTrue(value.has("uriPresent"));assertTrue(value.has("uriLength"));assertTrue(value.has("uriSha256"));assertTrue(value.has("scheme"));assertTrue(value.has("authority"));
+        if(value.getBoolean("uriPresent")){assertTrue(value.getInt("uriLength")>0);assertTrue(value.getInt("uriLength")<=2048);assertTrue(value.getString("uriSha256").matches("[0-9a-f]{64}"));}else{assertTrue(value.isNull("uriSha256"));}
+    }
     private long int64(JSONObject value,String key)throws Exception{Object raw=value.get(key);return raw instanceof JSONObject?Long.parseLong(((JSONObject)raw).getString("value")):value.getLong(key);}
     @Test public void clockSummaryKeepsRawClockEvidenceSeparate()throws Exception{
         ItemSink sink=new ItemSink(context,UUID.randomUUID().toString());new BuildSystemCollector("environment").collect(sink);
