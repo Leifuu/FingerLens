@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Badge, Button, Card, Checkbox, Col, ConfigProvider, Empty, Layout, Menu, Row, Select, Space, Table, Tag, theme, Typography, Input, message } from 'antd';
+import type { MenuProps } from 'antd';
 import { AppstoreOutlined, ApiOutlined, DatabaseOutlined, DesktopOutlined, FileSearchOutlined, GlobalOutlined, HddOutlined, SafetyCertificateOutlined, SearchOutlined, SecurityScanOutlined, WifiOutlined } from '@ant-design/icons';
 import zhCN from 'antd/locale/zh_CN';
 import type { ColumnsType } from 'antd/es/table';
@@ -120,7 +121,14 @@ export default function App() {
 
   function applySearch() { setSearch(searchDraft.trim()); }
 
-  const menuItems = [{ key: 'all', icon: <FileSearchOutlined />, label: <Space>全部信息<Badge count={rows.length} overflowCount={100000} showZero color="#1677ff" /></Space> }, ...Object.entries(categories).map(([key, label]) => ({ key, icon: categoryIcons[key] || <FileSearchOutlined />, label: <Space>{label}<Badge count={counts.get(key) || 0} overflowCount={100000} showZero color="#434343" /></Space> }))];
+  const menuEntry = (key: string, label: string, color = '#434343'): NonNullable<MenuProps['items']>[number] => ({ key, icon: categoryIcons[key] || <FileSearchOutlined />, label: <Space>{label}<Badge count={key === 'all' ? rows.length : counts.get(key) || 0} overflowCount={100000} showZero color={color} /></Space> });
+  const regularCategories = Object.entries(categories).filter(([key]) => !['webview', 'root'].includes(key));
+  const focusedCategories = ['webview', 'root'].filter(key => key in categories);
+  const menuItems: MenuProps['items'] = [
+    { type: 'group', key: 'overview', label: '总览', children: [menuEntry('all', '全部信息', '#1677ff')] },
+    { type: 'group', key: 'modules', label: '采集模块', children: regularCategories.map(([key, label]) => menuEntry(key, label)) },
+    { type: 'group', key: 'focused', label: '专项检测', children: focusedCategories.map(key => menuEntry(key, categories[key])) },
+  ];
   function devicePreview(row: CompareRow, side: 'left' | 'right') {
     return files[side] ? preview(row, side) : '等待采集';
   }
