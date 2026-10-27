@@ -138,10 +138,12 @@ function displaySections(value: Json): DisplaySection[] {
   if (Array.isArray(value.supportedModes)) sections.push(section('modes', '支持模式', arrayRows(value.supportedModes, 'mode'), true));
   const sync = objectRows(value, ['presentationDeadlineNanos', 'appVsyncOffsetNanos']);
   if (sync.length) sections.push(section('sync', '同步参数', sync));
+  const capabilities = objectRows(value, ['highestHdrSdrRatio', 'highestHdrSdrRatioStatus', 'hasArrSupport', 'hasArrSupportStatus', 'highestHdrSdrRatioErrorClass', 'hasArrSupportErrorClass']);
+  if (capabilities.length) sections.push(section('capabilities', 'HDR 与自动刷新率能力', capabilities));
   if (object(value.hdr)) sections.push(section('hdr', 'HDR', flattenRows(value.hdr, 'hdr'), false));
   if (Object.hasOwn(value, 'colorCapabilities')) sections.push(section('color', '色彩能力', flattenRows(value.colorCapabilities, 'colorCapabilities', true), true));
   if (Object.hasOwn(value, 'deviceProductInfo')) sections.push(section('product', '显示设备产品信息', flattenRows(value.deviceProductInfo, 'deviceProductInfo', true), true));
-  const covered = new Set(['displayId', 'name', 'flags', 'state', 'rotation', 'widthPixels', 'heightPixels', 'density', 'densityDpi', 'scaledDensity', 'xdpi', 'ydpi', 'refreshRate', 'supportedModes', 'presentationDeadlineNanos', 'appVsyncOffsetNanos', 'hdr']);
+  const covered = new Set(['displayId', 'name', 'flags', 'state', 'rotation', 'widthPixels', 'heightPixels', 'density', 'densityDpi', 'scaledDensity', 'xdpi', 'ydpi', 'refreshRate', 'supportedModes', 'presentationDeadlineNanos', 'appVsyncOffsetNanos', 'highestHdrSdrRatio', 'highestHdrSdrRatioStatus', 'hasArrSupport', 'hasArrSupportStatus', 'highestHdrSdrRatioErrorClass', 'hasArrSupportErrorClass', 'hdr']);
   covered.add('colorCapabilities');
   covered.add('deviceProductInfo');
   const extra = Object.fromEntries(Object.entries(value).filter(([key]) => !covered.has(key)));

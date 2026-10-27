@@ -77,6 +77,13 @@
 - Pixel6/Android16/API36独立公开API测试：display0的wideColorGamut为true；偏好 `Display P3`、id7、RGB、3分量，wideGamut=true、srgb=false，各分量范围0–1。两项新测试及原HDR/替代刷新率回归共4项通过，新Release APK已安装；本轮未验证新的正式Release整轮报告。API24/25/28门槛、失败、成功null、自定义负ID/负范围及2048/2049名称边界是合成测试，不声称对应真机实际返回。
 - 浏览器新字段样本明确标为HYBRID（旧正式报告加本轮独立API证据），18个色彩字段逐值双侧核对通过；四份SYNTHETIC状态样本分别78/5/4/5字段，其中78字段跨两页，包含未知字段、HTML名称只作文本、不支持/拒绝/异常和成功null。旧真实报告缺对象不补写，原模式/HDR/分页与窄屏回归保持通过；合成及HYBRID样本均不是新正式采集报告。
 
+## 显示 HDR/自动刷新率能力
+
+- [Display.getHighestHdrSdrRatio](https://developer.android.com/reference/android/view/Display#getHighestHdrSdrRatio()) 与 [Display.hasArrSupport](https://developer.android.com/reference/android/view/Display#hasArrSupport()) 自 API36 公开；已核对本机 SDK37 public `android.jar` 签名和版本表。前者是平台报告的最高 HDR/SDR 亮度比例，后者是平台是否声明自动刷新率（ARR）支持，均为显示链路能力快照，不表示当前窗口或播放内容实际使用了该能力。
+- 每个 `display/ID` 独立保存 `highestHdrSdrRatio`/`highestHdrSdrRatioStatus` 与 `hasArrSupport`/`hasArrSupportStatus`，API36以下为 `unsupported + null`。成功值保持原始浮点/布尔类型；`SecurityException` 为 `denied`，缺方法/不支持为 `unsupported`，其它异常为 `error` 并保留 `errorClass`。非有限浮点沿用公共 JSON 类型编码，不转换为普通字符串。
+- 查询只读 getter，不切换显示模式、不设置刷新率、不创建媒体会话、不读取画面或像素，也不据此推断设备真实性、面板质量或欺诈结论。旧 JSON 缺字段继续按未采集处理，原 HDR、模式、替代刷新率、色彩和产品信息字段不被覆盖。
+- Pixel6/Android16/API36 instrumentation 会将采集 sink 与同 UID 的两个公开 getter逐项对照；API35旧分支、拒绝、缺方法和非有限值采用合成边界测试，不声称低 API 真机返回。前端以独立“HDR 与自动刷新率能力”分组显示状态和值，未知字段仍保留在完整字段表。
+
 ## 显示设备产品信息
 
 - 展示补充（2026-10-26）：双侧摘要直接显示查询状态、名称、厂商PnP ID、产品ID、型号年份、制造年/周与连接类型；完整字段默认折叠并保留50字段分页。仅数值-1附“平台未提供”，连接整数0/1/2/3分别附未知/内置/直接/经中间设备连接含义，未知值保留原编号，字符串编号不套整数标签。产品ID前导零、空字符串、成功null、读取失败与未采集保持区别；年份/周互不补推，也不推导实际日期。完整查询原对象决定摘要差异，未知字段另提示转到完整字段核对，复杂已知字段或数组回退原表；长原文可展开，390px可独立横向完整查看设备B。仅调整展示，不改采集/导出或原始报告。

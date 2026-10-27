@@ -600,6 +600,24 @@ public class CollectionChecks {
         JSONObject summary=null;int rawCount=0;for(int i=0;i<sink.items.length();i++){JSONObject item=sink.items.getJSONObject(i);String key=item.getString("key");if(key.equals("display/summary"))summary=item;if(key.startsWith("display/")&&!key.equals("display/summary"))rawCount++;}
         assertNotNull("应生成显示能力摘要",summary);assertEquals("ok",summary.getString("status"));JSONObject value=summary.getJSONObject("value");assertEquals(value.getInt("count"),rawCount);assertTrue(value.has("validCount"));assertTrue(value.has("secureCount"));assertTrue(value.has("presentationCategoryCount"));assertTrue(value.has("hdrCount"));assertTrue(value.getJSONArray("widths").length()<=64);assertTrue(value.getJSONArray("heights").length()<=64);assertTrue(value.getJSONArray("densityDpi").length()<=64);assertTrue(value.getJSONArray("refreshRates").length()<=64);
     }
+    @Test public void displayCapabilityQueriesKeepApiBoundaryAndPublicValues()throws Exception{
+        JSONObject old=PackageInputCollector.displayCapabilityQuery(35,()->{throw new AssertionError("旧API不得调用显示能力查询");});
+        assertEquals("unsupported",old.getString("status"));assertTrue(old.isNull("value"));
+        JSONObject ratio=PackageInputCollector.displayCapabilityQuery(36,()->2.5f);
+        assertEquals("ok",ratio.getString("status"));assertEquals(2.5,ratio.getDouble("value"),0d);
+        JSONObject arr=PackageInputCollector.displayCapabilityQuery(36,()->true);
+        assertEquals("ok",arr.getString("status"));assertTrue(arr.getBoolean("value"));
+        JSONObject denied=PackageInputCollector.displayCapabilityQuery(36,()->{throw new SecurityException("SYNTHETIC");});
+        assertEquals("denied",denied.getString("status"));assertTrue(denied.isNull("value"));assertTrue(denied.has("errorClass"));
+        ItemSink sink=new ItemSink(context,"display-capability-test");new PackageInputCollector("display").collect(sink);
+        android.hardware.display.DisplayManager manager=context.getSystemService(android.hardware.display.DisplayManager.class);
+        for(android.view.Display display:manager.getDisplays()){
+            JSONObject item=null;for(int i=0;i<sink.items.length();i++){JSONObject candidate=sink.items.getJSONObject(i);if(candidate.getString("key").equals("display/"+display.getDisplayId())){item=candidate;break;}}
+            assertNotNull(item);JSONObject value=item.getJSONObject("value");assertTrue(value.has("highestHdrSdrRatio"));assertTrue(value.has("highestHdrSdrRatioStatus"));assertTrue(value.has("hasArrSupport"));assertTrue(value.has("hasArrSupportStatus"));
+            if(Build.VERSION.SDK_INT<36){assertEquals("unsupported",value.getString("highestHdrSdrRatioStatus"));assertEquals("unsupported",value.getString("hasArrSupportStatus"));}
+            else{assertEquals("ok",value.getString("highestHdrSdrRatioStatus"));assertEquals("ok",value.getString("hasArrSupportStatus"));assertEquals(display.hasArrSupport(),value.getBoolean("hasArrSupport"));float direct=display.getHighestHdrSdrRatio();if(Float.isFinite(direct))assertEquals((double)direct,value.getDouble("highestHdrSdrRatio"),0d);}
+        }
+    }
     @Test public void displayAlternativeRatesPreserveOrderTypesAndBounds()throws Exception{
         float[] rates={90f,59.94f,90f,0f,-1f,Float.NaN,Float.POSITIVE_INFINITY,Float.NEGATIVE_INFINITY},original=rates.clone();
         JSONObject actual=PackageInputCollector.displayModeAlternativeRateValues(rates);JSONArray expected=(JSONArray)Json.value(original);

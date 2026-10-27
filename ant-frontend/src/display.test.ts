@@ -211,6 +211,25 @@ describe('设备格式化展示边界', () => {
     expect(sections.find(section => section.key === 'sync')?.rows[0].value).toBe('9007199254740993');
     expect(JSON.stringify(sections)).toContain('futureField');
   });
+  it('显示能力保留 HDR/自动刷新率查询状态并兼容旧 JSON', () => {
+    const legacy = buildSections(item('display/0', 'display', { displayId: 0, name: '内置屏幕' }));
+    expect(legacy.some(section => section.key === 'capabilities')).toBe(false);
+    const current = buildSections(item('display/0', 'display', {
+      displayId: 0,
+      name: '内置屏幕',
+      highestHdrSdrRatio: 2.5,
+      highestHdrSdrRatioStatus: 'ok',
+      hasArrSupport: false,
+      hasArrSupportStatus: 'ok',
+      futureCapability: 'keep'
+    }));
+    const capabilities = current.find(section => section.key === 'capabilities');
+    expect(capabilities?.title).toBe('HDR 与自动刷新率能力');
+    expect(capabilities?.rows.map(row => row.key)).toEqual([
+      'highestHdrSdrRatio', 'highestHdrSdrRatioStatus', 'hasArrSupport', 'hasArrSupportStatus'
+    ]);
+    expect(JSON.stringify(current)).toContain('futureCapability');
+  });
   it('显示模式HDR类型保留原序与未知值，旧报告不填充且与整体HDR分开', () => {
     const legacy = { displayId: 0, supportedModes: [{ modeId: 1, refreshRate: 60 }], hdr: { types: [2, 3] } };
     const support = { status: 'ok', typeCount: 4, types: [4, 2, 4, 999], future: false };
