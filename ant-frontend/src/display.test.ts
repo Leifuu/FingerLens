@@ -933,6 +933,13 @@ describe('设备格式化展示边界', () => {
     expect(JSON.stringify(sections)).not.toContain('com.example.Main');
     expect(JSON.stringify(value)).toBe(original);
   });
+  it('应用组件展示启动 Intent Filter 的 Action、Category 与静态 flags 边界', () => {
+    const value = item('packages/com.example', 'packages', { packageName: 'com.example', activities: [{ name: 'com.example.Main', flags: 32, componentFlags: 32, intentFlags: { status: 'unavailable', value: null }, intentFilters: { status: 'ok', count: 1, returnedCount: 1, filters: [{ actions: ['android.intent.action.MAIN'], categories: ['android.intent.category.LAUNCHER'], data: [], priority: 0, order: 0, autoVerify: false }] } }] });
+    const sections = buildSections(value);
+    expect(sections.find(section => section.key === 'activities')?.rows.find(row => row.key === 'intentFilterCount')?.value).toBe('1');
+    const filters = sections.find(section => section.key === 'activities-intentFilters');
+    expect(filters?.rows.find(row => row.key === 'activities[0].intentFilters.filters[0].actions[0]')?.value).toContain('android.intent.action.MAIN');
+  });
   it('proc 多行文本按行拆分，正确行不会因另一行变化而整体标红', () => {
     const sections = buildSections(item('kernel/proc/diskstats', 'kernel', '8 0 sda 1 2\n8 1 sda1 3 4\n'));
     expect(sections[0].table).toBe(true);

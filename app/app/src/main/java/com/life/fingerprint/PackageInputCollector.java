@@ -2,11 +2,14 @@ package com.life.fingerprint;
 
 import android.content.*;
 import android.content.pm.*;
+import android.content.res.XmlResourceParser;
 import android.hardware.display.DisplayManager;
 import android.view.*;
 import android.os.Build;
 import android.util.DisplayMetrics;
 import org.json.*;
+import org.xmlpull.v1.XmlPullParser;
+import java.io.File;
 import java.security.MessageDigest;
 import java.util.*;
 
@@ -18,7 +21,55 @@ public final class PackageInputCollector implements Collector {
         JSONArray a=new JSONArray();android.content.pm.Signature[] signatures=Build.VERSION.SDK_INT>=28&&p.signingInfo!=null?p.signingInfo.getApkContentsSigners():p.signatures;
         if(signatures!=null)for(android.content.pm.Signature sig:signatures)a.put(Json.obj("sha256",sha(sig.toByteArray()),"derBase64",android.util.Base64.encodeToString(sig.toByteArray(),android.util.Base64.NO_WRAP)));return a;
     }
-    private static JSONArray components(ComponentInfo[] values){JSONArray a=new JSONArray();if(values!=null)for(ComponentInfo c:values){JSONObject o=Json.obj("name",c.name,"packageName",c.packageName,"processName",c.processName,"enabled",c.enabled,"exported",c.exported,"directBootAware",c.directBootAware);if(c instanceof ActivityInfo){ActivityInfo i=(ActivityInfo)c;Json.put(o,"permission",i.permission);Json.put(o,"flags",i.flags);Json.put(o,"launchMode",i.launchMode);Json.put(o,"taskAffinity",i.taskAffinity);}if(c instanceof ServiceInfo){Json.put(o,"permission",((ServiceInfo)c).permission);Json.put(o,"flags",((ServiceInfo)c).flags);}if(c instanceof ProviderInfo){ProviderInfo i=(ProviderInfo)c;Json.put(o,"authority",i.authority);Json.put(o,"readPermission",i.readPermission);Json.put(o,"writePermission",i.writePermission);Json.put(o,"grantUriPermissions",i.grantUriPermissions);}a.put(o);}return a;}
+    private static final String ANDROID_NS="http://schemas.android.com/apk/res/android";
+    private static final int INTENT_FILTER_LIMIT=64, INTENT_FILTER_TOTAL_LIMIT=4096, FILTER_VALUE_LIMIT=256, FILTER_TEXT_LIMIT=4096;
+    private static final class FilterBuilder {
+        final JSONArray actions=new JSONArray(), categories=new JSONArray(), data=new JSONArray();
+        final int priority, order; final boolean autoVerify;
+        FilterBuilder(int priority,int order,boolean autoVerify){this.priority=priority;this.order=order;this.autoVerify=autoVerify;}
+    }
+    private static String manifestText(XmlResourceParser parser,String name){String value=parser.getAttributeValue(ANDROID_NS,name);if(value!=null&&value.length()>FILTER_TEXT_LIMIT)throw new IllegalArgumentException("manifest attribute exceeds "+FILTER_TEXT_LIMIT+" characters: "+name);return value;}
+    private static String manifestComponentName(String raw,String packageName){if(raw==null||raw.isEmpty())return raw;if(raw.charAt(0)=='.')return packageName==null?raw:packageName+raw;if(raw.indexOf('.')<0)return packageName==null?raw:packageName+'.'+raw;return raw;}
+    private static void addFilterValue(JSONArray values,String value,String label){if(value==null)return;if(values.length()>=FILTER_VALUE_LIMIT)throw new IllegalArgumentException("intent filter "+label+" exceeds "+FILTER_VALUE_LIMIT+" values");values.put(value);}
+    private static JSONObject filterData(XmlResourceParser parser){JSONObject value=new JSONObject();String[] names={"scheme","schemeSpecificPart","host","port","path","pathPrefix","pathPattern","pathAdvancedPattern","mimeType"};for(String name:names){String text=manifestText(parser,name);if(text!=null)Json.put(value,name,text);}return value;}
+    private static void parseIntentFilterTag(XmlResourceParser parser,FilterBuilder filter)throws Exception{
+        String tag=parser.getName();
+        if("action".equals(tag)){addFilterValue(filter.actions,manifestText(parser,"name"),"actions");return;}
+        if("category".equals(tag)){addFilterValue(filter.categories,manifestText(parser,"name"),"categories");return;}
+        if("data".equals(tag)){JSONObject data=filterData(parser);if(data.length()>0){if(filter.data.length()>=FILTER_VALUE_LIMIT)throw new IllegalArgumentException("intent filter data exceeds "+FILTER_VALUE_LIMIT+" values");filter.data.put(data);}}
+    }
+    private static JSONObject filterValue(FilterBuilder filter){return Json.obj("actions",filter.actions,"categories",filter.categories,"data",filter.data,"priority",filter.priority,"order",filter.order,"autoVerify",filter.autoVerify);}
+    // 业务块：API35+从 APK 二进制 Manifest 读取组件的静态 intent-filter；旧 API 不伪造运行时 Intent 数据。
+    static JSONObject manifestIntentFilters(PackageManager pm,String sourceDir){
+        JSONObject result=Json.obj("status",Build.VERSION.SDK_INT<35?"unsupported":"error","components",new JSONObject());
+        if(Build.VERSION.SDK_INT<35)return result;
+        if(sourceDir==null||sourceDir.trim().isEmpty()){Json.put(result,"status","unavailable");Json.put(result,"errorClass","missing-source-dir");return result;}
+        try{
+            JSONObject components=result.getJSONObject("components");
+            pm.parseAndroidManifest(new File(sourceDir),parser->{
+                try{
+                    int event;String packageName=null,componentName=null;int componentDepth=-1;FilterBuilder filter=null;int totalFilters=0;
+                    while((event=parser.next())!=XmlPullParser.END_DOCUMENT){
+                        if(event==XmlPullParser.START_TAG){String tag=parser.getName();int depth=parser.getDepth();
+                            if("manifest".equals(tag)&&depth==1){packageName=parser.getAttributeValue(null,"package");if(packageName!=null&&packageName.length()>FILTER_TEXT_LIMIT)throw new IllegalArgumentException("manifest package name too long");continue;}
+                            if(componentName==null&&depth>=2&&("activity".equals(tag)||"activity-alias".equals(tag)||"receiver".equals(tag)||"service".equals(tag)||"provider".equals(tag))){componentName=manifestComponentName(manifestText(parser,"name"),packageName);componentDepth=depth;continue;}
+                            if(componentName!=null&&"intent-filter".equals(tag)&&depth==componentDepth+1){if(filter!=null)throw new IllegalArgumentException("nested intent-filter");int priority=parser.getAttributeIntValue(ANDROID_NS,"priority",0),order=parser.getAttributeIntValue(ANDROID_NS,"order",0);boolean autoVerify=parser.getAttributeBooleanValue(ANDROID_NS,"autoVerify",false);filter=new FilterBuilder(priority,order,autoVerify);continue;}
+                            if(filter!=null&&depth==componentDepth+2)parseIntentFilterTag(parser,filter);
+                        }else if(event==XmlPullParser.END_TAG){int depth=parser.getDepth();String tag=parser.getName();
+                            if(filter!=null&&"intent-filter".equals(tag)&&depth==componentDepth+1){JSONObject existing=components.optJSONObject(componentName);if(existing==null){existing=Json.obj("status","ok","count",0,"returnedCount",0,"filterLimit",INTENT_FILTER_LIMIT,"truncated",false,"filtersSha256",null,"filters",new JSONArray());components.put(componentName,existing);}JSONArray all=existing.getJSONArray("filters");JSONArray full=existing.optJSONArray("_all");if(full==null){full=new JSONArray();existing.put("_all",full);}if(totalFilters++>=INTENT_FILTER_TOTAL_LIMIT)throw new IllegalArgumentException("package intent filters exceed "+INTENT_FILTER_TOTAL_LIMIT);JSONObject item=filterValue(filter);full.put(item);if(all.length()<INTENT_FILTER_LIMIT)all.put(item);filter=null;}
+                            if(componentName!=null&&depth==componentDepth&&("activity".equals(tag)||"activity-alias".equals(tag)||"receiver".equals(tag)||"service".equals(tag)||"provider".equals(tag))){componentName=null;componentDepth=-1;filter=null;}
+                        }
+                    }
+                    ArrayList<String> names=new ArrayList<>();Iterator<String> keys=components.keys();while(keys.hasNext())names.add(keys.next());
+                    for(String name:names){JSONObject value=components.getJSONObject(name);JSONArray full=value.getJSONArray("_all");JSONArray visible=value.getJSONArray("filters");Json.put(value,"status",full.length()>INTENT_FILTER_LIMIT?"partial":"ok");Json.put(value,"count",full.length());Json.put(value,"returnedCount",visible.length());Json.put(value,"truncated",full.length()>INTENT_FILTER_LIMIT);Json.put(value,"filtersSha256",sha(full.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)));value.remove("_all");}
+                    return null;
+                }catch(Exception e){throw new IllegalStateException(e);}
+            });
+            Json.put(result,"status","ok");return result;
+        }catch(Exception|LinkageError e){Json.put(result,"status",e instanceof UnsupportedOperationException?"unsupported":"error");Json.put(result,"errorClass",e.getClass().getName());Json.put(result,"components",new JSONObject());return result;}
+    }
+    private static JSONObject unavailableIntentFilters(JSONObject manifest){String status=manifest.optString("status","error");if("ok".equals(status)){try{return Json.obj("status","ok","count",0,"returnedCount",0,"filterLimit",INTENT_FILTER_LIMIT,"truncated",false,"filtersSha256",sha("[]".getBytes(java.nio.charset.StandardCharsets.UTF_8)),"filters",new JSONArray());}catch(Exception e){throw new IllegalStateException(e);}}JSONObject value=Json.obj("status",status,"count",null,"returnedCount",0,"filterLimit",INTENT_FILTER_LIMIT,"truncated",null,"filtersSha256",null,"filters",new JSONArray());if(manifest.has("errorClass"))Json.put(value,"errorClass",manifest.opt("errorClass"));return value;}
+    private static JSONArray components(ComponentInfo[] values,JSONObject manifest){JSONArray a=new JSONArray();if(values!=null)for(ComponentInfo c:values){JSONObject o=Json.obj("name",c.name,"packageName",c.packageName,"processName",c.processName,"enabled",c.enabled,"exported",c.exported,"directBootAware",c.directBootAware);if(c instanceof ActivityInfo){ActivityInfo i=(ActivityInfo)c;Json.put(o,"permission",i.permission);Json.put(o,"flags",i.flags);Json.put(o,"componentFlags",i.flags);Json.put(o,"intentFlags",Json.obj("status","unavailable","value",null,"reason","运行时 Intent flags 不存储在 APK 清单"));Json.put(o,"launchMode",i.launchMode);Json.put(o,"taskAffinity",i.taskAffinity);}if(c instanceof ServiceInfo){Json.put(o,"permission",((ServiceInfo)c).permission);Json.put(o,"flags",((ServiceInfo)c).flags);Json.put(o,"componentFlags",((ServiceInfo)c).flags);}if(c instanceof ProviderInfo){ProviderInfo i=(ProviderInfo)c;Json.put(o,"authority",i.authority);Json.put(o,"readPermission",i.readPermission);Json.put(o,"writePermission",i.writePermission);Json.put(o,"grantUriPermissions",i.grantUriPermissions);}JSONObject filters=manifest.optJSONObject("components");JSONObject filter=filters==null?null:filters.optJSONObject(c.name);Json.put(o,"intentFilters",filter==null?unavailableIntentFilters(manifest):filter);a.put(o);}return a;}
     public void collect(ItemSink s)throws Exception {
         if(module.equals("packages")){packages(s);return;}
         if(module.equals("input")){input(s);return;}
@@ -29,7 +80,7 @@ public final class PackageInputCollector implements Collector {
         if(Build.VERSION.SDK_INT<28)flags=(flags&~PackageManager.GET_SIGNING_CERTIFICATES)|PackageManager.GET_SIGNATURES;
         java.util.List<PackageInfo> list=pm.getInstalledPackages(flags);s.ok("packages","packages/enumeration","应用枚举范围","android-api","PackageManager.getInstalledPackages",Json.obj("flags",flags,"returnedCount",list.size(),"visibility","当前用户与当前 App 实际可见包，不承诺系统全量"));s.ok("packages","packages/summary","应用清单摘要","android-api","PackageManager.getInstalledPackages",packageSummary(list));
         int count=0;for(PackageInfo p:list){if(s.isFull())break;if(count++>=20000){s.add("packages","packages/limit","包数量上限","collector","getInstalledPackages","truncated",null,null,Json.obj("limit",20000));break;}
-            String key="packages/"+p.packageName;try{ApplicationInfo a=p.applicationInfo;JSONObject v=Json.obj("packageName",p.packageName,"versionName",p.versionName,"versionCode",Build.VERSION.SDK_INT>=28?p.getLongVersionCode():(long)p.versionCode,"firstInstallTime",p.firstInstallTime,"lastUpdateTime",p.lastUpdateTime,"sharedUserId",p.sharedUserId,"installLocation",p.installLocation,"requestedPermissions",p.requestedPermissions,"requestedPermissionsFlags",p.requestedPermissionsFlags,"activities",components(p.activities),"receivers",components(p.receivers),"services",components(p.services),"providers",components(p.providers),"signatures",signatures(p));
+            String key="packages/"+p.packageName;try{ApplicationInfo a=p.applicationInfo;JSONObject manifest=manifestIntentFilters(pm,a==null?null:a.sourceDir);JSONObject v=Json.obj("packageName",p.packageName,"versionName",p.versionName,"versionCode",Build.VERSION.SDK_INT>=28?p.getLongVersionCode():(long)p.versionCode,"firstInstallTime",p.firstInstallTime,"lastUpdateTime",p.lastUpdateTime,"sharedUserId",p.sharedUserId,"installLocation",p.installLocation,"requestedPermissions",p.requestedPermissions,"requestedPermissionsFlags",p.requestedPermissionsFlags,"activities",components(p.activities,manifest),"receivers",components(p.receivers,manifest),"services",components(p.services,manifest),"providers",components(p.providers,manifest),"signatures",signatures(p));
                 if(a!=null)Json.put(v,"application",Json.obj("uid",a.uid,"flags",a.flags,"enabled",a.enabled,"targetSdkVersion",a.targetSdkVersion,"minSdkVersion",a.minSdkVersion,"sourceDir",a.sourceDir,"publicSourceDir",a.publicSourceDir,"dataDir",a.dataDir,"nativeLibraryDir",a.nativeLibraryDir,"processName",a.processName,"splitSourceDirs",a.splitSourceDirs));
                 s.ok("packages",key,p.packageName,"android-api","PackageManager.getInstalledPackages("+flags+")",v);
             }catch(Exception e){s.failed("packages",key,p.packageName,"android-api","PackageManager.getInstalledPackages","error",e);}

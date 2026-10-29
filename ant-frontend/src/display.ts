@@ -205,7 +205,7 @@ function packageSections(value: Json): DisplaySection[] {
   const sections: DisplaySection[] = [section('package', '包信息', objectRows(value))];
   for (const [key, child] of Object.entries(value)) if (Array.isArray(child)) {
     if (key === 'signatures') sections.push(signatureSections(child));
-    else if (key === 'activities' || key === 'receivers' || key === 'services' || key === 'providers') sections.push(componentSections(key, child));
+    else if (key === 'activities' || key === 'receivers' || key === 'services' || key === 'providers') sections.push(...componentSections(key, child));
     else sections.push(section(key, key, arrayRows(child, key), true));
   }
   return sections.filter(item => item.rows.length);
@@ -221,9 +221,9 @@ function signatureSections(value: Json[]): DisplaySection {
   return section('signatures', '签名摘要（原始 DER 保留在 JSON）', rows, true);
 }
 
-function componentSections(key: string, value: Json[]): DisplaySection {
+function componentSections(key: string, value: Json[]): DisplaySection[] {
   const labels: Record<string, string> = { activities: 'Activity', receivers: 'Receiver', services: 'Service', providers: 'Provider' };
-  let enabledCount = 0, exportedCount = 0, permissionCount = 0, authorityCount = 0, grantUriPermissionsCount = 0;
+  let enabledCount = 0, exportedCount = 0, permissionCount = 0, authorityCount = 0, grantUriPermissionsCount = 0, intentFilterComponentCount = 0, intentFilterCount = 0, actionCount = 0, categoryCount = 0;
   const processes = new Set<string>();
   for (const entry of value) {
     if (!object(entry)) continue;
@@ -235,10 +235,22 @@ function componentSections(key: string, value: Json[]): DisplaySection {
       if (typeof entry.authority === 'string' && entry.authority) authorityCount++;
       if (entry.grantUriPermissions === true) grantUriPermissionsCount++;
     }
+    if (object(entry.intentFilters)) {
+      intentFilterComponentCount++;
+      if (typeof entry.intentFilters.count === 'number') intentFilterCount += entry.intentFilters.count;
+      if (Array.isArray(entry.intentFilters.filters)) for (const filter of entry.intentFilters.filters) if (object(filter)) {
+        if (Array.isArray(filter.actions)) actionCount += filter.actions.length;
+        if (Array.isArray(filter.categories)) categoryCount += filter.categories.length;
+      }
+    }
   }
   const summary: JsonObject = { count: value.length, enabledCount, exportedCount, permissionCount, processNameCount: processes.size };
   if (key === 'providers') Object.assign(summary, { authorityCount, grantUriPermissionsCount });
-  return section(key, `${labels[key] || key} 摘要（原始条目保留在 JSON）`, objectRows(summary));
+  if (intentFilterComponentCount) Object.assign(summary, { intentFilterComponentCount, intentFilterCount, actionCount, categoryCount });
+  const sections = [section(key, `${labels[key] || key} 摘要（原始条目保留在 JSON）`, objectRows(summary))];
+  const filterRows = value.flatMap((entry, index) => object(entry) && Object.hasOwn(entry, 'intentFilters') ? flattenRows(entry.intentFilters, `${key}[${index}].intentFilters`, true) : []);
+  if (filterRows.length) sections.push(section(`${key}-intentFilters`, `${labels[key] || key} 启动 Intent Filter（Component / Action / Category）`, filterRows, true));
+  return sections;
 }
 
 function usbSections(value: Json): DisplaySection[] {
