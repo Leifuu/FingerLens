@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
 import gzip
 import hashlib
 import json
@@ -77,6 +78,12 @@ def exact_int(value: object, name: str) -> int:
     if number <= 0 or number > MAX_JSON:
         raise ApiError(f"{name} 超出范围", 413)
     return number
+
+
+def make_download_name(serial: str, created_at: float, job_id: str, suffix: str) -> str:
+    safe_serial = re.sub(r"[^A-Za-z0-9_.-]", "_", serial).strip(" .") or "device"
+    timestamp = datetime.fromtimestamp(created_at).astimezone().strftime("%Y%m%dT%H%M%S%z")
+    return f"{safe_serial}_{timestamp}_{job_id[:8]}{suffix}"
 
 
 class Bridge:
@@ -265,7 +272,10 @@ class Bridge:
             raise ApiError("指纹原始字节摘要校验失败", 502)
         target = directory / name
         partial.replace(target)
-        self.update(job, path=target, fileName=name, bytes=size, jsonBytes=total, sha256=sha,
+        download_name = make_download_name(job["serial"], job["createdAt"], job["id"],
+                                           ".json.gz" if name.endswith(".gz") else ".json")
+        self.update(job, path=target, fileName=name, downloadName=download_name,
+                    bytes=size, jsonBytes=total, sha256=sha,
                     databaseState="pending" if self.store.enabled else "disabled",
                     databaseReportId=None,
                     message="原始文件校验完成，正在导入浏览器")
@@ -372,10 +382,11 @@ class Handler(BaseHTTPRequestHandler):
                 raise ApiError("接口不存在", 404)
             if not match[2]:
                 self.reply(self.server.bridge.snapshot(match[1])); return
+            job = self.server.bridge.snapshot(match[1])
             file = self.server.bridge.result(match[1])
             self.send_response(200)
             self.send_header("Content-Type", "application/gzip" if file.suffix == ".gz" else "application/json")
-            self.send_header("Content-Disposition", f'attachment; filename="{file.name}"')
+            self.send_header("Content-Disposition", f'attachment; filename="{job["downloadName"]}"')
             self.send_header("Content-Length", str(file.stat().st_size))
             self.send_header("Cache-Control", "no-store")
             self.send_header("X-Content-Type-Options", "nosniff")

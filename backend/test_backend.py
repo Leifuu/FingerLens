@@ -4,6 +4,7 @@ import hashlib
 import http.client
 import json
 import os
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 import subprocess
 import tempfile
@@ -12,7 +13,7 @@ import time
 import unittest
 from unittest.mock import patch
 
-from fingerprint_backend import ApiError, Bridge, EXPORT_DIR, MAX_JSON, Server, resolve_adb
+from fingerprint_backend import ApiError, Bridge, EXPORT_DIR, MAX_JSON, Server, make_download_name, resolve_adb
 from fingerprint_store import FingerprintStore
 
 TMP = Path(__file__).resolve().parents[1] / ".codex/tmp/backend-tests"
@@ -176,6 +177,7 @@ class BridgeTests(unittest.TestCase):
         result = wait_done(self.bridge, job["id"])
         self.assertEqual(result["state"], "ready")
         self.assertEqual(result["collectionState"], "partial")
+        self.assertRegex(result["downloadName"], rf"^fixture-A_\d{{8}}T\d{{6}}[+-]\d{{4}}_{job['id'][:8]}\.json\.gz$")
         self.assertEqual(gzip.decompress(self.bridge.result(job["id"]).read_bytes()), self.bridge.raw)
         cats = [call for call in self.bridge.calls if "cat" in call]
         self.assertTrue(all(call[-1] == f"{EXPORT_DIR}/bridge-{job['id']}.json" for call in cats))
@@ -221,6 +223,17 @@ class BridgeTests(unittest.TestCase):
         with self.assertRaisesRegex(ApiError, "摘要校验失败"):
             self.bridge._download(job, base)
 
+    def test_download_name_uses_local_time_and_sanitizes_serial(self):
+        created_at = datetime(2026, 10, 10, 20, 0, tzinfo=timezone(timedelta(hours=8))).timestamp()
+        self.assertEqual(
+            make_download_name("19271FDF600C72", created_at, "21f7dcb6-415b-44d1-a44f-0e0a77ce2049", ".json.gz"),
+            "19271FDF600C72_20261010T200000+0800_21f7dcb6.json.gz",
+        )
+        self.assertEqual(
+            make_download_name("127.0.0.1:31823", created_at, "21f7dcb6-415b-44d1-a44f-0e0a77ce2049", ".json"),
+            "127.0.0.1_31823_20261010T200000+0800_21f7dcb6.json",
+        )
+
 
 class HttpTests(unittest.TestCase):
     def setUp(self):
@@ -259,6 +272,17 @@ class HttpTests(unittest.TestCase):
         headers = {"Content-Type": "application/json", "X-FingerLens": "1"}
         for body, expected in [("[1]", 400), ("{", 400), ('"' + "a" * 1024 + '"', 413), ('{"serial":"fixture-C"}', 409)]:
             self.assertEqual(self.request("POST", "/api/jobs", body, headers)[0], expected)
+
+    def test_file_download_uses_user_download_name(self):
+        job = self.server.bridge.start("fixture-A")
+        result = wait_done(self.server.bridge, job["id"])
+        connection = http.client.HTTPConnection("127.0.0.1", self.server.server_port, timeout=5)
+        connection.request("GET", f"/api/jobs/{job['id']}/file")
+        response = connection.getresponse()
+        response.read()
+        connection.close()
+        self.assertEqual(response.status, 200)
+        self.assertEqual(response.getheader("Content-Disposition"), f'attachment; filename="{result["downloadName"]}"')
 
 
 if __name__ == "__main__":
