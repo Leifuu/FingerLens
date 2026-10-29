@@ -217,6 +217,7 @@ class Bridge:
                     if state != "running":
                         self._download(job, status)
                         self.update(job, state="cancelled" if state == "cancelled" else "ready", collectionState=state)
+                        self._start_database_ingest(job)
                         return
                 if cancel_deadline is not None and time.monotonic() >= cancel_deadline:
                     raise ApiError("APK 未确认取消；已有设备文件保留，请在 APK 中检查采集状态", 504)
@@ -264,11 +265,24 @@ class Bridge:
             raise ApiError("指纹原始字节摘要校验失败", 502)
         target = directory / name
         partial.replace(target)
-        report_id = self.store.ingest(target, sha, job["serial"])
         self.update(job, path=target, fileName=name, bytes=size, jsonBytes=total, sha256=sha,
-                    databaseState="stored" if report_id is not None else "disabled",
-                    databaseReportId=report_id,
+                    databaseState="pending" if self.store.enabled else "disabled",
+                    databaseReportId=None,
                     message="原始文件校验完成，正在导入浏览器")
+
+    def _start_database_ingest(self, job):
+        if not self.store.enabled:
+            return
+        threading.Thread(target=self._ingest_database, args=(job,), daemon=True).start()
+
+    def _ingest_database(self, job):
+        try:
+            report_id = self.store.ingest(job["path"], job["sha256"], job["serial"])
+        except Exception as exc:
+            self.update(job, databaseState="error", databaseMessage=str(exc)[:4096])
+            return
+        self.update(job, databaseState="stored" if report_id is not None else "disabled",
+                    databaseReportId=report_id)
 
     def transfer(self, serial, remote, target, limit):
         # 读取过程中限额，不能只在 adb pull 结束后检查任意大小的设备文件。

@@ -117,6 +117,20 @@ def wait_done(bridge, job_id):
     raise AssertionError("合成任务没有收尾")
 
 
+class SlowStore:
+    enabled = True
+
+    def __init__(self):
+        self.started = threading.Event()
+        self.release = threading.Event()
+
+    def ingest(self, path, sha256, serial=None):
+        self.started.set()
+        if not self.release.wait(2):
+            raise AssertionError("slow store was not released")
+        return 42
+
+
 class BridgeTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(dir=TMP)
@@ -140,6 +154,22 @@ class BridgeTests(unittest.TestCase):
         self.bridge.cancel(second["id"])
         self.assertEqual(wait_done(self.bridge, first["id"])["collectionState"], "cancelled")
         self.assertEqual(wait_done(self.bridge, second["id"])["collectionState"], "cancelled")
+
+    def test_database_ingest_does_not_block_ready(self):
+        store = SlowStore()
+        bridge = FakeBridge(Path(self.temp.name), store=store)
+        job = bridge.start("fixture-A")
+        result = wait_done(bridge, job["id"])
+        self.assertEqual(result["state"], "ready")
+        self.assertEqual(result["databaseState"], "pending")
+        self.assertTrue(store.started.wait(1))
+        store.release.set()
+        deadline = time.monotonic() + 2
+        while time.monotonic() < deadline:
+            if bridge.snapshot(job["id"]).get("databaseState") == "stored":
+                break
+            time.sleep(0.01)
+        self.assertEqual(bridge.snapshot(job["id"])["databaseState"], "stored")
 
     def test_only_requested_uuid_and_one_transfer_original_bytes(self):
         job = self.bridge.start("fixture-A")

@@ -2,12 +2,12 @@ export interface AdbDevice { serial: string; status: string; model: string; busy
 export interface CaptureJob {
   id: string; serial: string; state: 'starting' | 'collecting' | 'transferring' | 'ready' | 'cancelled' | 'error';
   progress: number; message: string; collectionState?: string; fileName?: string; bytes?: number; sha256?: string;
-  databaseState?: 'stored' | 'disabled'; databaseReportId?: number | null;
+  databaseState?: 'stored' | 'disabled' | 'pending' | 'error'; databaseReportId?: number | null; databaseMessage?: string;
 }
 
-export async function adbRequest<T>(path: string, body?: object): Promise<T> {
+export async function adbRequest<T>(path: string, body?: object, timeoutMs = 15000): Promise<T> {
   const response = await fetch(`/api${path}`, {
-    method: body ? 'POST' : 'GET', cache: 'no-store', signal: AbortSignal.timeout(15000),
+    method: body ? 'POST' : 'GET', cache: 'no-store', signal: AbortSignal.timeout(timeoutMs),
     headers: body ? { 'Content-Type': 'application/json', 'X-FingerLens': '1' } : {},
     body: body ? JSON.stringify(body) : undefined,
   });

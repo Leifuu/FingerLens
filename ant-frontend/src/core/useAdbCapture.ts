@@ -28,7 +28,7 @@ export function useAdbCapture(onFile: (file: File) => Promise<void>) {
         }
         await new Promise(resolve => window.setTimeout(resolve, 1000));
         if (!mounted.current) return;
-        next = await adbRequest<CaptureJob>(`/jobs/${next.id}`);
+        next = await adbRequest<CaptureJob>(`/jobs/${next.id}`, undefined, 60000);
         current.current = next;
       }
     } catch (cause) {

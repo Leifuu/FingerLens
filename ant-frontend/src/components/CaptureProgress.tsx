@@ -9,6 +9,7 @@ export function CaptureProgress({ active, cancelling, progress, phase, error, se
       <div className="capture-status"><Typography.Text>{phase}</Typography.Text>{active && <Button size="small" danger loading={cancelling} onClick={onCancel}>取消采集</Button>}</div>
       {serial && <Typography.Text type="secondary">{serial}</Typography.Text>}
       {active && <Progress percent={progress} size="small" status="active" />}
+      {error && <Typography.Text type="danger">{error}</Typography.Text>}
     </>
     {error && active && <Button danger loading={cancelling} onClick={onCancel}>取消采集</Button>}
   </div>;
